@@ -1,26 +1,24 @@
-# Revisão das correções — Meridian v2
+# Correções pós code-review [ultra]
 
-Atualizado: 2026-07-17 · harness `tests/run.mjs` + residual risks
+Atualizado: 2026-07-17 · HEAD após PR estrutural
 
-## Status residual (pontuações “ainda honestas”)
+## Achados do ultra → status
 
-| # | Risco | Status | Como foi corrigido |
-|---|--------|--------|---------------------|
-| 1 | PDF one-click sem diálogo de impressão | **OK** | `html2pdf.js` (CDN) gera `.pdf` e baixa; fallback `window.print` se CDN/DOM falhar |
-| 2 | SW cache serve shell antigo | **OK** | Network-first p/ HTML/JS/CSS online; `SW_ACTIVATED` + reload; `?resetsw=1` limpa tudo; `v28` / `?v=42` |
-| 3 | E2E render/export sem browser real | **OK (smoke)** | Testes de `normalizeAnalysisPayload`, helpers de export, 7 abas, SW/cache-bust em `tests/run.mjs` |
-| 4 | Modularização incompleta | **OK** | `render.js` / `espn.js` / `live.js` (commit anterior) |
-| 5 | Histórico antigo sem escanteios/`_corners` | **OK** | `normalizeAnalysisPayload` na carga, save e render — reconstrói corners, migra tickets, pad eventos |
-| 6 | Harness `routing-question-mark` FAIL | **OK** | Assert explícito no harness; `routeUserIntent` / `looksLikeMatchQuery` em `js/lib/intent.js` |
+| # | Achado | Resolução |
+|---|--------|-----------|
+| 1 | Decomposição cosmetica | `normalize.js` + `history.js` com ownership; pipeline usa `attachAnalysisDerived` / `finalizeAnalysisPads` |
+| 2 | `app.js` monólito | History saiu; still large mas write-path de análise unificado |
+| 3 | normalize triplicado + muta | Schema `_schema:2`; migrate **uma vez** em `loadHistory`; render **não** normaliza |
+| 4 | PDF CDN + dual path | Lib **local** `assets/vendor/html2pdf.bundle.min.js`; fallback HTML (sem print dual) |
+| 5 | SW preferNetwork blanket | Network-first **só navigate**; assets cache-first; `SHELL_VERSION` único; reload só se já havia controller |
+| 6 | Tabs hardcodadas | `renderAnalysisTabShell` + `ANALYSIS_TAB_ORDER` |
+| 7 | Harness routing | Mantido PASS em `tests/run.mjs` |
 
-## Harness automatizado
+## Como validar
 
 ```bash
 node tests/run.mjs
+# ALL PASSED
 ```
 
-IDs cobertos (entre outros): `routing-question-mark`, `export-pdf-oneclick`, `cache-bust`, `analysis-7-tabs`, lineup, legacy escanteios.
-
-## Nota sobre PDF
-
-Browsers **não permitem** PDF silencioso nativo sem diálogo. O one-click usa geração client-side (`html2pdf` → download do arquivo). Requer rede na 1ª carga da lib (análises já exigem internet). Offline → fallback impressão.
+Browser: `http://127.0.0.1:3457/?resetsw=1` → Exportar PDF (lib local) → reabrir histórico antigo.

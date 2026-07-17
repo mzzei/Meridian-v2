@@ -1915,53 +1915,7 @@ function updateRightSidebar(d,prob){
   });});
 }
 
-// ─── Histórico de análises (persistente em localStorage) ───────────────────
-function loadHistory(){
-  try{_history=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){_history=[];}
-  // Migra payloads antigos (sem aba Escanteios / _corners) na carga
-  let dirty=false;
-  _history.forEach(h=>{
-    if(!h||!h.data)return;
-    try{
-      if(typeof normalizeAnalysisPayload==='function'){
-        const before=JSON.stringify(h.data);
-        h.data=normalizeAnalysisPayload(h.data);
-        if(JSON.stringify(h.data)!==before)dirty=true;
-      }
-    }catch(_){}
-  });
-  if(dirty)persistHistory();
-}
-function persistHistory(){try{localStorage.setItem(HIST_KEY,JSON.stringify(_history.slice(0,30)));}catch(e){}}
-function saveAnalysis(hid,d){
-  if(typeof normalizeAnalysisPayload==='function')d=normalizeAnalysisPayload(d)||d;
-  _history=_history.filter(h=>h.hid!==hid);
-  _history.unshift({hid,title:d.partida||'Análise',fase:d.fase||'',ts:new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),data:d});
-  if(_history.length>30)_history=_history.slice(0,30);
-  persistHistory();renderRecentAnalyses();renderSidebarHistory();
-}
-function clearHistory(){
-  if(!_history.length)return;
-  _history=[];persistHistory();renderRecentAnalyses();renderSidebarHistory();
-}
-function goToRecent(){showView('saved');}
-function flashCard(card){if(!card)return;card.classList.remove('a-flash');void card.offsetWidth;card.classList.add('a-flash');}
-function cardByHid(hid){return document.querySelector('.a-card[data-hid="'+(window.CSS&&CSS.escape?CSS.escape(hid):hid)+'"]');}
-function ensureRendered(hid){
-  let card=cardByHid(hid);if(card)return card;
-  const h=_history.find(x=>x.hid===hid);if(!h)return null;
-  if(typeof normalizeAnalysisPayload==='function')h.data=normalizeAnalysisPayload(h.data)||h.data;
-  renderResults(h.data,{hid,save:false});
-  return cardByHid(hid);
-}
-function openHistory(hid){
-  const card=ensureRendered(hid);
-  if(card){card.scrollIntoView({behavior:'smooth',block:'start'});flashCard(card);}
-}
-
-function renderRecentAnalyses(){
-  if(_currentView==='saved')renderSavedReports();
-}
+/* history → js/data/history.js */
 
 /* render cards → js/analysis/render.js */
 
@@ -4891,58 +4845,14 @@ async function runAnalysis(){
       if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson(retryR.text);}
     }
     if(!parsed)throw new Error('O modelo não retornou uma análise estruturada. Tente descrever a partida com "PARTIDA: [Time A] x [Time B]" ou use um dos jogos sugeridos.');
-    // Leva os stats fundamentais por jogador (coletados na Fase 1) para o render/persistência,
-    // SEM o modelo re-digitar os números — só anexa se vieram estruturados (lista de objetos).
-    try{if(rawFacts){const objArr=a=>Array.isArray(a)&&a.some(x=>x&&typeof x==='object')?a.filter(x=>x&&typeof x==='object'):null;const mm=objArr(rawFacts.mandante?.jogadores_chave),vv=objArr(rawFacts.visitante?.jogadores_chave);if(mm||vv)parsed._pstats={mandante:mm||[],visitante:vv||[]};}}catch(_){}
-    // Marca de recurso (não de dado): sinaliza que esta análise passou pela versão do app que
-    // já sabe gerar cartões/faltas e escalação — usada no render para diferenciar "análise
-    // antiga, recurso nem existia" de "análise nova, mas a coleta não achou o dado".
-    // Escanteios/jogo por time coletados na Fase 1 → _corners (lastro numérico da aba
-    // Escanteios), anexado por CÓDIGO sem o modelo re-digitar. Só anexa se veio ao menos um.
-    try{if(rawFacts){const cn=t=>{const f=t&&t.escanteios_por_jogo,s=t&&t.escanteios_sofridos_por_jogo;return (f!=null&&f!=='')||(s!=null&&s!=='')?{nome:(t&&t.nome)||'',feitos:f,sofridos:s}:null;};const cm=cn(rawFacts.mandante),cv=cn(rawFacts.visitante);if(cm||cv)parsed._corners={mandante:cm,visitante:cv};}}catch(_){}
-    // Marca de recurso (não de dado): cartões, escalação e escanteios — paridade PDF/v1.
-    parsed._featCartoes=true; parsed._featLineups=true; parsed._featEscanteios=true;
-    // _coletaOk distingue os dois modos de falha na mensagem de fallback: coleta RODOU e não
-    // achou o dado (rawFacts presente) vs. a pesquisa da Fase 1 falhou inteira (rawFacts null).
-    parsed._coletaOk=!!rawFacts;
-    // Escalações → _lineups (mapa de campo). Fonte: onze_provavel estruturado da Fase 1
-    // se veio; senão as linhas são DERIVADAS do texto de escalação (via _lineupRowsFromText).
-    // Puxa da Fase 1 (rawFacts) OU, como fallback, da própria saída da Fase 2 (formação do
-    // técnico + escalação em texto) — assim o mapa aparece em qualquer análise real.
-    try{
-      const mkLineup=(teamKey,tecKey)=>{
-        const rf=rawFacts&&rawFacts[teamKey], p2=parsed[teamKey], tec2=parsed[tecKey];
-        const nome=(rf&&rf.nome)||(p2&&p2.nome)||'';
-        const formacao=(rf&&rf.formacao)||(tec2&&tec2.formacao)||'';
-        const tecnico=(rf&&rf.tecnico)||(tec2&&tec2.nome)||'';
-        const banco=(rf&&Array.isArray(rf.banco)?rf.banco:[]).map(x=>textFrom(x)).filter(Boolean);
-        const escalacao_str=(rf&&rf.escalacao_provavel)||(p2&&p2.escalacao)||'';
-        let onze=(rf&&Array.isArray(rf.onze_provavel)?rf.onze_provavel:[]).map(p=>typeof p==='string'?{nome:p,posicao:''}:p).filter(p=>p&&p.nome);
-        // rows montadas em normalizeLineupTeam (texto + formação + onze) — não forçar só
-        // o path de buckets quando o onze estruturado veio incompleto.
-        return normalizeLineupTeam({nome,formacao,tecnico,banco,escalacao_str,onze,rows:null});
-      };
-      const lm=mkLineup('mandante','tecnico_mandante'), lv=mkLineup('visitante','tecnico_visitante');
-      const has=x=>x&&((x.rows&&x.rows.length)||(x.onze&&x.onze.length)||x.escalacao_str||(x.banco&&x.banco.length)||x.tecnico||x.formacao);
-      if(has(lm)||has(lv))parsed._lineups={mandante:lm,visitante:lv};
-    }catch(_){}
+    // Campos derivados (write path único) — pads DEPOIS da auditoria
+    attachAnalysisDerived(parsed, rawFacts);
     // Fase 3 · Verificador: auditoria barata (Haiku) da análise pronta ANTES de renderizar.
     // Falha do auditor nunca bloqueia a entrega (retorna null e a análise sai sem selo).
     const _va=await verifyAnalysis(parsed,rawFacts,apiKey,_abort.signal,(upd)=>updateThinkingToks({...upd,phase:2}));
     if(_va){tokenState.sessionIn+=_va.inTokens;tokenState.sessionOut+=_va.outTokens;}
-    // Rede de segurança dos 7 eventos disciplinares — DEPOIS da auditoria (o auditor não
-    // deve avaliar mercados-modelo injetados por código) e SÓ quando o modelo produziu
-    // pelo menos 1 evento real: completa uma lista parcial, mas nunca fabrica uma aba
-    // inteira do zero — com zero eventos a aba mostra a mensagem honesta de coleta vazia.
-    try{
-      const _cfEv=parsed.cartoes_faltas&&Array.isArray(parsed.cartoes_faltas.eventos)?parsed.cartoes_faltas.eventos.filter(e=>e&&e.evento):[];
-      if(_cfEv.length>0)parsed.cartoes_faltas.eventos=_padCartoesEventos(parsed.cartoes_faltas.eventos);
-    }catch(_){}
-    // Mesma rede de segurança para a aba Escanteios (piso 5 mercados).
-    try{
-      const _ecEv=parsed.escanteios&&Array.isArray(parsed.escanteios.eventos)?parsed.escanteios.eventos.filter(e=>e&&e.evento):[];
-      if(_ecEv.length>0)parsed.escanteios.eventos=_padEscanteiosEventos(parsed.escanteios.eventos);
-    }catch(_){}
+    // Rede de segurança de eventos (cartões/escanteios) — após auditoria
+    finalizeAnalysisPads(parsed);
     renderResults(parsed);
     // Memória: registra a análise estruturada no fio do chat para que perguntas de
     // acompanhamento ("e se a Bósnia abrir o placar?") sejam fundamentadas pela análise

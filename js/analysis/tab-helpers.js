@@ -1,13 +1,15 @@
 /* js/analysis/tab-helpers.js — empty states e registry de abas da análise padrão */
-function emptyTabMessage(featKey, coletaOk, labels){
+
+/** Mensagem de aba vazia: (1) recurso existia, (2) coleta rodou. */
+function _abaVaziaMsg(temRecurso, coletaOk, preRecurso, coletaFalhou, semDado) {
+  if (!temRecurso) return preRecurso;
+  if (coletaOk === false) return coletaFalhou;
+  return semDado;
+}
+
+function emptyTabMessage(featKey, coletaOk, labels) {
   // labels: { pre, fail, empty }
-  return _abaVaziaMsg(
-    featKey,
-    coletaOk,
-    labels.pre,
-    labels.fail,
-    labels.empty
-  );
+  return _abaVaziaMsg(featKey, coletaOk, labels.pre, labels.fail, labels.empty);
 }
 
 /** Registry canônico das 7 abas (ordem = PDF / v1). */

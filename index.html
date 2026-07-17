@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=42">
+<link rel="stylesheet" href="css/app.css?v=43">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -608,16 +608,18 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
   </div>
 </div>
 
-<!-- Módulos (ordem importa; defer preserva sequência) — decomposição code-review -->
-<script src="js/lib/intent.js?v=42" defer></script>
-<script src="js/analysis/tab-helpers.js?v=42" defer></script>
-<script src="js/analysis/lineup.js?v=42" defer></script>
-<script src="js/analysis/prompts.js?v=42" defer></script>
-<script src="js/analysis/render.js?v=42" defer></script>
-<script src="js/export/report.js?v=42" defer></script>
-<script src="js/data/espn.js?v=42" defer></script>
-<script src="js/data/live.js?v=42" defer></script>
-<script src="js/app.js?v=42" defer></script>
+<!-- Módulos (ordem importa; defer preserva sequência) -->
+<script src="js/lib/intent.js?v=43" defer></script>
+<script src="js/analysis/tab-helpers.js?v=43" defer></script>
+<script src="js/analysis/lineup.js?v=43" defer></script>
+<script src="js/analysis/normalize.js?v=43" defer></script>
+<script src="js/analysis/prompts.js?v=43" defer></script>
+<script src="js/analysis/render.js?v=43" defer></script>
+<script src="js/export/report.js?v=43" defer></script>
+<script src="js/data/espn.js?v=43" defer></script>
+<script src="js/data/live.js?v=43" defer></script>
+<script src="js/data/history.js?v=43" defer></script>
+<script src="js/app.js?v=43" defer></script>
 
 
 <!-- Mobile sidebar backdrop -->
@@ -669,92 +671,92 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
     }catch(_){}
   });
 
-  // SW novo assumiu o controle → recarrega 1x para pegar shell atualizado
+  // Service Worker: um reload só quando já havia controller (update real)
+  var __hadSwController = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
   var __meridianSwReload = false;
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('message', function(ev){
-      var d = ev && ev.data;
-      if(!d) return;
-      if(d.type === 'SW_ACTIVATED' && !__meridianSwReload){
-        try{
-          var seen = sessionStorage.getItem('meridian_sw_build');
-          if(seen === d.build) return;
-          sessionStorage.setItem('meridian_sw_build', d.build || '');
-        }catch(_){}
-        __meridianSwReload = true;
-        location.reload();
-      }
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', function(){
-      if(__meridianSwReload) return;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (__meridianSwReload || !__hadSwController) return;
       __meridianSwReload = true;
       location.reload();
     });
   }
 
-  if(!('serviceWorker' in navigator))return;
-  window.addEventListener('load', async function(){
-    try{
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', async function () {
+    try {
       var q = new URLSearchParams(location.search);
       var wantReset = q.has('resetsw') || q.has('limparsw');
-      if(wantReset){
-        try{
+      if (wantReset) {
+        try {
           var regs = await navigator.serviceWorker.getRegistrations();
-          for(var i=0;i<regs.length;i++){
-            try{ (regs[i].active||regs[i].waiting||regs[i].installing||{}).postMessage({type:'CLEAR_ALL'}); }catch(_){}
+          for (var i = 0; i < regs.length; i++) {
+            try {
+              (regs[i].active || regs[i].waiting || regs[i].installing || {}).postMessage({
+                type: 'CLEAR_ALL',
+              });
+            } catch (_) {}
             await regs[i].unregister();
           }
-        }catch(_){}
-        if(window.caches){
+        } catch (_) {}
+        if (window.caches) {
           var keys = await caches.keys();
-          await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }
-        try{ sessionStorage.removeItem('meridian_sw_build'); }catch(_){}
-        q.delete('resetsw'); q.delete('limparsw');
+        q.delete('resetsw');
+        q.delete('limparsw');
         var clean = location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash;
         location.replace(clean || location.pathname);
         return;
       }
-      var reg = await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
-      try { reg.update(); } catch(_){}
-      // SW em waiting: força ativação imediata
-      if(reg.waiting){ try{ reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }catch(_){} }
-      reg.addEventListener('updatefound', function(){
+      var reg = await navigator.serviceWorker.register('./sw.js', {
+        scope: './',
+        updateViaCache: 'none',
+      });
+      try { reg.update(); } catch (_) {}
+      if (reg.waiting) {
+        try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+      }
+      reg.addEventListener('updatefound', function () {
         var nw = reg.installing;
-        if(!nw) return;
-        nw.addEventListener('statechange', function(){
-          if(nw.state === 'installed' && navigator.serviceWorker.controller){
-            try{ nw.postMessage({ type: 'SKIP_WAITING' }); }catch(_){}
+        if (!nw) return;
+        nw.addEventListener('statechange', function () {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
           }
         });
       });
       await navigator.serviceWorker.ready;
-      // Grava o shell no cache enquanto o servidor estiver no ar (1x basta)
       try {
-        var sw = navigator.serviceWorker.controller || (reg.active);
+        var sw = navigator.serviceWorker.controller || reg.active;
         if (sw) {
           var mc = new MessageChannel();
           sw.postMessage({ type: 'PRECACHE' }, [mc.port2]);
         }
-        // reforço: pede os assets principais para encher o cache (versão atual)
-        ['/', '/index.html', '/css/app.css?v=42', '/js/app.js?v=42', '/js/analysis/render.js?v=42',
-         '/js/export/report.js?v=42', '/manifest.json',
-         '/assets/icon-192.png', '/assets/icon-512.png', '/assets/logo-aurora.png'
-        ].forEach(function(u){ fetch(u, { cache: 'reload' }).catch(function(){}); });
-      } catch(_){}
+      } catch (_) {}
 
-      var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      var standalone =
+        window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       var b = document.getElementById('btn-install-pwa');
       var h = document.getElementById('sf-install-hint');
-      if(standalone){
-        if(b){ b.disabled = true; b.textContent = 'Rodando como app'; }
-        if(h) h.innerHTML = 'Modo app. Depois do cache gravado, <b>pode fechar o servidor Node</b> e reabrir o Meridian v2 pelo menu Iniciar. Se a UI ficar antiga: <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">limpar cache</a>.';
-      } else if(h && !window.__pwaInstallEvt){
-        h.innerHTML = 'Após instalar: abra o app <b>uma vez com o servidor ligado</b> para gravar o cache. Depois o app do Edge abre <b>sem Node</b> (análises ainda precisam de internet). UI antiga? <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">resetsw</a>.';
+      if (standalone) {
+        if (b) {
+          b.disabled = true;
+          b.textContent = 'Rodando como app';
+        }
+        if (h)
+          h.innerHTML =
+            'Modo app. UI antiga? <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">limpar cache</a>.';
+      } else if (h && !window.__pwaInstallEvt) {
+        h.innerHTML =
+          'Após instalar: abra uma vez online para gravar o cache. <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">resetsw</a>';
       }
-    }catch(e){ console.warn('SW register failed', e); }
+    } catch (e) {
+      console.warn('SW register failed', e);
+    }
   });
 })();
+
 </script>
 </body>
 </html>

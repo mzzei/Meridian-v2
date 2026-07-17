@@ -79,268 +79,8 @@ function _cornerChips(corners){
   };
   return one(corners.mandante)+one(corners.visitante);
 }
-// Rede de segurança determinística (Cartões e Escanteios): o prompt pede N eventos, mas
-// se a coleta for escassa o modelo pode entregar menos. Completa via CÓDIGO com mercados
-// genéricos conservadores — sem inventar números novos (paridade Meridian v1 / PDF referência).
-function _padEventos(eventos,pool,target){
-  target=target||7;
-  const list=(Array.isArray(eventos)?eventos:[]).filter(e=>e&&e.evento);
-  if(list.length>=target)return list;
-  // NFD + strip de diacríticos; pontuação COLAPSADA em espaço (não removida) — senão
-  // "3.5" e "35" viram a mesma chave e um mercado distinto seria descartado.
-  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-  const have=new Set(list.map(e=>norm(e.evento)));
-  const out=list.slice();
-  for(const cand of pool){
-    if(out.length>=target)break;
-    if(have.has(norm(cand.evento)))continue;
-    out.push(cand);have.add(norm(cand.evento));
-  }
-  return out;
-}
-const _EST_CARTOES='Estimativa conservadora — dados de cartões/faltas coletados foram insuficientes para fundamentar mais mercados com precisão.';
-const _POOL_CARTOES=[
-  {evento:'Mais de 3.5 cartões amarelos totais no jogo',probabilidade:0.55,fundamento:_EST_CARTOES},
-  {evento:'Mais de 5.5 cartões amarelos totais no jogo',probabilidade:0.35,fundamento:_EST_CARTOES},
-  {evento:'Mais de 24.5 faltas totais no jogo',probabilidade:0.5,fundamento:_EST_CARTOES},
-  {evento:'Ambas as equipes recebem cartão',probabilidade:0.65,fundamento:_EST_CARTOES},
-  {evento:'Cartão no 1º tempo',probabilidade:0.55,fundamento:_EST_CARTOES},
-  {evento:'Cartão vermelho no jogo',probabilidade:0.12,fundamento:_EST_CARTOES},
-  {evento:'Mais de 1.5 cartões amarelos do time mandante',probabilidade:0.5,fundamento:_EST_CARTOES},
-  {evento:'Mais de 1.5 cartões amarelos do time visitante',probabilidade:0.5,fundamento:_EST_CARTOES}
-];
-const _EST_ESCANTEIOS='Estimativa conservadora — estatísticas de escanteios coletadas foram insuficientes para fundamentar mais mercados com precisão.';
-const _POOL_ESCANTEIOS=[
-  {evento:'Mais de 8.5 escanteios no jogo',probabilidade:0.55,fundamento:_EST_ESCANTEIOS},
-  {evento:'Mais de 10.5 escanteios no jogo',probabilidade:0.35,fundamento:_EST_ESCANTEIOS},
-  {evento:'Menos de 9.5 escanteios no jogo',probabilidade:0.5,fundamento:_EST_ESCANTEIOS},
-  {evento:'Mais de 4.5 escanteios no 1º tempo',probabilidade:0.5,fundamento:_EST_ESCANTEIOS},
-  {evento:'Ambos os times batem ao menos 1 escanteio',probabilidade:0.82,fundamento:_EST_ESCANTEIOS},
-  {evento:'Mais de 4.5 escanteios do time mandante',probabilidade:0.5,fundamento:_EST_ESCANTEIOS},
-  {evento:'Mais de 4.5 escanteios do time visitante',probabilidade:0.5,fundamento:_EST_ESCANTEIOS},
-  {evento:'Time mandante com mais escanteios',probabilidade:0.5,fundamento:_EST_ESCANTEIOS}
-];
-function _padCartoesEventos(eventos){return _padEventos(eventos,_POOL_CARTOES,7);}
-// Escanteios: menos mercados distintos — piso 5 (não força 7 fracos). Paridade v1.
-function _padEscanteiosEventos(eventos){return _padEventos(eventos,_POOL_ESCANTEIOS,5);}
-// Mensagem de aba vazia, escolhida por (1) recurso existia na análise, (2) a coleta rodou.
-// Centraliza a lógica 3-vias que as abas Cartões e Escalação repetiam idêntica.
-function _abaVaziaMsg(temRecurso,coletaOk,preRecurso,coletaFalhou,semDado){
-  if(!temRecurso)return preRecurso;
-  if(coletaOk===false)return coletaFalhou;
-  return semDado;
-}
-
-// ─── Card genérico com abas (design universal de resposta do chat) ─────────
-// O chat pede ao modelo um contrato JSON {card:{titulo,subtitulo,abas:[{titulo,
-// secoes:[{titulo,tipo,conteudo}]}]}} — análises formais de partida seguem abas
-// canônicas (Resultado & Gols, Tática, Individuais, Estatísticas, Próximos passos).
-// Estes helpers parseiam com tolerância e renderizam reutilizando o CSS do .a-card.
-
-/** Conteúdo "substantivo"? (rejeita vazio, "—", "---", só espaços) */
-function _hasSubstance(v){
-  const t=textFrom(v).replace(/[\s\-–—_·•.|/\\]+/g,'').trim();
-  return t.length>=3;
-}
-function sectionHasContent(s){
-  if(!s)return false;
-  if(_hasSubstance(s.titulo)&&_hasSubstance(s.conteudo))return true;
-  return _hasSubstance(s.conteudo);
-}
-/** Remove seções/abas ocas e rejeita card oco (inadmissível na UI). */
-function normalizeChatCard(c){
-  if(!c||!Array.isArray(c.abas))return null;
-  const abas=c.abas.map(a=>{
-    if(!a)return null;
-    let secoes=Array.isArray(a.secoes)?a.secoes.filter(sectionHasContent):[];
-    // aceita aba com corpo direto
-    if(!secoes.length&&_hasSubstance(a.conteudo)){
-      secoes=[{titulo:a.titulo||'',tipo:'texto',conteudo:a.conteudo}];
-    }
-    if(!secoes.length)return null;
-    return{titulo:String(a.titulo||'Seção').trim()||'Seção',secoes};
-  }).filter(Boolean);
-  if(!abas.length)return null;
-  const chars=abas.reduce((n,a)=>n+a.secoes.reduce((m,s)=>m+textFrom(s.conteudo).length,0),0);
-  // card "fantasma" (títulos sem miolo real) — inadmissível
-  if(chars<48)return null;
-  return{
-    titulo:String(c.titulo||'Análise').trim()||'Análise',
-    subtitulo:c.subtitulo?String(c.subtitulo).trim():'',
-    abas:abas.slice(0,6)
-  };
-}
-function chatCardFrom(text){
-  if(!text)return null;
-  const clean=String(text).replace(/```(?:json)?/gi,'').replace(/```/g,'');
-  const st=clean.indexOf('{');if(st<0)return null;
-  let obj=null;
-  const end=clean.lastIndexOf('}');
-  if(end>st){const cand=clean.slice(st,end+1);try{obj=JSON.parse(cand);}catch{try{obj=JSON.parse(repairJson(cand));}catch{}}}
-  if(!obj){try{obj=JSON.parse(repairJson(clean.slice(st)));}catch{}}
-  // tenta achar {"card":...} embutido se o parse pegou objeto maior
-  let c=obj&&obj.card?obj.card:(obj&&Array.isArray(obj.abas)?obj:null);
-  if(!c&&obj){
-    try{
-      const raw=JSON.stringify(obj);
-      const m=raw.match(/"card"\s*:\s*\{/);
-      if(m){/* already tried */}
-    }catch{}
-  }
-  return normalizeChatCard(c);
-}
-function _secHtml(s){
-  if(!s||!sectionHasContent(s))return '';
-  const h=s.titulo&&_hasSubstance(s.titulo)?`<div class="tab-h">${esc(s.titulo)}</div>`:'';
-  const c=s.conteudo;
-  let body='';
-  if(s.tipo==='lista'&&Array.isArray(c)){
-    const items=c.map(it=>textFrom(it)).filter(_hasSubstance);
-    if(!items.length)return '';
-    body=items.map(it=>`<div class="tend-item"><span class="tend-dot"></span><span>${esc(it)}</span></div>`).join('');
-  }else if(s.tipo==='kv'&&Array.isArray(c)){
-    const rows=c.filter(r=>_hasSubstance(r&&(r.k||r.v||r)));
-    if(!rows.length)return '';
-    body=rows.map(r=>{
-      if(typeof r==='string')return`<div class="irow"><span class="ival">${esc(r)}</span></div>`;
-      return`<div class="irow"><span class="ilbl">${esc(textFrom(r&&(r.k||r.label||r.chave)))}</span><span class="ival">${esc(textFrom(r&&(r.v||r.valor||r.value||r)))}</span></div>`;
-    }).join('');
-  }else if(s.tipo==='tiles'&&Array.isArray(c)){
-    const tiles=c.filter(t=>_hasSubstance(t&&(t.val||t.lbl||t)));
-    if(!tiles.length)return '';
-    body=`<div class="s3">${tiles.map(t=>`<div class="stile"><div class="slbl">${esc(textFrom(t&&(t.lbl||t.label||t.k)))}</div><div class="sval">${esc(textFrom(t&&(t.val||t.v||t.value)))}</div></div>`).join('')}</div>`;
-  }else if(s.tipo==='tabela'&&c&&Array.isArray(c.linhas)&&c.linhas.length){
-    const cols=Array.isArray(c.colunas)?c.colunas:[];
-    body=`<div class="gtbl-wrap"><table class="gtbl">${cols.length?`<thead><tr>${cols.map(x=>`<th>${esc(textFrom(x))}</th>`).join('')}</tr></thead>`:''}<tbody>${c.linhas.map(ln=>`<tr>${(Array.isArray(ln)?ln:[ln]).map(x=>`<td>${esc(textFrom(x))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-  }else{
-    const tx=textFrom(c);
-    if(!_hasSubstance(tx))return '';
-    // quebra parágrafos longos
-    body=tx.split(/\n{2,}/).filter(_hasSubstance).map(p=>`<p class="tab-body">${esc(p).replace(/\n/g,'<br>')}</p>`).join('')
-      ||`<p class="tab-body">${esc(tx)}</p>`;
-  }
-  if(!body)return '';
-  return `<div class="tab-s">${h}${body}</div>`;
-}
-let _dynCount=0;
-function showDynTab(id,idx){
-  const card=document.getElementById('dyncard-'+id);if(!card)return;
-  card.querySelectorAll('.a-tc').forEach((t,i)=>t.style.display=i===idx?'block':'none');
-  card.querySelectorAll('.a-tab').forEach((b,i)=>b.classList.toggle('active',i===idx));
-}
-function renderChatCard(c){
-  const norm=normalizeChatCard(c);
-  if(!norm)return null;
-  _dynCount++;const id=_dynCount;
-  const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const abas=norm.abas.slice(0,6);
-  const el=document.createElement('div');
-  el.innerHTML=`<div class="a-card" id="dyncard-${id}">
-    <div class="a-hdr">
-      <div class="a-agent"><div class="a-ball a-ball-plain">${brandStar()}</div></div>
-      <div class="a-hdr-r"><span class="a-ts">${ts}</span></div>
-    </div>
-    <div class="a-status">Análise concluída</div>
-    ${norm.subtitulo?`<div class="a-subtitle">${esc(norm.subtitulo)}</div>`:''}
-    <div class="a-title">${esc(norm.titulo||'Análise')}</div>
-    <div class="a-tabs">${abas.map((a,i)=>`<button class="a-tab${i===0?' active':''}" onclick="showDynTab(${id},${i})">${esc(a.titulo||('Seção '+(i+1)))}</button>`).join('')}</div>
-    ${abas.map((a,i)=>{
-      const body=(Array.isArray(a.secoes)?a.secoes:[]).map(_secHtml).filter(Boolean).join('');
-      return`<div class="a-tc"${i>0?' style="display:none"':''}>${body||'<p class="tab-body" style="color:var(--muted)">Conteúdo indisponível nesta aba.</p>'}</div>`;
-    }).join('')}
-  </div>`;
-  const card=el.firstElementChild;
-  document.getElementById('empty-state').style.display='none';
-  document.getElementById('conversation').appendChild(card);
-  scrollChat();
-  return card;
-}
-// Versão achatada do card para a memória do fio (follow-ups baratos, sem JSON bruto)
-function cardToPlain(c){
-  const parts=[c.titulo||''];
-  (c.abas||[]).forEach(a=>{
-    parts.push('## '+(a.titulo||''));
-    (a.secoes||[]).forEach(s=>{
-      const v=typeof s.conteudo==='string'?s.conteudo:JSON.stringify(s.conteudo);
-      parts.push((s.titulo?s.titulo+': ':'')+(v||''));
-    });
-  });
-  return parts.join('\n').slice(0,4000);
-}
-function ctVanTag(v,hn,an){
-  if(!v||v==='equilibrado')return `<span class="ct-van ct-van-e">Equilibrado</span>`;
-  if(v==='mandante')return `<span class="ct-van ct-van-m">Vantagem ${hn}</span>`;
-  return `<span class="ct-van ct-van-a">Vantagem ${an}</span>`;
-}
-function ctSideSection(s,hn,an,atkN,defN){
-  if(!s)return '';
-  return `<div class="tab-s"><div class="tab-h">Ataque ${atkN} × Defesa ${defN}</div>`+
-    ctVanTag(s.vantagem,hn,an)+
-    (s.diagnostico?`<p class="ct-diag">${esc(s.diagnostico)}</p>`:'')+
-    (s.pontos_exploracao?.length?`<div class="ct-group"><div class="ct-glbl">Pontos de exploração</div>${s.pontos_exploracao.map(p=>`<div class="ct-item ct-atk">${esc(textFrom(p))}</div>`).join('')}</div>`:'')+
-    (s.bloqueios?.length?`<div class="ct-group"><div class="ct-glbl">Bloqueios previstos</div>${s.bloqueios.map(b=>`<div class="ct-item ct-def">${esc(textFrom(b))}</div>`).join('')}</div>`:'')+
-    '</div>';
-}
-
-/**
- * Normaliza payloads antigos do histórico (pré-aba Escanteios / sem _corners).
- * Idempotente — seguro chamar em toda renderização e ao reabrir salvos.
- * Exposta em window para loadHistory/saveAnalysis em app.js.
- */
-function normalizeAnalysisPayload(d){
-  if(!d||typeof d!=='object')return d;
-  // Reconstrói _corners a partir de campos de time (Fase 1) se a marca sumiu
-  if(!d._corners){
-    const cn=t=>{
-      if(!t||typeof t!=='object')return null;
-      const f=t.escanteios_por_jogo,s=t.escanteios_sofridos_por_jogo;
-      if((f!=null&&f!=='')||(s!=null&&s!==''))return{nome:t.nome||'',feitos:f,sofridos:s};
-      return null;
-    };
-    const cm=cn(d.mandante),cv=cn(d.visitante);
-    if(cm||cv)d._corners={mandante:cm,visitante:cv};
-  }
-  // Flags de recurso: se ausentes, infere por presença de dados
-  if(d._featEscanteios===undefined)d._featEscanteios=!!(d.escanteios||d._corners);
-  if(d._featCartoes===undefined)d._featCartoes=!!(d.cartoes_faltas||d._pstats);
-  if(d._featLineups===undefined)d._featLineups=!!(d._lineups);
-  // Pad eventos de escanteios se o bloco existir mas veio curto
-  if(d.escanteios&&Array.isArray(d.escanteios.eventos)&&typeof _padEscanteiosEventos==='function'){
-    d.escanteios.eventos=_padEscanteiosEventos(d.escanteios.eventos);
-  }
-  if(d.cartoes_faltas&&Array.isArray(d.cartoes_faltas.eventos)&&typeof _padCartoesEventos==='function'){
-    d.cartoes_faltas.eventos=_padCartoesEventos(d.cartoes_faltas.eventos);
-  }
-  // Análises pré-recurso: recupera mercados de escanteios que estavam só no Resumo/tickets
-  if(!d.escanteios&&!d._corners){
-    const cornerEv=[];
-    const pool=[...(Array.isArray(d.eventos_provaveis)?d.eventos_provaveis:[]),...(Array.isArray(d.sugestoes_ticket)?d.sugestoes_ticket:[])];
-    for(const e of pool){
-      if(!e||typeof e!=='object')continue;
-      const name=e.evento||e.descricao||'';
-      if(!/escanteio/i.test(String(name)))continue;
-      cornerEv.push({
-        evento:String(name),
-        probabilidade:typeof e.probabilidade==='number'?e.probabilidade:0.5,
-        fundamento:textFrom(e.fundamento||e.motivo||'Mercado de escanteios recuperado do relatório original (antes da aba dedicada).')
-      });
-    }
-    if(cornerEv.length){
-      d.escanteios={
-        analise:'Esta análise foi gerada antes da aba dedicada de Escanteios. Abaixo estão os mercados de escanteios que já constavam no relatório original (Resumo/tickets).',
-        eventos:typeof _padEscanteiosEventos==='function'?_padEscanteiosEventos(cornerEv):cornerEv,
-        conclusao:null,
-        _migrated:true
-      };
-      d._featEscanteios=true;
-    }
-  }
-  return d;
-}
-
 function renderResults(d,opts){
   opts=opts||{};
-  d=normalizeAnalysisPayload(d)||d;
   _cardCount++;
   const id=_cardCount;
   const now=new Date();
@@ -516,6 +256,15 @@ function renderResults(d,opts){
 
   // ── Full card ──
   const titleHtml=(d.partida||'Análise').replace(/×/g,'<span class="wc-gold">×</span>');
+  const shell=renderAnalysisTabShell(id,{
+    resumo:tabResumo,
+    tatica:tabTatica,
+    individual:tabIndividual,
+    cartoes:tabCartoes,
+    escanteios:tabEscanteios,
+    escalacao:tabEscalacao,
+    avancado:tabAvancado
+  });
   const el=document.createElement('div');
   el.innerHTML=`<div class="a-card" id="acard-${id}">
     <div class="a-hdr">
@@ -534,21 +283,9 @@ function renderResults(d,opts){
     <div class="a-title">${titleHtml}</div>
     <div class="a-tabs">
       <div class="a-tab-pill"></div>
-      <button class="a-tab active" data-tab="resumo" onclick="showTab(${id},'resumo')">Resumo</button>
-      <button class="a-tab" data-tab="tatica" onclick="showTab(${id},'tatica')">Tática</button>
-      <button class="a-tab" data-tab="individual" onclick="showTab(${id},'individual')">Desempenho</button>
-      <button class="a-tab" data-tab="cartoes" onclick="showTab(${id},'cartoes')">Cartões & Faltas</button>
-      <button class="a-tab" data-tab="escanteios" onclick="showTab(${id},'escanteios')">Escanteios</button>
-      <button class="a-tab" data-tab="escalacao" onclick="showTab(${id},'escalacao')">Escalação</button>
-      <button class="a-tab" data-tab="avancado" onclick="showTab(${id},'avancado')">Dados Avançados</button>
+      ${shell.buttons}
     </div>
-    <div id="at-resumo-${id}" class="a-tc">${tabResumo}</div>
-    <div id="at-tatica-${id}" class="a-tc" style="display:none">${tabTatica}</div>
-    <div id="at-individual-${id}" class="a-tc" style="display:none">${tabIndividual}</div>
-    <div id="at-cartoes-${id}" class="a-tc" style="display:none">${tabCartoes}</div>
-    <div id="at-escanteios-${id}" class="a-tc" style="display:none">${tabEscanteios}</div>
-    <div id="at-escalacao-${id}" class="a-tc" style="display:none">${tabEscalacao}</div>
-    <div id="at-avancado-${id}" class="a-tc" style="display:none">${tabAvancado}</div>
+    ${shell.panels}
   </div>`;
   const cardEl=el.firstElementChild;
   const hid=opts.hid||('h'+Date.now().toString(36)+id);
@@ -568,4 +305,4 @@ function renderResults(d,opts){
   scrollChat();
 }
 
-if(typeof window!=='undefined'){window.normalizeAnalysisPayload=normalizeAnalysisPayload;window.renderResults=renderResults;window.calcPoisson=calcPoisson;window._padEscanteiosEventos=_padEscanteiosEventos;window._padCartoesEventos=_padCartoesEventos;}
+if(typeof window!=='undefined'){window.renderResults=renderResults;window.calcPoisson=calcPoisson;window.pct=pct;}
