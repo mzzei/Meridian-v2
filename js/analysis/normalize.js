@@ -1,3 +1,5 @@
+import { expose } from '../expose.js';
+
 /* js/analysis/normalize.js — schema canônico da análise + migração de histórico
  *
  * Write path único:
@@ -222,13 +224,24 @@ function finalizeAnalysisPads(parsed) {
   return parsed;
 }
 
-if (typeof window !== 'undefined') {
-  window.ANALYSIS_SCHEMA = ANALYSIS_SCHEMA;
-  window.migrateAnalysisPayload = migrateAnalysisPayload;
-  window.normalizeAnalysisPayload = normalizeAnalysisPayload;
-  window.attachAnalysisDerived = attachAnalysisDerived;
-  window.finalizeAnalysisPads = finalizeAnalysisPads;
-  window._padCartoesEventos = _padCartoesEventos;
-  window._padEscanteiosEventos = _padEscanteiosEventos;
-  window._padEventos = _padEventos;
-}
+expose({
+  ANALYSIS_SCHEMA,
+  migrateAnalysisPayload,
+  normalizeAnalysisPayload,
+  attachAnalysisDerived,
+  finalizeAnalysisPads,
+  _padCartoesEventos,
+  _padEscanteiosEventos,
+  _padEventos,
+});
+
+export {
+  ANALYSIS_SCHEMA,
+  migrateAnalysisPayload,
+  normalizeAnalysisPayload,
+  attachAnalysisDerived,
+  finalizeAnalysisPads,
+  _padCartoesEventos,
+  _padEscanteiosEventos,
+  _padEventos,
+};

@@ -1,35 +1,34 @@
 # Arquitetura Meridian v2
 
-## Módulos JS (`defer`, ordem fixa)
+## Entry (ES modules)
 
-| # | Arquivo | Papel |
-|--:|---------|--------|
-| 1 | `js/lib/intent.js` | Roteamento chat vs análise |
-| 2 | `js/analysis/tab-helpers.js` | Registry 7 abas |
-| 3 | `js/analysis/lineup.js` | Mapa de campo |
-| 4 | `js/analysis/normalize.js` | Schema `_schema:2`, attach/migrate/pads |
-| 5 | `js/analysis/prompts.js` | System prompts |
-| 6 | `js/analysis/render.js` | Cards de análise |
-| 7 | `js/export/report.js` | HTML/PDF |
-| 8 | `js/data/espn.js` | ESPN + TSDB + standings/news/chat boards |
-| 9 | `js/data/football-apis.js` | API-Football + football-data.org |
-| 10 | `js/data/schedule.js` | Agenda multi-liga + ctx torneio |
-| 11 | `js/data/live.js` | Painel ao vivo |
-| 12 | `js/data/history.js` | Histórico persistente |
-| 13 | `js/analysis/pipeline-facts.js` | Grounding, gatherFacts, verify, placares |
-| 14 | `js/analysis/pipeline-run.js` | runChat, runAnalysis, streamOnce |
-| 15 | `js/app.js` | UI shell, settings, CompContext, biblioteca |
+```html
+<script type="module" src="js/main.js?v=…"></script>
+```
+
+`js/main.js`:
+1. **import** módulos puros (ESM): `intent`, `tab-helpers`, `lineup`, `normalize` (+ `version`, `expose`)
+2. **loadClassic** (scripts sem `type=module`) na ordem do pipeline/UI — mantém globais para `onclick` do HTML
+
+`js/version.js` exporta `SHELL_VERSION` (única fonte; `sw.js` espelha).
+
+`js/expose.js` — `expose({...})` grava no `globalThis` para interop HTML/clássicos.
+
+## Módulos
+
+| Camada | Arquivos |
+|--------|----------|
+| ESM puro | `lib/intent`, `analysis/{tab-helpers,lineup,normalize}` |
+| Clássico data | `data/{espn,football-apis,schedule,live,history}` |
+| Clássico analysis | `prompts`, `render`, `pipeline-facts`, `pipeline-run` |
+| Clássico UI | `ui/{featured,library}`, `export/report`, `app` |
 
 ## Write path
 
 ```
-gatherFacts → parse → attachAnalysisDerived → verifyAnalysis
-           → finalizeAnalysisPads → renderResults → saveAnalysis
+gatherFacts → parse → attachAnalysisDerived → verify
+           → finalizeAnalysisPads → renderResults → save
 ```
-
-## Service Worker
-
-`SHELL_VERSION` único · navigate network-first · assets cache-first
 
 ## Testes
 

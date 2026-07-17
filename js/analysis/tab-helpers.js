@@ -1,3 +1,5 @@
+import { expose } from '../expose.js';
+
 /* js/analysis/tab-helpers.js — empty states e registry de abas da análise padrão */
 
 /** Mensagem de aba vazia: (1) recurso existia, (2) coleta rodou. */
@@ -57,3 +59,18 @@ function featureEmptyHtml(featFlag, coletaOk, kind, extraHtml){
   const msg = emptyTabMessage(featFlag, coletaOk, L);
   return `<div class="tab-s"><p class="tab-body" style="color:var(--muted)">${msg}</p></div>${extraHtml||''}`;
 }
+
+expose({
+  _abaVaziaMsg,
+  emptyTabMessage,
+  ANALYSIS_TAB_ORDER,
+  renderAnalysisTabShell,
+  featureEmptyHtml,
+});
+export {
+  _abaVaziaMsg,
+  emptyTabMessage,
+  ANALYSIS_TAB_ORDER,
+  renderAnalysisTabShell,
+  featureEmptyHtml,
+};

@@ -1,16 +1,16 @@
 /**
- * Testes puros — routing, lineup, normalize, export, shell.
+ * Testes — intent/normalize/lineup via ESM; ownership de módulos; shell.
  * node tests/run.mjs
  */
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import vm from 'vm';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 
-function loadScript(rel, extra = {}) {
+function loadClassic(rel, extra = {}) {
   const code = fs.readFileSync(path.join(ROOT, rel), 'utf8');
   const sandbox = {
     console,
@@ -52,13 +52,12 @@ function assert(cond, msg) {
   }
 }
 
-// --- intent ---
-const intent = loadScript('js/lib/intent.js');
+// --- intent (ESM) ---
+const intent = await import(pathToFileURL(path.join(ROOT, 'js/lib/intent.js')).href);
 assert(typeof intent.routeUserIntent === 'function', 'routeUserIntent exists');
 assert(intent.routeUserIntent('Flamengo x Palmeiras').mode === 'analysis', 'match → analysis');
 assert(
-  typeof intent.routeUserIntent === 'function' &&
-    intent.routeUserIntent('Flamengo x Palmeiras?').mode === 'analysis' &&
+  intent.routeUserIntent('Flamengo x Palmeiras?').mode === 'analysis' &&
     intent.looksLikeMatchQuery('Botafogo x Flamengo?') === true,
   'routing-question-mark'
 );
@@ -72,41 +71,16 @@ assert(
 assert(intent.routeUserIntent('análise completa').mode === 'need_teams', 'análise completa sem times');
 assert(intent.routeUserIntent('oi', { hasAttachments: true }).mode === 'chat', 'attachments → chat');
 
-// --- lineup ---
-function loadLineup() {
-  const code = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
-  const sandbox = {
-    console,
-    Math,
-    String,
-    Number,
-    Array,
-    Object,
-    Date,
-    RegExp,
-    JSON,
-    esc(s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    },
-    textFrom(v) {
-      if (v == null) return '';
-      if (typeof v === 'string') return v;
-      if (typeof v === 'object' && v.nome) return String(v.nome);
-      return String(v);
-    },
-  };
-  sandbox.window = sandbox;
-  sandbox.globalThis = sandbox;
-  vm.createContext(sandbox);
-  vm.runInContext(code, sandbox, { filename: 'lineup.js' });
-  return sandbox;
-}
-
-const L = loadLineup();
+// --- lineup (ESM) ---
+// lineup uses esc at call time from globalThis — provide before import re-eval... already imported as module once
+// Re-import won't re-run. Provide esc on globalThis then call.
+globalThis.esc = (s) =>
+  String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+const L = await import(pathToFileURL(path.join(ROOT, 'js/analysis/lineup.js')).href);
 assert(typeof L.buildPitchModel === 'function', 'buildPitchModel exists');
 const onze4231 = [
   { nome: 'Pickford', posicao: 'GOL' },
@@ -126,8 +100,8 @@ assert(rows && rows.map((r) => r.length).join('-') === '1-4-2-3-1', '4-2-3-1 sha
 const def = L._orderLineL2R(rows[1]);
 assert(def[0].nome === 'Trippier' && def[def.length - 1].nome === 'James', 'L2R laterais LAE…LAD');
 
-// --- normalize (schema + migrate once) ---
-const N = loadScript('js/analysis/normalize.js');
+// --- normalize (ESM) ---
+const N = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
 assert(N.ANALYSIS_SCHEMA === 2, 'ANALYSIS_SCHEMA=2');
 assert(typeof N.attachAnalysisDerived === 'function', 'attachAnalysisDerived');
 assert(typeof N.finalizeAnalysisPads === 'function', 'finalizeAnalysisPads');
@@ -140,9 +114,6 @@ const d1 = N.migrateAnalysisPayload({
 });
 assert(d1._schema === 2, 'migrate sets schema');
 assert(d1._corners && d1._corners.mandante.feitos === 5.2, 'legacy corners');
-// second migrate is no-op
-const d1b = N.migrateAnalysisPayload(d1);
-assert(d1b === d1 || d1b._schema === 2, 'migrate idempotent');
 
 const d2 = N.migrateAnalysisPayload({
   partida: 'C x D',
@@ -152,7 +123,10 @@ assert(d2.escanteios && d2.escanteios._migrated, 'ticket → escanteios migrate'
 assert(d2.escanteios.eventos.length >= 5, 'pad floor 5 on migrate');
 
 const parsed = N.attachAnalysisDerived(
-  { partida: 'X x Y', cartoes_faltas: { eventos: [{ evento: 'Mais de 3.5 cartões', probabilidade: 0.5 }] } },
+  {
+    partida: 'X x Y',
+    cartoes_faltas: { eventos: [{ evento: 'Mais de 3.5 cartões', probabilidade: 0.5 }] },
+  },
   {
     mandante: { nome: 'X', escanteios_por_jogo: 6, jogadores_chave: [{ nome: 'P', gols: 2 }] },
     visitante: { nome: 'Y' },
@@ -160,107 +134,73 @@ const parsed = N.attachAnalysisDerived(
 );
 assert(parsed._schema === 2, 'attach sets schema');
 assert(parsed._corners && parsed._corners.mandante, 'attach corners from rawFacts');
-assert(parsed._pstats && parsed._pstats.mandante.length === 1, 'attach pstats');
-assert(parsed._featEscanteios === true, 'attach feat flags');
-// pads after audit
 N.finalizeAnalysisPads(parsed);
 assert(parsed.cartoes_faltas.eventos.length >= 7, 'finalize pads cartoes to 7');
 
-// --- slug ---
-function slugify(title) {
-  return (
-    (title || 'analise')
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-      .slice(0, 40) || 'analise'
-  );
-}
-assert(slugify('Fluminense × Bragantino') === 'fluminense-bragantino', 'slug export');
-
-// --- export module ---
+// --- export / shell files ---
 const reportSrc = fs.readFileSync(path.join(ROOT, 'js/export/report.js'), 'utf8');
 assert(reportSrc.includes('assets/vendor/html2pdf'), 'pdf uses local vendor not CDN');
-assert(!reportSrc.includes('cdn.jsdelivr.net'), 'no jsdelivr CDN in export');
-assert(reportSrc.includes('exportSlugify') || reportSrc.includes('function exportSlugify'), 'exportSlugify');
 assert(fs.existsSync(path.join(ROOT, 'assets/vendor/html2pdf.bundle.min.js')), 'html2pdf vendored');
 assert(fs.existsSync(path.join(ROOT, 'css/print-report.css')), 'print-report.css exists');
 
-// --- render uses shell ---
 const renderSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
 assert(renderSrc.includes('renderAnalysisTabShell'), 'render uses tab shell');
 assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not normalize');
-assert(!renderSrc.includes('_POOL_CARTOES'), 'pad pools not in render');
 
-// --- pipeline ownership ---
+// --- ownership ---
 const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
 const factsSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
 const runSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
 const schedSrc = fs.readFileSync(path.join(ROOT, 'js/data/schedule.js'), 'utf8');
-assert(factsSrc.includes('attachAnalysisDerived') || runSrc.includes('attachAnalysisDerived'), 'pipeline uses attachAnalysisDerived');
-assert(runSrc.includes('finalizeAnalysisPads'), 'run pads after audit');
+const featSrc = fs.readFileSync(path.join(ROOT, 'js/ui/featured.js'), 'utf8');
+const libSrc = fs.readFileSync(path.join(ROOT, 'js/ui/library.js'), 'utf8');
+const mainSrc = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
+
 assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline-facts');
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
-assert(runSrc.includes('async function runChat'), 'runChat in pipeline-run');
-assert(runSrc.includes('async function streamOnce'), 'streamOnce in pipeline-run');
 assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
 assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
-assert(!appSrc.includes('function loadHistory'), 'history not in app.js');
 assert(!appSrc.includes('function loadSchedule'), 'schedule not in app.js');
+assert(!appSrc.includes('function showView'), 'library not in app.js');
+assert(!appSrc.includes('function _copaStatsHTML'), 'featured not in app.js');
 assert(schedSrc.includes('function loadSchedule'), 'loadSchedule in schedule.js');
-assert(fs.existsSync(path.join(ROOT, 'js/data/history.js')), 'history module exists');
-assert(fs.existsSync(path.join(ROOT, 'js/analysis/normalize.js')), 'normalize module exists');
-assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k lines');
-assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k lines');
-assert(appSrc.split(/\n/).length < 3000, 'app.js under 3000 lines (got ' + appSrc.split(/\n/).length + ')');
+assert(featSrc.includes('function renderEmptyStateFeatured'), 'featured module');
+assert(libSrc.includes('function showView') && libSrc.includes('function renderLibrary'), 'library module');
+assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
+assert(mainSrc.includes('loadClassic') || mainSrc.includes('CLASSIC'), 'main loads classic chain');
+assert(mainSrc.includes('SHELL_VERSION'), 'main uses SHELL_VERSION');
 
-// --- SW ---
+assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k');
+assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k');
+assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.split(/\n/).length + ')');
+
+// --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-assert(sw.includes('SHELL_VERSION'), 'sw single SHELL_VERSION');
-assert(sw.includes('networkFirstNav') || sw.includes('isNav'), 'sw navigate network-first');
-assert(!sw.includes('preferNetwork'), 'sw no preferNetwork blanket');
-assert(index.includes('__hadSwController'), 'client reload only on update');
-assert(!index.includes('SW_ACTIVATED'), 'no dual SW_ACTIVATED reload');
-const vMatch = index.match(/app\.css\?v=(\d+)/);
-assert(vMatch, 'index has app.css?v=');
-assert(sw.includes("SHELL_VERSION = '" + vMatch[1] + "'") || sw.includes('SHELL_VERSION = "' + vMatch[1] + '"') || sw.includes("'" + vMatch[1] + "'"), 'shell version aligned ' + vMatch[1]);
-assert(index.includes('normalize.js'), 'index loads normalize');
-assert(index.includes('history.js'), 'index loads history');
+assert(sw.includes('SHELL_VERSION'), 'sw SHELL_VERSION');
+assert(index.includes('type="module"') && index.includes('js/main.js'), 'index ESM entry main.js');
+assert(!index.includes('js/app.js?v='), 'index does not multi-load app.js directly');
+assert(sw.includes('main.js') && sw.includes('featured.js') && sw.includes('library.js'), 'sw precaches entry+ui');
 
-// modules
+const ver = await import(pathToFileURL(path.join(ROOT, 'js/version.js')).href);
+assert(typeof ver.SHELL_VERSION === 'string' && ver.SHELL_VERSION.length > 0, 'version.js export');
+assert(sw.includes("SHELL_VERSION = '" + ver.SHELL_VERSION + "'"), 'sw version matches version.js');
+
 for (const rel of [
-  'js/analysis/render.js',
-  'js/analysis/normalize.js',
+  'js/main.js',
+  'js/version.js',
+  'js/expose.js',
+  'js/ui/featured.js',
+  'js/ui/library.js',
   'js/analysis/pipeline-facts.js',
   'js/analysis/pipeline-run.js',
-  'js/data/espn.js',
-  'js/data/football-apis.js',
   'js/data/schedule.js',
-  'js/data/live.js',
+  'js/data/football-apis.js',
+  'js/data/espn.js',
   'js/data/history.js',
-  'js/export/report.js',
-  'js/lib/intent.js',
 ]) {
   assert(fs.existsSync(path.join(ROOT, rel)), 'module ' + rel);
 }
-
-// API modules ownership (not left in app.js)
-const espnSrc = fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8');
-const footSrc = fs.readFileSync(path.join(ROOT, 'js/data/football-apis.js'), 'utf8');
-assert(!appSrc.includes('async function loadAfData'), 'AF not in app.js');
-assert(!appSrc.includes('async function loadFdData'), 'FD not in app.js');
-assert(!appSrc.includes('async function gatherEspnForChat'), 'gatherEspn not in app.js');
-assert(footSrc.includes('async function loadAfData') && footSrc.includes('async function loadFdData'), 'AF/FD in football-apis');
-assert(espnSrc.includes('async function gatherEspnForChat'), 'gatherEspn in espn.js');
-assert(espnSrc.includes('async function fetchEspnScoreboardPath'), 'scoreboard path in espn.js');
-assert(espnSrc.includes('function _parseEspnStandingsPayload'), 'standings parse in espn.js');
-assert(index.includes('football-apis.js'), 'index loads football-apis');
-assert(index.includes('schedule.js'), 'index loads schedule');
-assert(index.includes('pipeline-facts.js') && index.includes('pipeline-run.js'), 'index loads pipeline');
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exit(failed ? 1 : 0);

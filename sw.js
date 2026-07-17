@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '45';
+const SHELL_VERSION = '46';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -19,11 +19,14 @@ const SHELL = [
   './css/app.css',
   './css/app.css?v=' + SHELL_VERSION,
   './css/print-report.css?v=' + SHELL_VERSION,
+  './js/main.js?v=' + SHELL_VERSION,
+  './js/version.js?v=' + SHELL_VERSION,
+  './js/expose.js?v=' + SHELL_VERSION,
   './js/lib/intent.js?v=' + SHELL_VERSION,
   './js/analysis/tab-helpers.js?v=' + SHELL_VERSION,
   './js/analysis/lineup.js?v=' + SHELL_VERSION,
-  './js/analysis/prompts.js?v=' + SHELL_VERSION,
   './js/analysis/normalize.js?v=' + SHELL_VERSION,
+  './js/analysis/prompts.js?v=' + SHELL_VERSION,
   './js/analysis/render.js?v=' + SHELL_VERSION,
   './js/analysis/pipeline-facts.js?v=' + SHELL_VERSION,
   './js/analysis/pipeline-run.js?v=' + SHELL_VERSION,
@@ -33,6 +36,8 @@ const SHELL = [
   './js/data/schedule.js?v=' + SHELL_VERSION,
   './js/data/live.js?v=' + SHELL_VERSION,
   './js/data/history.js?v=' + SHELL_VERSION,
+  './js/ui/featured.js?v=' + SHELL_VERSION,
+  './js/ui/library.js?v=' + SHELL_VERSION,
   './js/app.js?v=' + SHELL_VERSION,
   './assets/vendor/html2pdf.bundle.min.js',
   './assets/icon-192.png',

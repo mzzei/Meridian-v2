@@ -1,3 +1,4 @@
+import { expose } from '../expose.js';
 /* js/analysis/lineup.js — mapa de escalação / formação */
 // ── Escalação provável: mapa de campo ──
 // Fonte preferida: onze_provavel estruturado (Fase 1). Se não veio, DERIVA as linhas
@@ -270,3 +271,22 @@ function buildPitchModel(team){
   return{rows:null,source:'empty',meta:L};
 }
 
+
+expose({
+  buildPitchModel,
+  normalizeLineupTeam,
+  _rowsFromOnze,
+  _orderLineL2R,
+  _lineupRowsFromText,
+  _pitchTeam,
+  _posBucket,
+});
+export {
+  buildPitchModel,
+  normalizeLineupTeam,
+  _rowsFromOnze,
+  _orderLineL2R,
+  _lineupRowsFromText,
+  _pitchTeam,
+  _posBucket,
+};
