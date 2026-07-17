@@ -195,13 +195,27 @@ assert(renderSrc.includes('renderAnalysisTabShell'), 'render uses tab shell');
 assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not normalize');
 assert(!renderSrc.includes('_POOL_CARTOES'), 'pad pools not in render');
 
-// --- app pipeline ---
+// --- pipeline ownership ---
 const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
-assert(appSrc.includes('attachAnalysisDerived'), 'app uses attachAnalysisDerived');
-assert(appSrc.includes('finalizeAnalysisPads'), 'app pads after audit');
+const factsSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+const runSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+const schedSrc = fs.readFileSync(path.join(ROOT, 'js/data/schedule.js'), 'utf8');
+assert(factsSrc.includes('attachAnalysisDerived') || runSrc.includes('attachAnalysisDerived'), 'pipeline uses attachAnalysisDerived');
+assert(runSrc.includes('finalizeAnalysisPads'), 'run pads after audit');
+assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline-facts');
+assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
+assert(runSrc.includes('async function runChat'), 'runChat in pipeline-run');
+assert(runSrc.includes('async function streamOnce'), 'streamOnce in pipeline-run');
+assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
+assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
 assert(!appSrc.includes('function loadHistory'), 'history not in app.js');
+assert(!appSrc.includes('function loadSchedule'), 'schedule not in app.js');
+assert(schedSrc.includes('function loadSchedule'), 'loadSchedule in schedule.js');
 assert(fs.existsSync(path.join(ROOT, 'js/data/history.js')), 'history module exists');
 assert(fs.existsSync(path.join(ROOT, 'js/analysis/normalize.js')), 'normalize module exists');
+assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k lines');
+assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k lines');
+assert(appSrc.split(/\n/).length < 3000, 'app.js under 3000 lines (got ' + appSrc.split(/\n/).length + ')');
 
 // --- SW ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
@@ -221,8 +235,11 @@ assert(index.includes('history.js'), 'index loads history');
 for (const rel of [
   'js/analysis/render.js',
   'js/analysis/normalize.js',
+  'js/analysis/pipeline-facts.js',
+  'js/analysis/pipeline-run.js',
   'js/data/espn.js',
   'js/data/football-apis.js',
+  'js/data/schedule.js',
   'js/data/live.js',
   'js/data/history.js',
   'js/export/report.js',
@@ -232,18 +249,18 @@ for (const rel of [
 }
 
 // API modules ownership (not left in app.js)
-const appSrc2 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
 const espnSrc = fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8');
 const footSrc = fs.readFileSync(path.join(ROOT, 'js/data/football-apis.js'), 'utf8');
-assert(!appSrc2.includes('async function loadAfData'), 'AF not in app.js');
-assert(!appSrc2.includes('async function loadFdData'), 'FD not in app.js');
-assert(!appSrc2.includes('async function gatherEspnForChat'), 'gatherEspn not in app.js');
+assert(!appSrc.includes('async function loadAfData'), 'AF not in app.js');
+assert(!appSrc.includes('async function loadFdData'), 'FD not in app.js');
+assert(!appSrc.includes('async function gatherEspnForChat'), 'gatherEspn not in app.js');
 assert(footSrc.includes('async function loadAfData') && footSrc.includes('async function loadFdData'), 'AF/FD in football-apis');
 assert(espnSrc.includes('async function gatherEspnForChat'), 'gatherEspn in espn.js');
 assert(espnSrc.includes('async function fetchEspnScoreboardPath'), 'scoreboard path in espn.js');
 assert(espnSrc.includes('function _parseEspnStandingsPayload'), 'standings parse in espn.js');
 assert(index.includes('football-apis.js'), 'index loads football-apis');
-assert(appSrc2.split(/\n/).length < 4500, 'app.js under 4500 lines (got ' + appSrc2.split(/\n/).length + ')');
+assert(index.includes('schedule.js'), 'index loads schedule');
+assert(index.includes('pipeline-facts.js') && index.includes('pipeline-run.js'), 'index loads pipeline');
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exit(failed ? 1 : 0);

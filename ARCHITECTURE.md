@@ -1,40 +1,35 @@
-# Arquitetura Meridian v2 (pós code-review ultra)
+# Arquitetura Meridian v2
 
-## Módulos JS (clássico + `defer`, ordem fixa)
+## Módulos JS (`defer`, ordem fixa)
 
-| Ordem | Arquivo | Responsabilidade |
-|------:|---------|------------------|
-| 1 | `js/lib/intent.js` | `routeUserIntent`, match vs chat |
-| 2 | `js/analysis/tab-helpers.js` | `ANALYSIS_TAB_ORDER`, empty states |
-| 3 | `js/analysis/lineup.js` | `buildPitchModel`, mapa de campo |
-| 4 | `js/analysis/normalize.js` | schema `_schema:2`, attach/migrate/pads |
-| 5 | `js/analysis/prompts.js` | system prompts |
-| 6 | `js/analysis/render.js` | Poisson, cards, `renderResults` |
-| 7 | `js/export/report.js` | HTML + PDF (`assets/vendor/html2pdf`) |
-| 8 | `js/data/espn.js` | ESPN + TSDB + standings/results + news + chat scoreboards |
-| 9 | `js/data/football-apis.js` | football-data.org + API-Football |
-| 10 | `js/data/live.js` | painel ao vivo |
-| 11 | `js/data/history.js` | load/save/open histórico |
-| 12 | `js/app.js` | UI, schedule/library, pipeline `gatherFacts`/`runChat`/`runAnalysis` |
+| # | Arquivo | Papel |
+|--:|---------|--------|
+| 1 | `js/lib/intent.js` | Roteamento chat vs análise |
+| 2 | `js/analysis/tab-helpers.js` | Registry 7 abas |
+| 3 | `js/analysis/lineup.js` | Mapa de campo |
+| 4 | `js/analysis/normalize.js` | Schema `_schema:2`, attach/migrate/pads |
+| 5 | `js/analysis/prompts.js` | System prompts |
+| 6 | `js/analysis/render.js` | Cards de análise |
+| 7 | `js/export/report.js` | HTML/PDF |
+| 8 | `js/data/espn.js` | ESPN + TSDB + standings/news/chat boards |
+| 9 | `js/data/football-apis.js` | API-Football + football-data.org |
+| 10 | `js/data/schedule.js` | Agenda multi-liga + ctx torneio |
+| 11 | `js/data/live.js` | Painel ao vivo |
+| 12 | `js/data/history.js` | Histórico persistente |
+| 13 | `js/analysis/pipeline-facts.js` | Grounding, gatherFacts, verify, placares |
+| 14 | `js/analysis/pipeline-run.js` | runChat, runAnalysis, streamOnce |
+| 15 | `js/app.js` | UI shell, settings, CompContext, biblioteca |
 
-## Write path da análise
+## Write path
 
 ```
-parse → attachAnalysisDerived(parsed, rawFacts)
-      → verifyAnalysis
-      → finalizeAnalysisPads(parsed)
-      → renderResults(parsed)
-      → saveAnalysis (schema 2)
+gatherFacts → parse → attachAnalysisDerived → verifyAnalysis
+           → finalizeAnalysisPads → renderResults → saveAnalysis
 ```
-
-Histórico: `loadHistory` migra só se `_schema !== 2`.
 
 ## Service Worker
 
-- `SHELL_VERSION` (= `?v=` do shell)
-- navigate → network-first
-- assets → cache-first
-- reload cliente só se já havia controller
+`SHELL_VERSION` único · navigate network-first · assets cache-first
 
 ## Testes
 
@@ -44,8 +39,4 @@ node tests/run.mjs
 
 ## Porta
 
-`serve.js` → `http://127.0.0.1:3457/`
-
-## Regra
-
-Novas features: módulo dedicado se domínio claro. Meta: não re-inchar `app.js` (hoje ~4k LOC de orquestração/UI/pipeline).
+`http://127.0.0.1:3457/`

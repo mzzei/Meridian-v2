@@ -7,7 +7,7 @@ Atualizado: 2026-07-17 · HEAD após PR estrutural
 | # | Achado | Resolução |
 |---|--------|-----------|
 | 1 | Decomposição cosmetica | `normalize.js` + `history.js` + `football-apis.js`; ESPN completo em `espn.js` |
-| 2 | `app.js` monólito | ~4200 LOC (era ~5.9k); AF/FD/ESPN/history/render fora |
+| 2 | `app.js` monólito | **~2640 LOC** (era ~5.9k); schedule + pipeline-facts/run extraídos (<1k cada) |
 | 3 | normalize triplicado + muta | Schema `_schema:2`; migrate **uma vez**; render **não** normaliza |
 | 4 | PDF CDN + dual path | Lib **local** `assets/vendor/html2pdf.bundle.min.js` |
 | 5 | SW preferNetwork blanket | Network-first **só navigate**; `SHELL_VERSION` único |
