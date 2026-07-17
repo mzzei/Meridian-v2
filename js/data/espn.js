@@ -220,3 +220,421 @@ async function loadEspnData(force){
   scheduleFeaturedPaint();
 }
 
+
+/* ── standings / results / news / chat scoreboards (moved from app.js) ── */
+// Resultados finalizados por campeonato (cache em memória)
+let _compResults={},_compResultsAt={};
+/** Classificação + fase por liga (seletor de Estatísticas). Nunca misturar com ctx de análise. */
+let _compStandings={},_compStandingsAt={};
+const COPA_RESULTS_TTL=5*60*1000;
+const COMP_STANDINGS_TTL=15*60*1000;
+function _ymd(dt){return dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0');}
+
+/** Parse ESPN standings → { groups: {name:[{time,pts,j,v,e,d,gp,gc,sg,rank}]}, faseAtual } */
+function _parseEspnStandingsPayload(raw,scoreboard){
+  const groups={};
+  let faseAtual='';
+  const grpNodes=raw?.children?.length?raw.children
+    :(raw?.standings?(Array.isArray(raw.standings)?raw.standings:[raw.standings]):[]);
+  if(grpNodes.length){
+    grpNodes.forEach(node=>{
+      const gname=node.name||node.displayName||'Grupo';
+      const entries=node.standings?.entries||node.entries||[];
+      if(!entries.length)return;
+      groups[gname]=entries.map(e=>{
+        const st=Object.fromEntries((e.stats||[]).map(s=>[s.name,s.value]));
+        const tname=e.team?.displayName||'';
+        const tlogo=e.team?.logo||e.team?.logos?.[0]?.href||(e.team?.id?_ESPN_CREST(e.team.id):'');
+        if(tname&&tlogo)_registerTeamLogo(tname,tlogo);
+        return{
+          time:tname,pts:st.points??0,j:st.gamesPlayed??0,v:st.wins??0,e:st.ties??0,d:st.losses??0,
+          gp:st.pointsFor??0,gc:st.pointsAgainst??0,
+          sg:st.pointDifferential??((st.pointsFor??0)-(st.pointsAgainst??0)),
+          rank:st.rank??0
+        };
+      }).sort((a,b)=>(a.rank||99)-(b.rank||99)||b.pts-a.pts||b.sg-a.sg);
+    });
+  }
+  // fallback: estrutura flat entries
+  if(!Object.keys(groups).length&&raw?.standings?.[0]?.entries?.length){
+    const rows=raw.standings[0].entries.map(e=>{
+      const st=Object.fromEntries((e.stats||[]).map(s=>[s.name,s.value]));
+      const tname=e.team?.displayName||'';
+      const tlogo=e.team?.logo||e.team?.logos?.[0]?.href||'';
+      if(tname&&tlogo)_registerTeamLogo(tname,tlogo);
+      return{
+        time:tname,pts:st.points??0,j:st.gamesPlayed??0,v:st.wins??0,e:st.ties??0,d:st.losses??0,
+        gp:st.pointsFor??0,gc:st.pointsAgainst??0,
+        sg:st.pointDifferential??((st.pointsFor??0)-(st.pointsAgainst??0)),
+        rank:st.rank??0
+      };
+    }).sort((a,b)=>(a.rank||99)-(b.rank||99)||b.pts-a.pts);
+    if(rows.length)groups['Tabela']=rows;
+  }
+  if(scoreboard?.events?.length){
+    const live=scoreboard.events.find(e=>e.status?.type?.state==='in');
+    const next=scoreboard.events.find(e=>e.status?.type?.state==='pre');
+    if(live||next)faseAtual=(live||next).competitions?.[0]?.notes?.[0]?.headline||'';
+  }
+  return{groups,faseAtual};
+}
+function _setCompStandings(compId,payload){
+  if(!compId)return;
+  const groups=(payload&&payload.groups)||payload?.standings||{};
+  const faseAtual=(payload&&payload.faseAtual)||payload?.fase_atual||'';
+  _compStandings[compId]={standings:groups,faseAtual:faseAtual||''};
+  _compStandingsAt[compId]=Date.now();
+}
+function _getCompStandings(compId){
+  const id=compId||_statsCompId||_activeCompId;
+  return _compStandings[id]||null;
+}
+/** Carrega classificação ESPN da liga (cache memória + fetch por compId). */
+async function _loadCompStandings(compId,force){
+  const id=compId||_statsCompId||_activeCompId;
+  if(!force&&_compStandings[id]&&Date.now()-(_compStandingsAt[id]||0)<COMP_STANDINGS_TTL){
+    return _compStandings[id];
+  }
+  try{
+    const raw=await getEspnStandings(id);
+    // scoreboard curto só para “fase” (ao vivo / próximo) — não bloqueia se falhar
+    let sb=null;
+    try{sb=await getEspnScoreboard(id);}catch{}
+    const parsed=_parseEspnStandingsPayload(raw,sb);
+    // fase fallback: rodada inferida da agenda da liga
+    if(!parsed.faseAtual){
+      const rl=(typeof _inferCompRound==='function')?_inferCompRound(id):'';
+      if(rl)parsed.faseAtual=rl;
+      else if(_compStatus[id]?.roundLabel)parsed.faseAtual=_compStatus[id].roundLabel;
+    }
+    _setCompStandings(id,parsed);
+  }catch(e){
+    if(!_compStandings[id])_setCompStandings(id,{groups:{},faseAtual:''});
+  }
+  return _compStandings[id];
+}
+async function _loadCompResults(compId){
+  const id=compId||_statsCompId||_activeCompId;
+  if(_compResults[id]&&Date.now()-(_compResultsAt[id]||0)<COPA_RESULTS_TTL)return _compResults[id];
+  // Temporada: ~8 meses atrás até hoje (cobre ligas europeias e BR)
+  const startD=new Date(Date.now()-240*864e5);
+  const start=_ymd(startD);const end=_ymd(new Date());
+  try{
+    const r=await fetchEspn(`${espnBase(id)}/scoreboard?dates=${start}-${end}&limit=100`,'meridian_results_'+id+'_'+end,COPA_RESULTS_TTL);
+    const events=(r&&r.events)||[];
+    _compResults[id]=events.filter(e=>e.status&&e.status.type&&e.status.type.completed).map(e=>{
+      const c=e.competitions&&e.competitions[0];const comps=(c&&c.competitors)||[];
+      const h=comps.find(x=>x.homeAway==='home')||comps[0];
+      const a=comps.find(x=>x.homeAway==='away')||comps[1];
+      const dt=new Date(e.date);
+      // captura brasões se vierem
+      if(h&&h.team){const logo=h.team.logo||h.team.logos?.[0]?.href;if(logo)_registerTeamLogo(h.team.displayName,logo);}
+      if(a&&a.team){const logo=a.team.logo||a.team.logos?.[0]?.href;if(logo)_registerTeamLogo(a.team.displayName,logo);}
+      return{
+        data:`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`,
+        mandante:(h&&h.team&&h.team.displayName)||'',
+        visitante:(a&&a.team&&a.team.displayName)||'',
+        placar:`${(h&&h.score!=null?h.score:'?')}-${(a&&a.score!=null?a.score:'?')}`,
+        comp_id:id
+      };
+    });
+    _compResultsAt[id]=Date.now();
+  }catch(e){if(!_compResults[id])_compResults[id]=[];}
+  return _compResults[id];
+}
+// legado: mantém alias
+async function _loadCopaResults(){return _loadCompResults(_statsCompId||_activeCompId);}
+
+// ─── News ticker ─────────────────────────────────────────────────────────
+const NEWS_TTL=10*60*1000;
+async function loadNews(){
+  try{
+    const newsPath=currentLang==='pt'?'/news?limit=20&lang=pt&region=br':'/news?limit=20';
+    const data=await fetchEspn(newsPath,'brsa_espn_news_v1',NEWS_TTL);
+    const arts=(data?.articles||[]).filter(a=>a.headline);
+    if(!arts.length)return;
+    const el=document.getElementById('ntick-inner');if(!el)return;
+    const items=arts.map(a=>`<span class="ntick-item">${esc(a.headline)}</span>`).join('');
+    el.innerHTML=items+items;
+    const estPx=arts.reduce((s,a)=>s+a.headline.length*7+44,0);
+    el.style.animationDuration=Math.max(25,Math.round(estPx/80))+'s';
+    document.getElementById('ntick').style.display='flex';
+  }catch{}
+}
+setInterval(loadNews,NEWS_TTL);
+
+/** Lista estruturada de partidas ESPN recentes (para opções do popup). */
+async function listRecentEspnMatches(compIds,limit){
+  limit=limit||10;
+  const out=[];
+  const seen=new Set();
+  const push=(m,label)=>{
+    if(!m||!m.home||!m.away)return;
+    const k=(m.home+'|'+m.away+'|'+(m.date||'')).toLowerCase();
+    if(seen.has(k))return;seen.add(k);
+    out.push({
+      home:m.home,away:m.away,score:m.score||'',status:m.status||'',
+      date:m.date||'',detail:m.detail||'',label:label||m.path||'',
+      clock:m.clock||''
+    });
+  };
+  try{
+    let ids=(Array.isArray(compIds)&&compIds.length)?compIds.slice():COMP_ORDER.slice();
+    ids=ids.filter(id=>COMPETITIONS[id]);
+    if(!ids.length)ids=COMP_ORDER.slice();
+    await Promise.all(ids.map(async(id)=>{
+      try{
+        const live=await fetchEspnScoreboardPath(getComp(id).espn).catch(()=>[]);
+        (live||[]).forEach(m=>push(m,compLabel(id)));
+      }catch{}
+    }));
+    await Promise.all(ESPN_EXTRA_SCOREBOARDS.map(async(path)=>{
+      try{
+        const live=await fetchEspnScoreboardPath(path).catch(()=>[]);
+        (live||[]).forEach(m=>push(m,path));
+      }catch{}
+    }));
+  }catch{}
+  // prioriza LIVE → FT de hoje → resto
+  const today=new Date().toISOString().slice(0,10);
+  out.sort((a,b)=>{
+    const rank=m=>{
+      if(m.status==='LIVE')return 0;
+      if(m.status==='FT'&&m.date===today)return 1;
+      if(m.date===today)return 2;
+      if(m.status==='FT')return 3;
+      return 4;
+    };
+    return rank(a)-rank(b);
+  });
+  return out.slice(0,limit);
+}
+
+function matchOptionLabel(m){
+  // Sem fonte/competição (fifa.world, Brasileirão…) — só times + placar + status
+  const sc=m.score&&m.score!=='?-?'?` ${m.score}`:'';
+  const st=m.status?` [${m.status}]`:'';
+  return sanitizeMatchOptionLabel(`${m.home} x ${m.away}${sc}${st}`).slice(0,88);
+}
+
+/**
+ * Abre popup de escolha de jogo (2 opções + Outro) SEM chamar o LLM.
+ * Usado quando a pergunta é ambígua — evita suposição/alucinação de partida.
+ */
+async function openMatchPickerPopup(pendingQuery,compIds){
+  const q=pendingQuery||'';
+  let opts=[];
+  try{
+    const list=await listRecentEspnMatches(compIds,8);
+    opts=list.slice(0,2).map((m,i)=>({id:'m'+i,label:matchOptionLabel(m)}));
+  }catch{}
+  while(opts.length<2){
+    if(opts.length===0)opts.push({id:'club',label:'Jogo de clube de hoje (informo times/liga)'});
+    else opts.push({id:'nt',label:'Jogo de seleção / copa de hoje (informo times)'});
+  }
+  openContextPromptPopup({
+    question:'Qual jogo você quer analisar ou comentar?',
+    options:opts.slice(0,2)
+  },q);
+}
+
+/**
+ * Remove raciocínio interno, planos de tool, scripts e meta-texto do modelo.
+ * Nunca deve vazar thinking / web_search plans / monólogo de ferramenta no chat.
+ */
+function stripInternalReasoning(text){
+  if(!text)return'';
+  let t=String(text);
+  // blocos explícitos de thinking / reasoning
+  t=t.replace(/<thinking>[\s\S]*?<\/thinking>/gi,'');
+  t=t.replace(/<\/?thinking>/gi,'');
+  t=t.replace(/<antthinking>[\s\S]*?<\/antthinking>/gi,'');
+  t=t.replace(/```(?:thinking|reasoning|plan|tool|bash|shell|javascript|js|python|json)?\s*[\s\S]*?```/gi,(block)=>{
+    // preserva fence json se for o card/context_prompt
+    if(/"card"\s*:|"context_prompt"\s*:/.test(block))return block;
+    return'';
+  });
+  // monólogo típico de tool-use / planejamento
+  t=t.replace(/^(?:I(?:'ll| will)|Vou|Deixa eu|Deixe-me|Let me|First,|Primeiro,|Passo\s*\d+|Step\s*\d+)[^\n]{0,200}\n/gim,'');
+  t=t.replace(/(?:^|\n)\s*(?:web_search|tool_use|function_call|invoke\s+tool|Searching for|Buscando em|Vou buscar|I'll search)[^\n]*/gi,'');
+  t=t.replace(/(?:^|\n)\s*(?:query|comando|command|script)\s*[:=]\s*[^\n]+/gi,'');
+  // se sobrar JSON estruturado no meio de prosa, isola o JSON
+  const jsonHit=t.match(/\{[\s\S]*"(?:card|context_prompt)"\s*:[\s\S]*\}/);
+  if(jsonHit){
+    const st=t.indexOf(jsonHit[0][0]==='{'?jsonHit[0]:'{');
+    // tenta achar o maior objeto JSON válido
+    const from=t.search(/\{[\s\S]*"(?:card|context_prompt)"\s*:/);
+    if(from>=0){
+      const slice=t.slice(from);
+      const end=slice.lastIndexOf('}');
+      if(end>0){
+        const cand=slice.slice(0,end+1);
+        try{JSON.parse(cand);return cand;}catch{
+          try{JSON.parse(repairJson(cand));return repairJson(cand);}catch{}
+        }
+      }
+    }
+  }
+  return t.trim();
+}
+
+/** Texto do stream é "lixo interno" (raciocínio/tool) e não deve pintar a bolha. */
+function isInternalModelNoise(text){
+  const t=String(text||'').trim();
+  if(!t)return true;
+  if(/<thinking>|<\/thinking>|<antthinking>/i.test(t))return true;
+  if(/^\s*\{[\s\S]*"(?:card|context_prompt)"\s*:/.test(t))return false;
+  // planos de busca / scripts no começo
+  if(/^(?:I need to|I'll |I will |Let me |Vou |Primeiro |First |Step \d|Passo \d|web_search|tool_use|function_call|```(?:bash|shell|python|js|javascript))/i.test(t))return true;
+  if(/(?:web_search|tool_use|function_call|max_uses|budget_tokens)/i.test(t)&&!/"card"|"context_prompt"/.test(t)&&t.length<2000)return true;
+  return false;
+}
+
+/**
+ * Se o usuário foi vago e o modelo DEVOLVEU um card de partida específica,
+ * isso é suposição inadmissível — converte para popup de confirmação.
+ */
+function cardPresupposedVagueMatch(card,userQuery){
+  if(!card||!isVagueMatchQuery(userQuery))return null;
+  const title=String(card.titulo||card.subtitulo||'').trim();
+  const sub=String(card.subtitulo||'').trim();
+  const blob=(title+' '+sub+' '+JSON.stringify(card).slice(0,400));
+  // extrai "Time A x Time B" ou placar "A 1-2 B"
+  let label='';
+  const vs=blob.match(/([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,28}(?:\s+[\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,20}){0,2})\s+(?:x|vs\.?|×)\s+([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,28}(?:\s+[\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,20}){0,2})/i);
+  if(vs)label=`${vs[1].trim()} x ${vs[2].trim()}`;
+  else{
+    const sc=blob.match(/([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{2,24})\s+\d+\s*[-x×]\s*\d+\s+([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{2,24})/i);
+    if(sc)label=`${sc[1].trim()} x ${sc[2].trim()}`;
+  }
+  if(!label&&title)label=title.slice(0,72);
+  if(!label)label='o jogo que o agente escolheu sozinho';
+  return{
+    question:'Não ficou claro qual jogo você quis dizer. Confirma?',
+    options:[
+      {id:'yes',label:`Sim: ${label}`.slice(0,88)},
+      {id:'no',label:'Não — quero outro jogo (descrevo em Outro…)'}
+    ]
+  };
+}
+/** Infere IDs de COMPETITIONS a partir do texto (pergunta + trechos recentes do chat). */
+function inferCompIdsFromText(q){
+  const raw=String(q||'');
+  const t=raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const hits=[];
+  const add=id=>{if(COMPETITIONS[id]&&!hits.includes(id))hits.push(id);};
+  if(/\b(serie\s*a|brasileir|brsa|brasileirao|brasileiro)\b/.test(t))add('brsa');
+  if(/\b(libertadores|liberta|conmebol)\b/.test(t))add('libertadores');
+  if(/\b(premier(\s*league)?|epl|premier)\b/.test(t)||/\binglaterra\b/.test(t)&&/\b(liga|league|campeonato)\b/.test(t))add('epl');
+  if(/\b(laliga|la\s*liga)\b/.test(t)||/\bespanha\b/.test(t)&&/\b(liga|campeonato)\b/.test(t))add('laliga');
+  if(/\b(champions(\s*league)?|ucl|liga\s*dos\s*campeoes|uefa\s*champions)\b/.test(t))add('ucl');
+  COMP_ORDER.forEach(id=>{
+    const c=getComp(id);
+    const keys=[c.name,c.short,c.labelDefault].filter(Boolean).map(s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+    if(keys.some(k=>k&&t.includes(k)))add(id);
+  });
+  return hits;
+}
+
+// Scoreboards ESPN extras (seleções / competições fora do COMP_ORDER do app)
+const ESPN_EXTRA_SCOREBOARDS=[
+  'fifa.world','fifa.friendly','uefa.euro','uefa.nations','conmebol.america',
+  'caf.nations','afc.asian.cup','concacaf.gold','olympics.soccer.men'
+];
+
+/** Scoreboard ESPN genérico por path (ex.: eng.1, fifa.world). */
+async function fetchEspnScoreboardPath(espnPath){
+  const from=new Date(Date.now()-3*864e5).toISOString().slice(0,10).replace(/-/g,'');
+  const to=new Date(Date.now()+1*864e5).toISOString().slice(0,10).replace(/-/g,'');
+  const url=`https://site.api.espn.com/apis/site/v2/sports/soccer/${espnPath}/scoreboard?dates=${from}-${to}&limit=50`;
+  try{
+    const r=await fetchEspn(url,'espn_sb_live_'+espnPath,5*60*1000);
+    const events=(r&&r.events)||[];
+    return events.map(ev=>{
+      const comp=ev.competitions&&ev.competitions[0];
+      if(!comp)return null;
+      const home=(comp.competitors||[]).find(c=>c.homeAway==='home');
+      const away=(comp.competitors||[]).find(c=>c.homeAway==='away');
+      const hs=home&&home.score!=null?String(home.score):'?';
+      const as=away&&away.score!=null?String(away.score):'?';
+      const st=(comp.status&&comp.status.type)||{};
+      const state=st.state||''; // pre|in|post
+      const detail=st.detail||st.description||st.shortDetail||'';
+      const clock=(comp.status&&comp.status.displayClock)||'';
+      return{
+        path:espnPath,
+        home:(home&&home.team&&(home.team.displayName||home.team.name))||'?',
+        away:(away&&away.team&&(away.team.displayName||away.team.name))||'?',
+        score:`${hs}-${as}`,
+        status:state==='post'?'FT':(state==='in'?'LIVE':(state==='pre'?'NS':state)),
+        detail,clock,
+        date:(ev.date||'').slice(0,10)
+      };
+    }).filter(Boolean);
+  }catch{return[];}
+}
+
+/** Coleta ESPN multi-liga do app + scoreboards de seleções/copa. */
+async function gatherEspnForChat(compIds){
+  try{
+    let ids=(Array.isArray(compIds)&&compIds.length)?compIds.slice():COMP_ORDER.slice();
+    ids=ids.filter(id=>COMPETITIONS[id]);
+    if(!ids.length)ids=COMP_ORDER.slice();
+    const L=[];
+    await Promise.all(ids.map(async(id)=>{
+      try{
+        const [results,standings,live]=await Promise.all([
+          _loadCompResults(id).catch(()=>null),
+          _loadCompStandings(id,false).catch(()=>null),
+          fetchEspnScoreboardPath(getComp(id).espn).catch(()=>[])
+        ]);
+        const label=compLabel(id);
+        const block=[];
+        if(live&&live.length){
+          block.push(`--- ${label} · scoreboard ESPN (hoje/recente) ---`);
+          live.forEach(m=>block.push(`${m.date||''} [${m.status}${m.clock?' '+m.clock:''}] ${m.home} ${m.score} ${m.away} · ${m.detail||''}`));
+        }
+        if(results&&results.length){
+          block.push(`--- ${label} · resultados recentes (ESPN) ---`);
+          results.slice(-40).forEach(r=>block.push(`${r.data||''}  ${r.mandante} ${r.placar} ${r.visitante}`));
+        }
+        try{
+          if(standings){
+            const g=standings.groups||standings;
+            if(g&&typeof g==='object'&&!Array.isArray(g)){
+              const lines=[];
+              Object.entries(g).forEach(([gn,rows])=>{
+                if(!Array.isArray(rows))return;
+                lines.push(`${gn}: `+rows.slice(0,8).map(r=>`${r.time||r.team||r.nome||'?'}(${r.pts??r.points??'?'}pts)`).join(' | '));
+              });
+              if(lines.length){block.push(`--- ${label} · classificação ---`);lines.forEach(x=>block.push(x));}
+            }
+          }
+        }catch{}
+        const sched=_schedByComp[id]||[];
+        if(sched.length){
+          const up=nearestMatches(sched,10,id);
+          if(up.length){
+            block.push(`--- ${label} · próximos / recentes (cache) ---`);
+            up.forEach(j=>block.push(`${j.data_iso||''} ${j.hora_brt||''} ${j.mandante} x ${j.visitante}${j.fase?' · '+j.fase:''}`));
+          }
+        }
+        if(block.length)L.push(block.join('\n'));
+      }catch{}
+    }));
+    // Seleções / amistosos / copas continentais (ex.: Argentina)
+    const extraLines=[];
+    await Promise.all(ESPN_EXTRA_SCOREBOARDS.map(async(path)=>{
+      try{
+        const live=await fetchEspnScoreboardPath(path);
+        if(live&&live.length){
+          live.forEach(m=>extraLines.push(`${m.date||''} [${m.status}${m.clock?' '+m.clock:''}] ${m.home} ${m.score} ${m.away} · ${path} · ${m.detail||''}`));
+        }
+      }catch{}
+    }));
+    if(extraLines.length){
+      L.push('--- Seleções / copas / amistosos (ESPN scoreboard) ---\n'+extraLines.join('\n'));
+    }
+    return L.join('\n\n').trim();
+  }catch(e){return '';}
+}

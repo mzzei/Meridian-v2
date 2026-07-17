@@ -7,33 +7,34 @@
 | 1 | `js/lib/intent.js` | `routeUserIntent`, match vs chat |
 | 2 | `js/analysis/tab-helpers.js` | `ANALYSIS_TAB_ORDER`, empty states |
 | 3 | `js/analysis/lineup.js` | `buildPitchModel`, mapa de campo |
-| 4 | `js/analysis/normalize.js` | schema `_schema:2`, `attachAnalysisDerived`, migrate, pads |
+| 4 | `js/analysis/normalize.js` | schema `_schema:2`, attach/migrate/pads |
 | 5 | `js/analysis/prompts.js` | system prompts |
-| 6 | `js/analysis/render.js` | Poisson, cards, `renderResults` (usa shell de abas) |
-| 7 | `js/export/report.js` | HTML + PDF one-click (`assets/vendor/html2pdf`) |
-| 8 | `js/data/espn.js` | fetch ESPN |
-| 9 | `js/data/live.js` | painel ao vivo |
-| 10 | `js/data/history.js` | load/save/open histórico (migrate once) |
-| 11 | `js/app.js` | UI, pipeline, AF/FD, orquestração |
+| 6 | `js/analysis/render.js` | Poisson, cards, `renderResults` |
+| 7 | `js/export/report.js` | HTML + PDF (`assets/vendor/html2pdf`) |
+| 8 | `js/data/espn.js` | ESPN + TSDB + standings/results + news + chat scoreboards |
+| 9 | `js/data/football-apis.js` | football-data.org + API-Football |
+| 10 | `js/data/live.js` | painel ao vivo |
+| 11 | `js/data/history.js` | load/save/open histórico |
+| 12 | `js/app.js` | UI, schedule/library, pipeline `gatherFacts`/`runChat`/`runAnalysis` |
 
 ## Write path da análise
 
 ```
-parse JSON → attachAnalysisDerived(parsed, rawFacts)
-          → verifyAnalysis (auditor)
-          → finalizeAnalysisPads(parsed)
-          → renderResults(parsed)   // não normaliza
-          → saveAnalysis (schema 2)
+parse → attachAnalysisDerived(parsed, rawFacts)
+      → verifyAnalysis
+      → finalizeAnalysisPads(parsed)
+      → renderResults(parsed)
+      → saveAnalysis (schema 2)
 ```
 
-Histórico antigo: `loadHistory` chama `migrateAnalysisPayload` só se `_schema !== 2`.
+Histórico: `loadHistory` migra só se `_schema !== 2`.
 
 ## Service Worker
 
-- `SHELL_VERSION` único (= `?v=` do shell)
+- `SHELL_VERSION` (= `?v=` do shell)
 - navigate → network-first
-- assets → cache-first por URL
-- reload do cliente só em `controllerchange` se **já havia** controller
+- assets → cache-first
+- reload cliente só se já havia controller
 
 ## Testes
 
@@ -47,4 +48,4 @@ node tests/run.mjs
 
 ## Regra
 
-Novas features: módulo dedicado se domínio claro. Evitar re-inchar só o `app.js`.
+Novas features: módulo dedicado se domínio claro. Meta: não re-inchar `app.js` (hoje ~4k LOC de orquestração/UI/pipeline).

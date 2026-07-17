@@ -6,13 +6,14 @@ Atualizado: 2026-07-17 · HEAD após PR estrutural
 
 | # | Achado | Resolução |
 |---|--------|-----------|
-| 1 | Decomposição cosmetica | `normalize.js` + `history.js` com ownership; pipeline usa `attachAnalysisDerived` / `finalizeAnalysisPads` |
-| 2 | `app.js` monólito | History saiu; still large mas write-path de análise unificado |
-| 3 | normalize triplicado + muta | Schema `_schema:2`; migrate **uma vez** em `loadHistory`; render **não** normaliza |
-| 4 | PDF CDN + dual path | Lib **local** `assets/vendor/html2pdf.bundle.min.js`; fallback HTML (sem print dual) |
-| 5 | SW preferNetwork blanket | Network-first **só navigate**; assets cache-first; `SHELL_VERSION` único; reload só se já havia controller |
+| 1 | Decomposição cosmetica | `normalize.js` + `history.js` + `football-apis.js`; ESPN completo em `espn.js` |
+| 2 | `app.js` monólito | ~4200 LOC (era ~5.9k); AF/FD/ESPN/history/render fora |
+| 3 | normalize triplicado + muta | Schema `_schema:2`; migrate **uma vez**; render **não** normaliza |
+| 4 | PDF CDN + dual path | Lib **local** `assets/vendor/html2pdf.bundle.min.js` |
+| 5 | SW preferNetwork blanket | Network-first **só navigate**; `SHELL_VERSION` único |
 | 6 | Tabs hardcodadas | `renderAnalysisTabShell` + `ANALYSIS_TAB_ORDER` |
-| 7 | Harness routing | Mantido PASS em `tests/run.mjs` |
+| 7 | ESPN boundary podre | standings/results/news/chat scoreboards em `espn.js` |
+| 8 | Harness routing | PASS em `tests/run.mjs` |
 
 ## Como validar
 

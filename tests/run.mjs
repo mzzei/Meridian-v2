@@ -222,6 +222,7 @@ for (const rel of [
   'js/analysis/render.js',
   'js/analysis/normalize.js',
   'js/data/espn.js',
+  'js/data/football-apis.js',
   'js/data/live.js',
   'js/data/history.js',
   'js/export/report.js',
@@ -229,6 +230,20 @@ for (const rel of [
 ]) {
   assert(fs.existsSync(path.join(ROOT, rel)), 'module ' + rel);
 }
+
+// API modules ownership (not left in app.js)
+const appSrc2 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+const espnSrc = fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8');
+const footSrc = fs.readFileSync(path.join(ROOT, 'js/data/football-apis.js'), 'utf8');
+assert(!appSrc2.includes('async function loadAfData'), 'AF not in app.js');
+assert(!appSrc2.includes('async function loadFdData'), 'FD not in app.js');
+assert(!appSrc2.includes('async function gatherEspnForChat'), 'gatherEspn not in app.js');
+assert(footSrc.includes('async function loadAfData') && footSrc.includes('async function loadFdData'), 'AF/FD in football-apis');
+assert(espnSrc.includes('async function gatherEspnForChat'), 'gatherEspn in espn.js');
+assert(espnSrc.includes('async function fetchEspnScoreboardPath'), 'scoreboard path in espn.js');
+assert(espnSrc.includes('function _parseEspnStandingsPayload'), 'standings parse in espn.js');
+assert(index.includes('football-apis.js'), 'index loads football-apis');
+assert(appSrc2.split(/\n/).length < 4500, 'app.js under 4500 lines (got ' + appSrc2.split(/\n/).length + ')');
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exit(failed ? 1 : 0);
