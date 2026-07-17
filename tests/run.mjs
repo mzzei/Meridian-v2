@@ -169,14 +169,14 @@ assert(libSrc.includes('function showView') && libSrc.includes('function renderL
 assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
 assert(mainSrc.includes("import './data/history.js'"), 'main imports history ESM');
 assert(mainSrc.includes("import './export/report.js'"), 'main imports export ESM');
-assert(mainSrc.includes("import './data/schedule.js'"), 'main imports schedule ESM');
-assert(mainSrc.includes("import './ui/featured.js'"), 'main imports featured ESM');
-assert(mainSrc.includes("import './ui/library.js'"), 'main imports library ESM');
+assert(!mainSrc.includes("import './data/schedule.js'"), 'schedule is classic not ESM import');
+assert(!mainSrc.includes("import './ui/featured.js'"), 'featured is classic not ESM import');
+assert(!mainSrc.includes("import './ui/library.js'"), 'library is classic not ESM import');
+assert(mainSrc.includes("'js/data/schedule.js'"), 'schedule in CLASSIC');
+assert(mainSrc.includes("'js/ui/featured.js'"), 'featured in CLASSIC');
+assert(mainSrc.includes("'js/ui/library.js'"), 'library in CLASSIC');
 assert(!mainSrc.includes("'js/data/history.js'"), 'history not in CLASSIC');
 assert(!mainSrc.includes("'js/export/report.js'"), 'report not in CLASSIC');
-assert(!mainSrc.includes("'js/data/schedule.js'"), 'schedule not in CLASSIC');
-assert(!mainSrc.includes("'js/ui/featured.js'"), 'featured not in CLASSIC');
-assert(!mainSrc.includes("'js/ui/library.js'"), 'library not in CLASSIC');
 assert(mainSrc.includes('loadClassic') || mainSrc.includes('CLASSIC'), 'main loads classic chain');
 assert(mainSrc.includes('SHELL_VERSION'), 'main uses SHELL_VERSION');
 
@@ -188,15 +188,26 @@ assert(typeof Exp.exportSlugify === 'function' && Exp.exportSlugify('A × B') ==
 assert(typeof Exp.exportReport === 'function', 'exportReport ESM');
 assert(fs.existsSync(path.join(ROOT, 'js/runtime.js')), 'runtime.js host helper');
 
-const Sched = await import(pathToFileURL(path.join(ROOT, 'js/data/schedule.js')).href);
-assert(typeof Sched.loadSchedule === 'function' && typeof Sched.nearestMatches === 'function', 'schedule ESM exports');
-const Feat = await import(pathToFileURL(path.join(ROOT, 'js/ui/featured.js')).href);
-assert(typeof Feat._matchState === 'function' && typeof Feat.renderEmptyStateFeatured === 'function', 'featured ESM exports');
-const Lib = await import(pathToFileURL(path.join(ROOT, 'js/ui/library.js')).href);
-assert(typeof Lib.showView === 'function' && typeof Lib.renderLibrary === 'function', 'library ESM exports');
-// match state pure smoke
-const st = Feat._matchState({ data_iso: '2099-01-01', hora_brt: '15:00' });
-assert(st && st.state === 'upcoming', 'matchState upcoming future kick');
+// classic UI/data: no globalThis soup, no mojibake markers, loadable as classic
+assert(!schedSrc.includes('globalThis.'), 'schedule free of globalThis soup');
+assert(!featSrc.includes('globalThis.'), 'featured free of globalThis soup');
+assert(!libSrc.includes('globalThis.'), 'library free of globalThis soup');
+assert(!(schedSrc.match(/├|ÔÇ|┬À/) || []).length, 'schedule UTF-8 clean');
+assert(!(featSrc.match(/├|ÔÇ|┬À/) || []).length, 'featured UTF-8 clean');
+assert(!(libSrc.match(/├|ÔÇ|┬À/) || []).length, 'library UTF-8 clean');
+// match state pure smoke (extract functions without top-level setInterval)
+{
+  const code = fs.readFileSync(path.join(ROOT, 'js/ui/featured.js'), 'utf8');
+  const start = code.indexOf('function _matchKick');
+  const end = code.indexOf('/* ESPN standings');
+  const snippet = code.slice(start, end > start ? end : code.indexOf('function _copaStatsHTML'));
+  const sandbox = { Math, Date, String, Number, Object, Array, console };
+  vm.createContext(sandbox);
+  vm.runInContext(snippet, sandbox);
+  assert(typeof sandbox._matchState === 'function', 'featured classic _matchState');
+  const st = sandbox._matchState({ data_iso: '2099-01-01', hora_brt: '15:00' });
+  assert(st && st.state === 'upcoming', 'matchState upcoming future kick');
+}
 
 assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k');
 assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k');
