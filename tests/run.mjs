@@ -167,8 +167,20 @@ assert(schedSrc.includes('function loadSchedule'), 'loadSchedule in schedule.js'
 assert(featSrc.includes('function renderEmptyStateFeatured'), 'featured module');
 assert(libSrc.includes('function showView') && libSrc.includes('function renderLibrary'), 'library module');
 assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
+assert(mainSrc.includes("import './data/history.js'"), 'main imports history ESM');
+assert(mainSrc.includes("import './export/report.js'"), 'main imports export ESM');
+assert(!mainSrc.includes("'js/data/history.js'") && !mainSrc.includes('"js/data/history.js"'), 'history not in CLASSIC');
+assert(!mainSrc.includes("'js/export/report.js'"), 'report not in CLASSIC');
 assert(mainSrc.includes('loadClassic') || mainSrc.includes('CLASSIC'), 'main loads classic chain');
 assert(mainSrc.includes('SHELL_VERSION'), 'main uses SHELL_VERSION');
+
+// history + export ESM import smoke
+const Hist = await import(pathToFileURL(path.join(ROOT, 'js/data/history.js')).href);
+assert(typeof Hist.loadHistory === 'function' && typeof Hist.saveAnalysis === 'function', 'history ESM exports');
+const Exp = await import(pathToFileURL(path.join(ROOT, 'js/export/report.js')).href);
+assert(typeof Exp.exportSlugify === 'function' && Exp.exportSlugify('A × B') === 'a-b', 'exportSlugify ESM');
+assert(typeof Exp.exportReport === 'function', 'exportReport ESM');
+assert(fs.existsSync(path.join(ROOT, 'js/runtime.js')), 'runtime.js host helper');
 
 assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k');
 assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k');

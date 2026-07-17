@@ -1,23 +1,60 @@
-/* js/export/report.js — export HTML / PDF one-click (lib local em assets/vendor) */
+/* js/export/report.js — export HTML / PDF one-click (ESM · lib local) */
+import { expose } from '../expose.js';
+import { host, hostFn } from '../runtime.js';
+
+function toastMsg(msg) {
+  const fn = hostFn('toast');
+  if (fn) fn(msg);
+}
+
+function tKey(key) {
+  const fn = hostFn('t');
+  return fn ? fn(key) : undefined;
+}
+
+function escHtml(s) {
+  const fn = hostFn('esc');
+  if (fn) return fn(s);
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function brand() {
+  const fn = hostFn('brandStar');
+  return fn ? fn() : '';
+}
+
+function labelComp() {
+  const fn = hostFn('compLabel');
+  const id = host()._activeCompId;
+  return fn ? fn(id) : 'Meridian';
+}
+
 /** format: 'html' | 'pdf' */
-function exportReport(format) {
+export function exportReport(format) {
   const cards = [...document.querySelectorAll('#conversation .a-card')];
   if (!cards.length) {
-    document.getElementById('error-box').style.display = 'block';
-    document.getElementById('error-msg').textContent =
-      'Nenhuma análise para exportar. Faça ao menos uma análise primeiro.';
-    toast(t('export_none') || 'Nenhuma análise para exportar.');
+    const box = document.getElementById('error-box');
+    const msg = document.getElementById('error-msg');
+    if (box) box.style.display = 'block';
+    if (msg)
+      msg.textContent = 'Nenhuma análise para exportar. Faça ao menos uma análise primeiro.';
+    toastMsg(tKey('export_none') || 'Nenhuma análise para exportar.');
     return;
   }
   exportCards(cards, { format: format === 'pdf' ? 'pdf' : 'html' });
 }
 
-function exportSingle(hid, format) {
-  const card = ensureRendered(hid);
+export function exportSingle(hid, format) {
+  const ensure = hostFn('ensureRendered');
+  const card = ensure ? ensure(hid) : null;
   if (card) exportCards([card], { single: true, format: format === 'pdf' ? 'pdf' : 'html' });
 }
 
-function toggleExportMenu(e) {
+export function toggleExportMenu(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -29,7 +66,10 @@ function toggleExportMenu(e) {
   pop.setAttribute('aria-hidden', open ? 'true' : 'false');
   if (!open) {
     const close = (ev) => {
-      if (ev.target.closest && (ev.target.closest('#export-pop') || ev.target.closest('#export-menu-btn')))
+      if (
+        ev.target.closest &&
+        (ev.target.closest('#export-pop') || ev.target.closest('#export-menu-btn'))
+      )
         return;
       pop.style.display = 'none';
       pop.setAttribute('aria-hidden', 'true');
@@ -67,20 +107,19 @@ async function _loadExportPrintCss() {
   return _exportPrintCssCache;
 }
 
-function exportCards(cardEls, opts) {
+export function exportCards(cardEls, opts) {
   opts = opts || {};
-  Promise.all([_loadExportAppCss(), _loadExportPrintCss()])
-    .then(([appCss, printCss]) => {
-      try {
-        _exportCardsWithCss(cardEls, opts, appCss || '', printCss || '');
-      } catch (e) {
-        console.error(e);
-        toast('Falha ao montar o relatório. Tente de novo.');
-      }
-    });
+  Promise.all([_loadExportAppCss(), _loadExportPrintCss()]).then(([appCss, printCss]) => {
+    try {
+      _exportCardsWithCss(cardEls, opts, appCss || '', printCss || '');
+    } catch (e) {
+      console.error(e);
+      toastMsg('Falha ao montar o relatório. Tente de novo.');
+    }
+  });
 }
 
-function exportSlugify(title, maxLen) {
+export function exportSlugify(title, maxLen) {
   maxLen = maxLen || 40;
   return (
     (title || 'analise')
@@ -94,7 +133,7 @@ function exportSlugify(title, maxLen) {
   );
 }
 
-function buildExportHtml(cardEls, opts, appCss, printCss) {
+export function buildExportHtml(cardEls, opts, appCss, printCss) {
   opts = opts || {};
   const clone = document.createElement('div');
   cardEls.forEach((c) => clone.appendChild(c.cloneNode(true)));
@@ -119,16 +158,24 @@ function buildExportHtml(cardEls, opts, appCss, printCss) {
     .filter(Boolean)
     .join('\n\n');
   const now = new Date();
-  const dateStr = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = now.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
   const count = clone.querySelectorAll('.a-card').length;
-  const theme = (typeof currentTheme === 'string' && currentTheme) || 'aurora';
+  const theme =
+    typeof host().currentTheme === 'string' && host().currentTheme
+      ? host().currentTheme
+      : 'aurora';
   const bgPrint = theme === 'verde' ? '#04130c' : theme === 'mono' ? '#b8b8b8' : '#0c1016';
+  const cl = labelComp();
   const html = `<!DOCTYPE html>
 <html lang="pt-BR" data-theme="${theme}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Relatório · Meridian · ${esc(compLabel(_activeCompId))}</title>
+<title>Relatório · Meridian · ${escHtml(cl)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -145,10 +192,10 @@ body.printing .a-tabs,.no-print{display:none!important}
 <div class="rep-wrap">
   <div class="rep-head">
     <div class="rep-brand">
-      <div class="rep-ball">${brandStar()}</div>
+      <div class="rep-ball">${brand()}</div>
       <div>
         <div class="rep-title">MERIDIAN<span class="rep-title-sub">SPORTS INTELLIGENCE</span></div>
-        <div class="rep-meta">${esc(compLabel(_activeCompId))} · ${dateStr} · ${count} análise${count !== 1 ? 's' : ''}</div>
+        <div class="rep-meta">${escHtml(cl)} · ${dateStr} · ${count} análise${count !== 1 ? 's' : ''}</div>
       </div>
     </div>
   </div>
@@ -165,7 +212,7 @@ function _exportFileSlug(cardEls, opts, now) {
     opts.single && cardEls[0]
       ? exportSlugify(cardEls[0].querySelector('.a-title')?.textContent || 'analise')
       : 'relatorio';
-  const compSlug = exportSlugify(compLabel(_activeCompId) || 'meridian', 24);
+  const compSlug = exportSlugify(labelComp() || 'meridian', 24);
   return `meridian-${compSlug}-${slug}-${now.toISOString().slice(0, 10)}`;
 }
 
@@ -175,7 +222,6 @@ function _ensureHtml2Pdf() {
   if (_html2pdfPromise) return _html2pdfPromise;
   _html2pdfPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    // Lib local (offline-first) — sem CDN
     s.src = 'assets/vendor/html2pdf.bundle.min.js';
     s.async = true;
     s.onload = () =>
@@ -191,13 +237,13 @@ function _ensureHtml2Pdf() {
 
 async function _downloadPdfOneClick(html, baseName) {
   const h2p = await _ensureHtml2Pdf();
-  const host = document.createElement('div');
-  host.style.cssText =
+  const mount = document.createElement('div');
+  mount.style.cssText =
     'position:fixed;left:-10000px;top:0;width:794px;background:#0c1016;z-index:-1;opacity:0;pointer-events:none;';
-  document.body.appendChild(host);
+  document.body.appendChild(mount);
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'width:794px;min-height:1123px;border:0;';
-  host.appendChild(iframe);
+  mount.appendChild(iframe);
   const idoc = iframe.contentDocument || iframe.contentWindow.document;
   idoc.open();
   idoc.write(html);
@@ -227,10 +273,10 @@ async function _downloadPdfOneClick(html, baseName) {
       })
       .from(idoc.body)
       .save();
-    toast('PDF baixado.');
+    toastMsg('PDF baixado.');
   } finally {
     try {
-      host.remove();
+      mount.remove();
     } catch (_) {}
   }
 }
@@ -244,7 +290,7 @@ function _exportCardsWithCss(cardEls, opts, appCss, printCss) {
   const url = URL.createObjectURL(blob);
 
   if (opts.format === 'pdf') {
-    toast('Gerando PDF…');
+    toastMsg('Gerando PDF…');
     _downloadPdfOneClick(html, baseName)
       .catch((err) => {
         console.warn('PDF one-click failed, HTML fallback', err);
@@ -252,7 +298,7 @@ function _exportCardsWithCss(cardEls, opts, appCss, printCss) {
         a.href = url;
         a.download = baseName + '.html';
         a.click();
-        toast('PDF indisponível — baixei HTML. Abra e use Ctrl+P → Salvar como PDF.');
+        toastMsg('PDF indisponível — baixei HTML. Abra e use Ctrl+P → Salvar como PDF.');
       })
       .finally(() => setTimeout(() => URL.revokeObjectURL(url), 120000));
     return;
@@ -263,14 +309,14 @@ function _exportCardsWithCss(cardEls, opts, appCss, printCss) {
   a.download = baseName + '.html';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
-  toast('HTML baixado.');
+  toastMsg('HTML baixado.');
 }
 
-if (typeof window !== 'undefined') {
-  window.exportReport = exportReport;
-  window.exportSingle = exportSingle;
-  window.toggleExportMenu = toggleExportMenu;
-  window.exportCards = exportCards;
-  window.buildExportHtml = buildExportHtml;
-  window.exportSlugify = exportSlugify;
-}
+expose({
+  exportReport,
+  exportSingle,
+  toggleExportMenu,
+  exportCards,
+  buildExportHtml,
+  exportSlugify,
+});

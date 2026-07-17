@@ -1,39 +1,58 @@
-/* js/data/history.js — persistência e reabertura de análises
- * Depende em runtime: HIST_KEY, _history (app), migrateAnalysisPayload,
- * renderResults, renderRecentAnalyses, renderSidebarHistory, esc, CSS
- */
-function loadHistory() {
+/* js/data/history.js — persistência e reabertura de análises (ESM) */
+import { expose } from '../expose.js';
+import { host, hostFn } from '../runtime.js';
+import { ANALYSIS_SCHEMA, migrateAnalysisPayload } from '../analysis/normalize.js';
+
+const DEFAULT_HIST_KEY = 'meridian_history_v1';
+
+function histKey() {
+  return host().HIST_KEY || DEFAULT_HIST_KEY;
+}
+
+function getHistory() {
+  const h = host();
+  if (!Array.isArray(h._history)) h._history = [];
+  return h._history;
+}
+
+function setHistory(list) {
+  host()._history = Array.isArray(list) ? list : [];
+}
+
+export function loadHistory() {
+  const h = host();
   try {
-    _history = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+    h._history = JSON.parse(localStorage.getItem(histKey()) || '[]');
   } catch (e) {
-    _history = [];
+    h._history = [];
   }
+  if (!Array.isArray(h._history)) h._history = [];
+
   let dirty = false;
-  for (const h of _history) {
-    if (!h || !h.data) continue;
-    if (h.data._schema === ANALYSIS_SCHEMA) continue;
+  for (const entry of h._history) {
+    if (!entry || !entry.data) continue;
+    if (entry.data._schema === ANALYSIS_SCHEMA) continue;
     try {
-      h.data = migrateAnalysisPayload(h.data);
+      entry.data = migrateAnalysisPayload(entry.data);
       dirty = true;
     } catch (_) {}
   }
   if (dirty) persistHistory();
 }
 
-function persistHistory() {
+export function persistHistory() {
   try {
-    localStorage.setItem(HIST_KEY, JSON.stringify(_history.slice(0, 30)));
+    localStorage.setItem(histKey(), JSON.stringify(getHistory().slice(0, 30)));
   } catch (e) {}
 }
 
-function saveAnalysis(hid, d) {
-  // Pipeline já grava schema 2; se veio sem schema (edge), migra uma vez
+export function saveAnalysis(hid, d) {
   if (d && d._schema !== ANALYSIS_SCHEMA) d = migrateAnalysisPayload(d) || d;
-  _history = _history.filter((h) => h.hid !== hid);
-  _history.unshift({
+  let list = getHistory().filter((x) => x.hid !== hid);
+  list.unshift({
     hid,
-    title: d.partida || 'Análise',
-    fase: d.fase || '',
+    title: (d && d.partida) || 'Análise',
+    fase: (d && d.fase) || '',
     ts: new Date().toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -42,57 +61,68 @@ function saveAnalysis(hid, d) {
     }),
     data: d,
   });
-  if (_history.length > 30) _history = _history.slice(0, 30);
+  if (list.length > 30) list = list.slice(0, 30);
+  setHistory(list);
   persistHistory();
-  renderRecentAnalyses();
-  renderSidebarHistory();
+  const recent = hostFn('renderRecentAnalyses');
+  if (recent) recent();
+  const side = hostFn('renderSidebarHistory');
+  if (side) side();
 }
 
-function clearHistory() {
-  if (!_history.length) return;
-  _history = [];
+export function clearHistory() {
+  if (!getHistory().length) return;
+  setHistory([]);
   persistHistory();
-  renderRecentAnalyses();
-  renderSidebarHistory();
+  const recent = hostFn('renderRecentAnalyses');
+  if (recent) recent();
+  const side = hostFn('renderSidebarHistory');
+  if (side) side();
 }
 
-function cardByHid(hid) {
-  return document.querySelector(
-    '.a-card[data-hid="' + (window.CSS && CSS.escape ? CSS.escape(hid) : hid) + '"]'
-  );
+export function cardByHid(hid) {
+  const escId =
+    typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(hid) : String(hid || '');
+  return document.querySelector('.a-card[data-hid="' + escId + '"]');
 }
 
-function ensureRendered(hid) {
+export function ensureRendered(hid) {
   let card = cardByHid(hid);
   if (card) return card;
-  const h = _history.find((x) => x.hid === hid);
-  if (!h) return null;
-  if (h.data && h.data._schema !== ANALYSIS_SCHEMA) {
-    h.data = migrateAnalysisPayload(h.data) || h.data;
+  const entry = getHistory().find((x) => x.hid === hid);
+  if (!entry) return null;
+  if (entry.data && entry.data._schema !== ANALYSIS_SCHEMA) {
+    entry.data = migrateAnalysisPayload(entry.data) || entry.data;
   }
-  renderResults(h.data, { hid, save: false });
+  const render = hostFn('renderResults');
+  if (render) render(entry.data, { hid, save: false });
   return cardByHid(hid);
 }
 
-function openHistory(hid) {
+export function openHistory(hid) {
   const card = ensureRendered(hid);
   if (card) {
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    flashCard(card);
+    const flash = hostFn('flashCard');
+    if (flash) flash(card);
   }
 }
 
-function renderRecentAnalyses() {
-  if (_currentView === 'saved') renderSavedReports();
+export function renderRecentAnalyses() {
+  const h = host();
+  if (h._currentView === 'saved') {
+    const fn = hostFn('renderSavedReports');
+    if (fn) fn();
+  }
 }
 
-if (typeof window !== 'undefined') {
-  window.loadHistory = loadHistory;
-  window.persistHistory = persistHistory;
-  window.saveAnalysis = saveAnalysis;
-  window.clearHistory = clearHistory;
-  window.cardByHid = cardByHid;
-  window.ensureRendered = ensureRendered;
-  window.openHistory = openHistory;
-  window.renderRecentAnalyses = renderRecentAnalyses;
-}
+expose({
+  loadHistory,
+  persistHistory,
+  saveAnalysis,
+  clearHistory,
+  cardByHid,
+  ensureRendered,
+  openHistory,
+  renderRecentAnalyses,
+});

@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '46';
+const SHELL_VERSION = '47';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -22,6 +22,7 @@ const SHELL = [
   './js/main.js?v=' + SHELL_VERSION,
   './js/version.js?v=' + SHELL_VERSION,
   './js/expose.js?v=' + SHELL_VERSION,
+  './js/runtime.js?v=' + SHELL_VERSION,
   './js/lib/intent.js?v=' + SHELL_VERSION,
   './js/analysis/tab-helpers.js?v=' + SHELL_VERSION,
   './js/analysis/lineup.js?v=' + SHELL_VERSION,

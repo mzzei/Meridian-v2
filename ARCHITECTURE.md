@@ -7,27 +7,40 @@
 ```
 
 `js/main.js`:
-1. **import** módulos puros (ESM): `intent`, `tab-helpers`, `lineup`, `normalize` (+ `version`, `expose`)
-2. **loadClassic** (scripts sem `type=module`) na ordem do pipeline/UI — mantém globais para `onclick` do HTML
+1. **import** módulos ESM (export + `expose` no `globalThis`)
+2. **loadClassic** o restante (pipeline/UI/app) — globais para `onclick` HTML
 
-`js/version.js` exporta `SHELL_VERSION` (única fonte; `sw.js` espelha).
+| Arquivo | Papel |
+|---------|--------|
+| `js/version.js` | `SHELL_VERSION` (única fonte) |
+| `js/expose.js` | `expose({…})` → `globalThis` |
+| `js/runtime.js` | `host()` / `hostFn()` — borda ESM ↔ shell clássico |
 
-`js/expose.js` — `expose({...})` grava no `globalThis` para interop HTML/clássicos.
+## Camada ESM (import real)
 
-## Módulos
+- `lib/intent.js`
+- `analysis/tab-helpers.js`, `lineup.js`, `normalize.js`
+- `data/history.js` — usa `migrateAnalysisPayload` via **import**
+- `export/report.js` — PDF/HTML; host só em call-time (`toast`, `esc`, …)
 
-| Camada | Arquivos |
-|--------|----------|
-| ESM puro | `lib/intent`, `analysis/{tab-helpers,lineup,normalize}` |
-| Clássico data | `data/{espn,football-apis,schedule,live,history}` |
-| Clássico analysis | `prompts`, `render`, `pipeline-facts`, `pipeline-run` |
-| Clássico UI | `ui/{featured,library}`, `export/report`, `app` |
+## Camada clássica (ainda em CLASSIC)
 
-## Write path
+- `prompts`, `render`, `espn`, `football-apis`, `schedule`, `live`
+- `ui/featured`, `ui/library`
+- `pipeline-facts`, `pipeline-run`, `app`
+
+## Migração segura (arquivo a arquivo)
+
+1. `import` deps + `export` API + `expose` público  
+2. Bordas ao app: `host()` / `hostFn()`, não nomes soltos  
+3. Sair de `CLASSIC` no `main.js`  
+4. Bump `SHELL_VERSION` + teste  
+
+## Write path do agente (inalterado)
 
 ```
 gatherFacts → parse → attachAnalysisDerived → verify
-           → finalizeAnalysisPads → renderResults → save
+           → finalizeAnalysisPads → renderResults → saveAnalysis
 ```
 
 ## Testes
