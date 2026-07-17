@@ -169,6 +169,9 @@ assert(libSrc.includes('function showView') && libSrc.includes('function renderL
 assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
 assert(mainSrc.includes("import './data/history.js'"), 'main imports history ESM');
 assert(mainSrc.includes("import './export/report.js'"), 'main imports export ESM');
+assert(mainSrc.includes("import './comp/competitions.js'") || mainSrc.includes("./comp/competitions.js"), 'main loads competitions');
+assert(mainSrc.includes("import './state.js'") || mainSrc.includes("./state.js"), 'main loads state');
+assert(mainSrc.includes('installHtmlBridge') || mainSrc.includes('html-bridge'), 'main installs html-bridge');
 assert(!mainSrc.includes("import './data/schedule.js'"), 'schedule is classic not ESM import');
 assert(!mainSrc.includes("import './ui/featured.js'"), 'featured is classic not ESM import');
 assert(!mainSrc.includes("import './ui/library.js'"), 'library is classic not ESM import');
@@ -187,6 +190,20 @@ const Exp = await import(pathToFileURL(path.join(ROOT, 'js/export/report.js')).h
 assert(typeof Exp.exportSlugify === 'function' && Exp.exportSlugify('A × B') === 'a-b', 'exportSlugify ESM');
 assert(typeof Exp.exportReport === 'function', 'exportReport ESM');
 assert(fs.existsSync(path.join(ROOT, 'js/runtime.js')), 'runtime.js host helper');
+
+// competitions + state
+const Comp = await import(pathToFileURL(path.join(ROOT, 'js/comp/competitions.js')).href);
+assert(Comp.COMP_ORDER.length === 5 && Comp.getComp('brsa').espn === 'bra.1', 'competitions catalog');
+assert(Comp.compLabel('epl').includes('Premier') || Comp.compLabel('epl') === 'Premier League', 'compLabel');
+const St = await import(pathToFileURL(path.join(ROOT, 'js/state.js')).href);
+assert(typeof St.setSchedule === 'function' && typeof St.setAnalysisCompId === 'function', 'state setters');
+St.setSchedule([{ id: 1 }]);
+assert(globalThis._schedule && globalThis._schedule.length === 1, 'state bridge _schedule');
+St.setSchedule([]);
+assert(St.setAnalysisCompId('epl') === true && St.state.activeCompId === 'epl', 'setAnalysisCompId');
+St.setAnalysisCompId('brsa');
+const Bridge = await import(pathToFileURL(path.join(ROOT, 'js/html-bridge.js')).href);
+assert(Array.isArray(Bridge.HTML_ONCLICK_API) && Bridge.HTML_ONCLICK_API.includes('toggleRun'), 'html-bridge API list');
 
 // classic UI/data: no globalThis soup, no mojibake markers, loadable as classic
 assert(!schedSrc.includes('globalThis.'), 'schedule free of globalThis soup');

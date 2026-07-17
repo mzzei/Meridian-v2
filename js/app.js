@@ -111,132 +111,24 @@ const FLAGS = {
   'New Caledonia':'nc','Tahiti':'pf','Cuba':'cu','Curacao':'cw','Curaçao':'cw',
 };
 
-// ─── State ───────────────────────────────────────────────────────────────
-// var (não let): compartilha com módulos ESM via globalThis (window._schedule etc.)
+// ─── State / competitions ──────────────────────────────────────────────
+// → js/state.js (schedule, history, views, setters + bridges globalThis)
+// → js/comp/competitions.js (COMPETITIONS, COMP_ORDER, season/API helpers)
 let currentModel  = 'claude-sonnet-4-6';
 let currentEffort = 0;
 let _lastAnalysisId = null;
 let _lastChatId     = null;
-var _schedule     = []; // união (próximos) de todos os campeonatos — chips / destaque
-var _schedByComp  = {}; // { [compId]: jogo[] } — agendas por campeonato
-let _cardCount    = 0;
-var _history      = [];
-// ── Multi-campeonato ─────────────────────────────────────────────────────
-// Vários campeonatos rodam em paralelo: cada um tem agenda/cache/logo próprios.
-// Biblioteca: cards de campeonato → jogos do card aberto.
-// Análise: o jogo carrega comp_id; prompts usam o rótulo da competição.
-// calendar:
-//   'year'      — temporada = ano civil (Brasileirão, Libertadores): 2026 → "2026"
-//   'european'  — ago–mai; API usa ano de início; UI mostra "2025/26"
-// season NÃO é hardcoded: calculada em runtime por seasonYearFor / compSeasonLabel
-var COMPETITIONS = {
-  brsa: {
-    id:'brsa', name:'Brasileirão Série A', short:'Série A', country:'Brasil',
-    calendar:'year', kind:'league',
-    espn:'bra.1', af:71, fd:'BSA', tsdb:4351,
-    logo:'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png',
-    labelDefault:'Brasileirão Série A'
-  },
-  libertadores: {
-    id:'libertadores', name:'CONMEBOL Libertadores', short:'Libertadores', country:'CONMEBOL',
-    calendar:'year', kind:'cup',
-    espn:'conmebol.libertadores', af:13, fd:'CLI', tsdb:null,
-    logo:'https://a.espncdn.com/i/leaguelogos/soccer/500/58.png',
-    labelDefault:'Libertadores'
-  },
-  epl: {
-    id:'epl', name:'Premier League', short:'EPL', country:'Inglaterra',
-    calendar:'european', kind:'league',
-    espn:'eng.1', af:39, fd:'PL', tsdb:null,
-    logo:'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
-    labelDefault:'Premier League'
-  },
-  laliga: {
-    id:'laliga', name:'LaLiga', short:'LaLiga', country:'Espanha',
-    calendar:'european', kind:'league',
-    espn:'esp.1', af:140, fd:'PD', tsdb:null,
-    logo:'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
-    labelDefault:'LaLiga'
-  },
-  ucl: {
-    id:'ucl', name:'UEFA Champions League', short:'UCL', country:'UEFA',
-    calendar:'european', kind:'cup',
-    espn:'uefa.champions', af:2, fd:'CL', tsdb:null,
-    logo:'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
-    labelDefault:'Champions League'
-  }
-};
-var COMP_ORDER = ['brsa','libertadores','epl','laliga','ucl'];
-var COMP_ACTIVE_STORE = 'meridian_active_comp';
-var COMP_SCHED_STORE  = 'meridian_sched_by_comp_v2'; // v2: fase só rodada estruturada (não nome de jogo)
 
-// Faixas EXATAS por competição (sanity-check de números / anti-alucinação)
-// leagueGames = jogos de liga por clube na temporada regular; maxPlayer* = tetos plausíveis
-const COMP_SANITY = {
-  brsa: {
-    kind:'league', teams:20, leagueGames:38,
-    maxPlayerLeagueGames:38, maxPlayerAllComps:55,
-    goalsTopMin:10, goalsTopMax:25, goalsAbsurd:40,
-    format:'pontos corridos · 20 clubes · 38 rodadas (turno e returno)',
-    extraTimeDefault:false
-  },
-  epl: {
-    kind:'league', teams:20, leagueGames:38,
-    maxPlayerLeagueGames:38, maxPlayerAllComps:55,
-    goalsTopMin:10, goalsTopMax:25, goalsAbsurd:40,
-    format:'pontos corridos · 20 clubes · 38 rodadas',
-    extraTimeDefault:false
-  },
-  laliga: {
-    kind:'league', teams:20, leagueGames:38,
-    maxPlayerLeagueGames:38, maxPlayerAllComps:55,
-    goalsTopMin:10, goalsTopMax:30, goalsAbsurd:45,
-    format:'pontos corridos · 20 clubes · 38 rodadas',
-    extraTimeDefault:false
-  },
-  libertadores: {
-    kind:'cup', teams:null, leagueGames:null,
-    maxPlayerCompGames:17, maxPlayerAllComps:60,
-    goalsTopMin:5, goalsTopMax:15, goalsAbsurd:25,
-    format:'grupos + mata-mata (ida/volta em várias fases) · ~6–17 jogos por clube no torneio',
-    extraTimeDefault:true
-  },
-  ucl: {
-    kind:'cup', teams:null, leagueGames:null,
-    maxPlayerCompGames:17, maxPlayerAllComps:60,
-    goalsTopMin:5, goalsTopMax:15, goalsAbsurd:25,
-    format:'fase liga/grupos + mata-mata · ~6–17 jogos por clube na UCL da temporada',
-    extraTimeDefault:true
-  }
-};
-function compSanity(id){return COMP_SANITY[id||_activeCompId]||COMP_SANITY.brsa;}
-
-/**
- * Contextos de competição — independentes por desenho:
- *  analysis (_activeCompId) → prompts do agente, AF/FD, ESPN “ativa”, fillMatch
- *  stats    (_statsCompId)  → seletor Estatísticas + clubes/próximos da sidebar
- *  library  (_libCompId)    → drill-down da Biblioteca (null = grade de cards)
- *
- * Um clique em chip/jogo NÃO deve mudar o seletor de Estatísticas.
- * Abrir uma liga na Biblioteca NÃO deve resetar o seletor de Estatísticas.
- */
-var _activeCompId = (()=>{try{const v=localStorage.getItem(COMP_ACTIVE_STORE);return (v&&COMPETITIONS[v])?v:'brsa';}catch{return'brsa';}})();
-var _statsCompId = _activeCompId;
-var _libCompId = null;
-var _compStatus = {}; // { loading, checked, upcoming, total, soon, error, roundLabel }
-
-function getComp(id){return COMPETITIONS[id||_activeCompId]||COMPETITIONS.brsa;}
 function analysisCompId(){return _activeCompId;}
 function statsCompId(){return _statsCompId||_activeCompId;}
 function libraryCompId(){return _libCompId;}
 
-/** Só o contexto de análise do agente. Sem tocar stats/library por padrão. */
 function setAnalysisComp(id, opts){
   opts=opts||{};
   if(!COMPETITIONS[id])return false;
-  const changed=_activeCompId!==id;
-  _activeCompId=id;
-  try{localStorage.setItem(COMP_ACTIVE_STORE,id);}catch{}
+  const changed=(typeof setAnalysisCompId==='function')
+    ? !!setAnalysisCompId(id)
+    : (()=>{const c=_activeCompId!==id;_activeCompId=id;try{localStorage.setItem(COMP_ACTIVE_STORE,id);}catch{}return c;})()
   try{if(typeof ESPN_BASE!=='undefined')ESPN_BASE=espnBase(id);}catch{}
   if(opts.syncStats&&_statsCompId!==id){
     _statsCompId=id;
@@ -259,7 +151,7 @@ function setActiveComp(id, opts){
 }
 
 function setLibComp(id){
-  // id null = volta à grade
+  if(typeof setLibCompId==='function')return setLibCompId(id);
   if(id!=null&&!COMPETITIONS[id])return false;
   _libCompId=id;
   return true;
@@ -292,7 +184,7 @@ function scheduleFeaturedPaint(opts){
 }
 function setStatsComp(id){
   if(!COMPETITIONS[id])return;
-  _statsCompId=id;
+  if(typeof setStatsCompId==='function')setStatsCompId(id);else _statsCompId=id;
   closeStatsCompPop();
   _syncStatsSelLabels(id);
   // paint imediato com cache; enrich carrega results+standings da liga escolhida
@@ -396,36 +288,6 @@ document.addEventListener('scroll',e=>{
   closeStatsCompPop();
 },true);
 
-function espnBase(id){return 'https://site.api.espn.com/apis/site/v2/sports/soccer/'+getComp(id).espn;}
-function espnStandingsUrl(id){return 'https://site.api.espn.com/apis/v2/sports/soccer/'+getComp(id).espn+'/standings';}
-function afLeague(id){return getComp(id).af;}
-function fdCode(id){return getComp(id).fd;}
-function compLabel(id){return getComp(id).labelDefault||getComp(id).name;}
-// ── Concepção de tempo de temporada (reusa “agora” real; sem ano fixo no config) ──
-// Calendário civil (BR/CONMEBOL): o ano da temporada = ano corrente.
-// Europeu (ago–mai): a temporada é rotulada pelo ANO DE INÍCIO.
-//   • ago–dez → temporada começa neste ano (ex.: set/2025 → 2025/26)
-//   • jan–jul → ainda na temporada do ano anterior (ex.: jul/2026 → 2025/26)
-// API-Football / football-data usam o ano de início; a UI mostra o rótulo legível.
-function seasonYearCalendar(d){d=d||new Date();return d.getFullYear();}
-function seasonYearEuropean(d){
-  d=d||new Date();
-  const y=d.getFullYear(), m=d.getMonth()+1; // 1–12
-  return m>=8?y:y-1; // ago–jul
-}
-function seasonYearFor(id,d){
-  const c=getComp(id);
-  return (c.calendar==='european')?seasonYearEuropean(d):seasonYearCalendar(d);
-}
-function compSeasonLabel(id,d){
-  const c=getComp(id);
-  if(c.calendar==='european'){
-    const y=seasonYearEuropean(d);
-    return y+'/'+String(y+1).slice(-2); // "2025/26"
-  }
-  return String(seasonYearCalendar(d));
-}
-function afSeason(id){return seasonYearFor(id);} // API: ano de início / civil
 // Extrai APENAS rótulo de rodada/fase. Nunca devolve nome de confronto/jogo.
 function _parseRoundLabel(fase){
   if(!fase)return'';
@@ -517,14 +379,7 @@ function teamTablePos(t){
   if(!t||typeof t!=='object')return'—';
   return t.posicao_tabela||t.ranking_fifa||'—';
 }
-// Storage por app (não só por liga) + chaves legadas brsa_*
-// var: legível por ESM via globalThis.HIST_KEY / SCHED_STORE / …
-var HIST_KEY    = 'meridian_history_v1';
-var SCHED_STORE = 'meridian_sched_union_v1';
-var SCHED_TTL   = 24 * 60 * 60 * 1000;
-var CTX_STORE   = 'meridian_ctx_v1';
-var CTX_TTL     = 12 * 60 * 60 * 1000;
-var ESPN_TTL    = 15 * 60 * 1000;
+// Storage keys → js/state.js (HIST_KEY, SCHED_*, CTX_*, ESPN_TTL)
 // Data API keys (localStorage — read-only data providers)
 const AF_KEY_STORE= 'meridian_af_key';
 const AF_BASE     = 'https://v3.football.api-sports.io';

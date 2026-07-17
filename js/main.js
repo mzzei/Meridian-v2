@@ -1,28 +1,29 @@
 /**
  * Meridian v2 — entry ESM
- * -----------------------
- * ESM real (import + export + expose): intent, tabs, lineup, normalize, history, export
- * Classic (globais / onclick): data APIs, UI agenda/lib, pipeline, app
  *
- * Regra: só vira ESM se houver import nomeado de deps (não globalThis soup).
+ * 1) competitions + state (fonte de verdade + bridges classic)
+ * 2) ESM real (intent, normalize, history, export, …)
+ * 3) classic (pipeline, UI agenda, app)
+ * 4) html-bridge (garante onclick do HTML)
  */
 import { SHELL_VERSION } from './version.js';
 import { expose } from './expose.js';
+import { installHtmlBridge } from './html-bridge.js';
 
-// ── ESM com contrato real ─────────────────────────────────────────────────
+// Fundações (antes de qualquer classic)
+import './comp/competitions.js';
+import './state.js';
+
+// ESM com import real de deps
 import './lib/intent.js';
 import './analysis/tab-helpers.js';
 import './analysis/lineup.js';
 import './analysis/normalize.js';
-import './data/history.js'; // import { migrate… } from normalize
-import './export/report.js'; // hostFn só na borda (toast/esc)
+import './data/history.js';
+import './export/report.js';
 
 expose({ SHELL_VERSION, MERIDIAN_SHELL_VERSION: SHELL_VERSION });
 
-/**
- * Classic: um só modelo de globals (sem globalThis. no corpo).
- * Ordem = dependência de definição em call-time (app define state por último).
- */
 const CLASSIC = [
   'js/analysis/prompts.js',
   'js/analysis/render.js',
@@ -52,10 +53,13 @@ try {
   for (const src of CLASSIC) {
     await loadClassic(src);
   }
+  // Bridge HTML por último (funções do app já existem)
+  installHtmlBridge();
+
   console.info(
     '[Meridian v2] shell',
     SHELL_VERSION,
-    '· ESM: intent+normalize+history+export',
+    '· state+competitions',
     '· classic:',
     CLASSIC.length
   );
