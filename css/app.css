@@ -633,8 +633,9 @@ html[data-theme="verde"] .wp-icon .wp-logo-img{filter:drop-shadow(0 6px 18px rgb
 .tok-ring-svg{width:20px;height:20px;transform:rotate(-90deg);flex-shrink:0}
 .tok-ring-track{fill:none;stroke:var(--cream-mid);stroke-width:3}
 .tok-ring-fill{fill:none;stroke:var(--terra);stroke-width:3;stroke-linecap:round;transition:stroke-dasharray .9s cubic-bezier(.22,.61,.36,1)}
-.i-clear{width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:none;font-size:15px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
-.i-clear:hover{background:var(--cream)}
+.i-clear{width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:none;font-size:15px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;flex-shrink:0;padding:0;line-height:0}
+.i-clear svg{display:block;flex-shrink:0;pointer-events:none}
+.i-clear:hover{background:var(--cream);color:var(--terra)}
 .i-attach{width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;flex-shrink:0}
 .i-attach:hover{background:var(--cream);color:var(--terra)}
 /* ── Anexos (chips + thumbnails) ── */

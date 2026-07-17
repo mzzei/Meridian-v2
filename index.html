@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=40">
+<link rel="stylesheet" href="css/app.css?v=41">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -31,7 +31,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 <div class="app">
 
-  <!-- â”€â”€ LEFT SIDEBAR â”€â”€ -->
+  <!-- ── LEFT SIDEBAR ── -->
   <aside class="l-sb" id="l-sb">
     <div class="ls-brand">
       <div class="ls-emblem">
@@ -113,7 +113,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
     </div>
   </aside>
 
-  <!-- â”€â”€ MAIN PANEL â”€â”€ -->
+  <!-- ── MAIN PANEL ── -->
   <main class="main">
     <header class="m-hdr">
       <button class="m-burger" onclick="toggleSidebar()" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
@@ -241,13 +241,15 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           <button class="i-attach" onclick="document.getElementById('attach-input').click()" title="Anexar imagem, PDF ou texto (ou cole imagem com Ctrl+V)" aria-label="Anexar arquivo">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
-          <button class="i-clear" onclick="clearAll()" title="Limpar">º</button>
+          <button type="button" class="i-clear" onclick="clearAll()" title="Limpar conversa" aria-label="Limpar conversa">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
           <button class="i-analyze" id="run-btn" onclick="toggleRun()">Analisar</button>
         </div>
       </div>
       <p class="i-disc">O agente pode cometer erros. Sempre valide as informações.</p>
 
-      <!-- â”€â”€ Model popup â”€â”€ -->
+      <!-- ── Model popup ── -->
       <div class="sel-pop" id="model-pop">
         <div class="sp-title">Modelo</div>
         <button class="sp-opt" data-model="claude-haiku-4-5-20251001" onclick="pickModel('claude-haiku-4-5-20251001')">
@@ -267,7 +269,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         </button>
       </div>
 
-      <!-- â”€â”€ Effort popup â”€â”€ -->
+      <!-- ── Effort popup ── -->
       <div class="sel-pop" id="effort-pop">
         <div class="sp-title">Raciocínio do modelo</div>
         <button class="sp-opt sp-active" data-eff="0" onclick="pickEffort(0)">
@@ -294,14 +296,14 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
     </div>
   </main>
 
-  <!-- â”€â”€ RIGHT SIDEBAR â”€â”€ -->
+  <!-- ── RIGHT SIDEBAR ── -->
   <aside class="r-sb">
    <div class="rs-scroll">
     <!-- Featured (empty state) -->
     <div id="rs-featured">
       <div class="rs-block" id="rs-copa-stats" style="display:none">
         <div class="rs-stats-hdr">
-          <div class="rs-lbl">ðŸ“Š Estatísticas</div>
+          <div class="rs-lbl">📊 Estatísticas</div>
           <button type="button" class="rs-stats-sel" id="rs-stats-sel" onclick="toggleStatsCompPop(event)" aria-haspopup="listbox" aria-expanded="false">
             <span class="rs-stats-sel-name" id="rs-stats-comp-lbl">Série A</span>
             <svg viewBox="0 0 10 6" fill="currentColor" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
@@ -315,7 +317,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         <div id="rs-teams-grid"></div>
       </div>
       <div class="rs-block" id="rs-calendar" style="display:none">
-        <div class="rs-lbl">ðŸ“… Próximos Jogos</div>
+        <div class="rs-lbl">📅 Próximos Jogos</div>
         <div id="rs-calendar-list"></div>
       </div>
     </div>
@@ -357,7 +359,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 
 </div>
 
-<!-- â”€â”€ WELCOME POPUP â”€â”€ -->
+<!-- ── WELCOME POPUP ── -->
 <div id="wov" class="wov">
   <div class="wpanel">
     <div class="wp-top">
@@ -374,7 +376,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
   </div>
 </div>
 
-<!-- â”€â”€ POPUP: ajuda — tipos de análise â”€â”€ -->
+<!-- ── POPUP: ajuda — tipos de análise ── -->
 <div id="help-analysis-ov" class="help-ov" style="display:none" role="dialog" aria-modal="true" aria-labelledby="help-analysis-title" aria-hidden="true" onclick="if(event.target===this)closeHelpAnalysis()">
   <div class="help-panel" onclick="event.stopPropagation()">
     <div class="help-hdr">
@@ -396,7 +398,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         <li><b>Escalação</b> · mapa de campo / prováveis</li>
         <li><b>Dados Avançados</b> · placares, incerteza, lacunas</li>
       </ul>
-      <p class="help-how"><b>Como pedir:</b> <code>Flamengo x Palmeiras</code> ou <code>analise Brasil x Argentina</code> (confronto claro Time A Ã— Time B).</p>
+      <p class="help-how"><b>Como pedir:</b> <code>Flamengo x Palmeiras</code> ou <code>analise Brasil x Argentina</code> (confronto claro Time A × Time B).</p>
     </div>
 
     <div class="help-block help-block-chat">
@@ -417,7 +419,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
   </div>
 </div>
 
-<!-- â”€â”€ POPUP: esclarecimento de contexto (não vai como bolha de chat) â”€â”€ -->
+<!-- ── POPUP: esclarecimento de contexto (não vai como bolha de chat) ── -->
 <div id="ctx-prompt-ov" class="ctx-prompt-ov" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ctx-prompt-title">
   <div class="ctx-prompt-panel" onclick="event.stopPropagation()">
     <div class="ctx-prompt-hdr">
@@ -437,19 +439,19 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
   </div>
 </div>
 
-<!-- â”€â”€ Menu de contexto (clique direito no texto do agente) â”€â”€ -->
+<!-- ── Menu de contexto (clique direito no texto do agente) ── -->
 <div id="agent-ctx-menu" class="agent-ctx-menu" style="display:none" role="menu" aria-hidden="true" oncontextmenu="event.preventDefault();event.stopPropagation();">
   <button type="button" class="agent-ctx-item" role="menuitem" onclick="attachSelectionAsContext()">
-    <span class="agent-ctx-ico">ðŸ“Ž</span>
+    <span class="agent-ctx-ico">📎</span>
     Anexar como contexto
   </button>
   <button type="button" class="agent-ctx-item" role="menuitem" onclick="copyAgentMenuText()">
-    <span class="agent-ctx-ico">ðŸ“‹</span>
+    <span class="agent-ctx-ico">📋</span>
     Copiar texto
   </button>
 </div>
 
-<!-- â”€â”€ SETTINGS OVERLAY â”€â”€ -->
+<!-- ── SETTINGS OVERLAY ── -->
 <div id="sov" class="sov" style="display:none" onclick="closeSettings(event)">
   <div class="spanel">
     <div class="sp-hdr">
@@ -460,7 +462,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       <label class="sf-lbl" for="api-key-input">API Key Anthropic</label>
       <input id="api-key-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off">
       <div class="sf-hint" id="key-status">Guardada apenas nesta aba · apagada ao fechar</div>
-      <div class="sf-hint" style="color:var(--terra);margin-top:.3rem">âš  Não compartilhe este arquivo publicamente — a chave ficaria exposta.</div>
+      <div class="sf-hint" style="color:var(--terra);margin-top:.3rem">⚠ Não compartilhe este arquivo publicamente — a chave ficaria exposta.</div>
     </div>
     <div class="sf">
       <label class="sf-lbl" for="persona-input">Personalização do agente</label>
@@ -482,7 +484,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
             <input type="checkbox" id="dynsearch-toggle" onchange="setDynSearch(this.checked)" style="width:auto;margin:0;cursor:pointer">
             Filtragem dinâmica na busca (experimental)
           </label>
-          <div class="sf-hint">Roda a coleta (Fase 1) no <b>Sonnet</b> com <code>web_search_20260209</code>, que filtra as páginas antes de entrarem no contexto. <b>Reduz a contagem de tokens, mas tende a aumentar o custo em $</b> (Sonnet custa ~3,75Ã— o Haiku). Se o seu acesso não suportar, volta sozinho à busca padrão. Padrão: desligado.</div>
+          <div class="sf-hint">Roda a coleta (Fase 1) no <b>Sonnet</b> com <code>web_search_20260209</code>, que filtra as páginas antes de entrarem no contexto. <b>Reduz a contagem de tokens, mas tende a aumentar o custo em $</b> (Sonnet custa ~3,75× o Haiku). Se o seu acesso não suportar, volta sozinho à busca padrão. Padrão: desligado.</div>
         </div>
         <div class="sf">
           <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -599,7 +601,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
   </div>
 </div>
 
-<!-- â”€â”€ LIVE MATCH PANEL â”€â”€ -->
+<!-- ── LIVE MATCH PANEL ── -->
 <div id="lpov" class="lpov" style="display:none" onclick="if(event.target===this)closeLivePanel()">
   <div class="lpanel" id="lpanel">
     <div class="lp-loading"><span class="ldot" style="margin:4px"></span> Carregando…</div>
@@ -607,12 +609,15 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Módulos (ordem importa; defer preserva sequência) — decomposição code-review -->
-<script src="js/lib/intent.js?v=40" defer></script>
-<script src="js/analysis/tab-helpers.js?v=40" defer></script>
-<script src="js/analysis/lineup.js?v=40" defer></script>
-<script src="js/analysis/prompts.js?v=40" defer></script>
-<script src="js/export/report.js?v=40" defer></script>
-<script src="js/app.js?v=40" defer></script>
+<script src="js/lib/intent.js?v=41" defer></script>
+<script src="js/analysis/tab-helpers.js?v=41" defer></script>
+<script src="js/analysis/lineup.js?v=41" defer></script>
+<script src="js/analysis/prompts.js?v=41" defer></script>
+<script src="js/analysis/render.js?v=41" defer></script>
+<script src="js/export/report.js?v=41" defer></script>
+<script src="js/data/espn.js?v=41" defer></script>
+<script src="js/data/live.js?v=41" defer></script>
+<script src="js/app.js?v=41" defer></script>
 
 
 <!-- Mobile sidebar backdrop -->
@@ -651,7 +656,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       var b = document.getElementById('btn-install-pwa');
       var h = document.getElementById('sf-install-hint');
       if(b){ b.disabled = false; b.textContent = 'Instalar Meridian v2 como app'; }
-      if(h) h.innerHTML = 'Pronto para instalar. Clique no botão acima (ou use â‹¯ → Aplicativos no Edge).';
+      if(h) h.innerHTML = 'Pronto para instalar. Clique no botão acima (ou use ⋯ → Aplicativos no Edge).';
     }catch(_){}
   });
   window.addEventListener('appinstalled', function(){
@@ -692,7 +697,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           sw.postMessage({ type: 'PRECACHE' }, [mc.port2]);
         }
         // reforço: pede os assets principais para encher o cache
-        ['/', '/index.html', '/css/app.css?v=40', '/js/app.js?v=40', '/manifest.json',
+        ['/', '/index.html', '/css/app.css?v=41', '/js/app.js?v=41', '/manifest.json',
          '/assets/icon-192.png', '/assets/icon-512.png', '/assets/logo-aurora.png'
         ].forEach(function(u){ fetch(u, { cache: 'reload' }).catch(function(){}); });
       } catch(_){}

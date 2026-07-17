@@ -7,7 +7,7 @@
  * - Shell (HTML/CSS/JS/ícones): cache primeiro
  * - APIs externas (Anthropic, ESPN…): rede normal, sem interceptar
  */
-const CACHE_VERSION = 'meridian-v2-offline-v26';
+const CACHE_VERSION = 'meridian-v2-offline-v27';
 
 // Arquivos do app (relativos ao scope do SW)
 const SHELL = [
@@ -16,18 +16,9 @@ const SHELL = [
   './manifest.json',
   './sw.js',
   './css/app.css',
-  './css/app.css?v=40',
+  './css/app.css?v=41',
   './js/app.js',
-  './js/lib/intent.js?v=40','./js/analysis/tab-helpers.js?v=40','./js/analysis/lineup.js?v=40','./js/analysis/prompts.js?v=40','./js/export/report.js?v=40','./js/app.js?v=40','./css/print-report.css?v=40',
-  './assets/icon-192.png',
-  './assets/icon-512.png',
-  './assets/icon-maskable-192.png',
-  './assets/icon-maskable-512.png',
-  './assets/apple-touch-icon.png',
-  './assets/logo-aurora.png',
-  './assets/wc-trophy.png',
-  './assets/meridian.ico'
-];
+  './js/lib/intent.js?v=41','./js/analysis/tab-helpers.js?v=41','./js/analysis/lineup.js?v=41','./js/analysis/prompts.js?v=41','./js/analysis/render.js?v=41','./js/export/report.js?v=41','./js/data/espn.js?v=41','./js/data/live.js?v=41','./js/app.js?v=41','./css/print-report.css?v=41';
 
 function abs(path) {
   return new URL(path, self.registration.scope).href;
@@ -57,7 +48,7 @@ async function matchShell(request) {
   // match exato
   let hit = await cache.match(request);
   if (hit) return hit;
-  // ignora query string (css?v=40 vs css?v=40)
+  // ignora query string (css?v=41 vs css?v=41)
   hit = await cache.match(request, { ignoreSearch: true });
   if (hit) return hit;
   // fallbacks de HTML
