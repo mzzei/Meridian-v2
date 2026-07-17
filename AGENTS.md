@@ -6,8 +6,15 @@ Leia **`ISOLAMENTO.md`** primeiro.
 
 - Workspace = **Meridian v2** (multi-campeonato), porta **3457**.
 - **Não** é Meridian v1 / WorldCupAgent (porta **3456**).
-- Código: `index.html`, `css/app.css`, `js/app.js` (`COMPETITIONS`).
-- Verdade = **arquivos locais** (ainda sem git próprio).
+- Código modular — ver **`ARCHITECTURE.md`**:
+  - `js/lib/intent.js` — roteamento chat/análise
+  - `js/analysis/lineup.js` — mapa de escalação
+  - `js/analysis/prompts.js` — system prompts
+  - `js/analysis/tab-helpers.js` — abas / empty states
+  - `js/export/report.js` + `css/print-report.css` — export HTML/PDF
+  - `js/app.js` — orquestração / UI / pipeline
+- Git próprio: repo local em `Projetos\Meridian-v2` (não misturar com v1).
+- Testes: `node tests/run.mjs`
 
 ## Proibido
 
