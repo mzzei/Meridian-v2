@@ -282,8 +282,65 @@ function ctSideSection(s,hn,an,atkN,defN){
     '</div>';
 }
 
+/**
+ * Normaliza payloads antigos do histórico (pré-aba Escanteios / sem _corners).
+ * Idempotente — seguro chamar em toda renderização e ao reabrir salvos.
+ * Exposta em window para loadHistory/saveAnalysis em app.js.
+ */
+function normalizeAnalysisPayload(d){
+  if(!d||typeof d!=='object')return d;
+  // Reconstrói _corners a partir de campos de time (Fase 1) se a marca sumiu
+  if(!d._corners){
+    const cn=t=>{
+      if(!t||typeof t!=='object')return null;
+      const f=t.escanteios_por_jogo,s=t.escanteios_sofridos_por_jogo;
+      if((f!=null&&f!=='')||(s!=null&&s!==''))return{nome:t.nome||'',feitos:f,sofridos:s};
+      return null;
+    };
+    const cm=cn(d.mandante),cv=cn(d.visitante);
+    if(cm||cv)d._corners={mandante:cm,visitante:cv};
+  }
+  // Flags de recurso: se ausentes, infere por presença de dados
+  if(d._featEscanteios===undefined)d._featEscanteios=!!(d.escanteios||d._corners);
+  if(d._featCartoes===undefined)d._featCartoes=!!(d.cartoes_faltas||d._pstats);
+  if(d._featLineups===undefined)d._featLineups=!!(d._lineups);
+  // Pad eventos de escanteios se o bloco existir mas veio curto
+  if(d.escanteios&&Array.isArray(d.escanteios.eventos)&&typeof _padEscanteiosEventos==='function'){
+    d.escanteios.eventos=_padEscanteiosEventos(d.escanteios.eventos);
+  }
+  if(d.cartoes_faltas&&Array.isArray(d.cartoes_faltas.eventos)&&typeof _padCartoesEventos==='function'){
+    d.cartoes_faltas.eventos=_padCartoesEventos(d.cartoes_faltas.eventos);
+  }
+  // Análises pré-recurso: recupera mercados de escanteios que estavam só no Resumo/tickets
+  if(!d.escanteios&&!d._corners){
+    const cornerEv=[];
+    const pool=[...(Array.isArray(d.eventos_provaveis)?d.eventos_provaveis:[]),...(Array.isArray(d.sugestoes_ticket)?d.sugestoes_ticket:[])];
+    for(const e of pool){
+      if(!e||typeof e!=='object')continue;
+      const name=e.evento||e.descricao||'';
+      if(!/escanteio/i.test(String(name)))continue;
+      cornerEv.push({
+        evento:String(name),
+        probabilidade:typeof e.probabilidade==='number'?e.probabilidade:0.5,
+        fundamento:textFrom(e.fundamento||e.motivo||'Mercado de escanteios recuperado do relatório original (antes da aba dedicada).')
+      });
+    }
+    if(cornerEv.length){
+      d.escanteios={
+        analise:'Esta análise foi gerada antes da aba dedicada de Escanteios. Abaixo estão os mercados de escanteios que já constavam no relatório original (Resumo/tickets).',
+        eventos:typeof _padEscanteiosEventos==='function'?_padEscanteiosEventos(cornerEv):cornerEv,
+        conclusao:null,
+        _migrated:true
+      };
+      d._featEscanteios=true;
+    }
+  }
+  return d;
+}
+
 function renderResults(d,opts){
   opts=opts||{};
+  d=normalizeAnalysisPayload(d)||d;
   _cardCount++;
   const id=_cardCount;
   const now=new Date();
@@ -510,3 +567,5 @@ function renderResults(d,opts){
   else renderRecentAnalyses();
   scrollChat();
 }
+
+if(typeof window!=='undefined'){window.normalizeAnalysisPayload=normalizeAnalysisPayload;window.renderResults=renderResults;window.calcPoisson=calcPoisson;window._padEscanteiosEventos=_padEscanteiosEventos;window._padCartoesEventos=_padCartoesEventos;}

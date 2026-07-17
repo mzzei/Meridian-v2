@@ -1916,9 +1916,25 @@ function updateRightSidebar(d,prob){
 }
 
 // ─── Histórico de análises (persistente em localStorage) ───────────────────
-function loadHistory(){try{_history=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){_history=[];}}
+function loadHistory(){
+  try{_history=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){_history=[];}
+  // Migra payloads antigos (sem aba Escanteios / _corners) na carga
+  let dirty=false;
+  _history.forEach(h=>{
+    if(!h||!h.data)return;
+    try{
+      if(typeof normalizeAnalysisPayload==='function'){
+        const before=JSON.stringify(h.data);
+        h.data=normalizeAnalysisPayload(h.data);
+        if(JSON.stringify(h.data)!==before)dirty=true;
+      }
+    }catch(_){}
+  });
+  if(dirty)persistHistory();
+}
 function persistHistory(){try{localStorage.setItem(HIST_KEY,JSON.stringify(_history.slice(0,30)));}catch(e){}}
 function saveAnalysis(hid,d){
+  if(typeof normalizeAnalysisPayload==='function')d=normalizeAnalysisPayload(d)||d;
   _history=_history.filter(h=>h.hid!==hid);
   _history.unshift({hid,title:d.partida||'Análise',fase:d.fase||'',ts:new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),data:d});
   if(_history.length>30)_history=_history.slice(0,30);
@@ -1934,6 +1950,7 @@ function cardByHid(hid){return document.querySelector('.a-card[data-hid="'+(wind
 function ensureRendered(hid){
   let card=cardByHid(hid);if(card)return card;
   const h=_history.find(x=>x.hid===hid);if(!h)return null;
+  if(typeof normalizeAnalysisPayload==='function')h.data=normalizeAnalysisPayload(h.data)||h.data;
   renderResults(h.data,{hid,save:false});
   return cardByHid(hid);
 }

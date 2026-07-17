@@ -1,6 +1,6 @@
 /* js/export/report.js — export HTML/PDF (depende de esc, toast, t, brandStar, compLabel, currentTheme, ensureRendered, _activeCompId em runtime) */
 // ─── Export ───────────────────────────────────────────────────────────────
-/** format: 'html' (download .html) | 'pdf' (abre janela + diálogo Salvar como PDF) */
+/** format: 'html' (download .html) | 'pdf' (download .pdf one-click; fallback impressão) */
 function exportReport(format){
   const cards=[...document.querySelectorAll('#conversation .a-card')];
   if(!cards.length){
@@ -61,7 +61,9 @@ function exportCards(cardEls,opts){
     catch(e){console.error(e);toast('Falha ao montar o relatório. Tente de novo.');}
   });
 }
-function _exportCardsWithCss(cardEls,opts,appCss,printCss){
+
+/** Monta HTML do relatório (puro o suficiente para testes / reuso). */
+function buildExportHtml(cardEls,opts,appCss,printCss){
   opts=opts||{};
   const clone=document.createElement('div');
   cardEls.forEach(c=>clone.appendChild(c.cloneNode(true)));
@@ -69,20 +71,17 @@ function _exportCardsWithCss(cardEls,opts,appCss,printCss){
     card.querySelectorAll('.a-ic,.a-status,.a-hdr,.disc,.a-tab-pill').forEach(b=>b.remove());
     const tcs=card.querySelectorAll('.a-tc'),btns=card.querySelectorAll('.a-tab');
     tcs.forEach((tc,i)=>{
-      // Expandir TODAS as abas no HTML exportado (não depender só de @media print)
       tc.style.display='block';
       const h=document.createElement('div');
       h.className='print-tabname';
       h.textContent=btns[i]?btns[i].textContent.trim():('Seção '+(i+1));
       tc.insertBefore(h,tc.firstChild);
     });
-    // Barras de probabilidade: clone pode ter ficado em scaleX(0) se a animação não rodou
     card.querySelectorAll('.bfill[data-w],.ev-bar-fill[data-w]').forEach(b=>{
       const w=Number(b.getAttribute('data-w')||b.dataset.w||0);
       b.style.transform='scaleX('+(Math.max(0,Math.min(100,w))/100)+')';
     });
   });
-  // CSS do <style> inline (tema flash etc.) + app.css completo + overrides do relatório
   const inlineCss=[...document.querySelectorAll('style')].map(s=>s.textContent).filter(Boolean).join('\n\n');
   const now=new Date();
   const dateStr=now.toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'});
@@ -106,6 +105,9 @@ ${inlineCss}
 /* ── print-report.css (camada canônica de impressão) ── */
 ${printCss||''}
 html,body{background:${bgPrint}!important}
+/* one-click PDF: força abas expandidas e fundo estável */
+body.printing .a-tc{display:block!important}
+body.printing .a-tabs,.no-print{/* mantido */display:none!important}
 </style>
 </head>
 <body class="printing">
@@ -120,7 +122,7 @@ html,body{background:${bgPrint}!important}
     </div>
     <div class="rep-actions no-print">
       <button type="button" class="rep-print rep-print-pdf" onclick="doPrint()">↓ Salvar como PDF</button>
-      <span class="rep-print-hint">Na impressão, escolha destino <b>Salvar como PDF</b> (Edge/Chrome) ou <b>Microsoft Print to PDF</b>.</span>
+      <span class="rep-print-hint">Fallback: na impressão escolha destino <b>Salvar como PDF</b>.</span>
     </div>
   </div>
   ${clone.innerHTML}
@@ -128,8 +130,7 @@ html,body{background:${bgPrint}!important}
 </div>
 <script>
 function doPrint(){document.body.classList.add('printing');setTimeout(function(){window.print();},40);}
-window.addEventListener('afterprint',function(){/* mantém expanded */});
-// Se abriu via botão PDF do app (?pdf=1), dispara o diálogo uma vez
+window.addEventListener('afterprint',function(){});
 try{
   if(/[?&]pdf=1(?:&|$)/.test(location.search||'')||document.body.getAttribute('data-auto-pdf')==='1'){
     setTimeout(doPrint,400);
@@ -138,36 +139,112 @@ try{
 <\/script>
 </body>
 </html>`;
-  const b=new Blob([html],{type:'text/html;charset=utf-8'});
-  const u=URL.createObjectURL(b);
+  return {html,now,count,theme};
+}
+
+function _exportFileSlug(cardEls,opts,now){
   const slug=opts.single&&cardEls[0]?((cardEls[0].querySelector('.a-title')?.textContent||'analise').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40)||'analise'):'relatorio';
   const compSlug=(compLabel(_activeCompId)||'meridian').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,24)||'meridian';
-  const baseName=`meridian-${compSlug}-${slug}-${now.toISOString().slice(0,10)}`;
+  return `meridian-${compSlug}-${slug}-${now.toISOString().slice(0,10)}`;
+}
+
+/** Carrega html2pdf.js uma vez (CDN). Análise já exige rede; offline → fallback print. */
+let _html2pdfPromise=null;
+function _ensureHtml2Pdf(){
+  if(typeof window!=='undefined'&&window.html2pdf)return Promise.resolve(window.html2pdf);
+  if(_html2pdfPromise)return _html2pdfPromise;
+  _html2pdfPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js';
+    s.async=true;
+    s.onload=()=>{
+      if(window.html2pdf)resolve(window.html2pdf);
+      else reject(new Error('html2pdf missing after load'));
+    };
+    s.onerror=()=>reject(new Error('html2pdf CDN failed'));
+    document.head.appendChild(s);
+  }).catch(err=>{_html2pdfPromise=null;throw err;});
+  return _html2pdfPromise;
+}
+
+/**
+ * PDF one-click: gera arquivo .pdf e dispara download (sem diálogo de impressão).
+ * Fallback: janela + window.print() se a lib CDN falhar ou o DOM for grande demais.
+ */
+async function _downloadPdfOneClick(html,baseName){
+  const h2p=await _ensureHtml2Pdf();
+  const host=document.createElement('div');
+  host.setAttribute('data-meridian-pdf-host','1');
+  host.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#0c1016;z-index:-1;opacity:0;pointer-events:none;';
+  document.body.appendChild(host);
+  const iframe=document.createElement('iframe');
+  iframe.setAttribute('title','pdf-export');
+  iframe.style.cssText='width:794px;height:1123px;border:0;';
+  host.appendChild(iframe);
+  const idoc=iframe.contentDocument||iframe.contentWindow.document;
+  idoc.open();
+  idoc.write(html.replace('<body class="printing">','<body class="printing" data-pdf-render="1">'));
+  idoc.close();
+  // Espera layout + fontes (best-effort)
+  await new Promise(r=>setTimeout(r,550));
+  const target=idoc.body;
+  try{
+    await h2p().set({
+      margin:[8,8,10,8],
+      filename:baseName+'.pdf',
+      image:{type:'jpeg',quality:0.93},
+      html2canvas:{scale:2,useCORS:true,logging:false,backgroundColor:'#0c1016',windowWidth:794},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'],avoid:['.a-card','.tab-s','.ticket','.ev-row']}
+    }).from(target).save();
+    toast('PDF baixado (one-click).');
+    return true;
+  }finally{
+    try{host.remove();}catch(_){}
+  }
+}
+
+function _exportPdfViaPrintDialog(html,baseName,blobUrl){
+  const w=window.open('','_blank');
+  if(!w){
+    const a=document.createElement('a');
+    a.href=blobUrl;a.download=baseName+'.html';a.click();
+    toast('Permita pop-ups para PDF, ou abra o HTML e use Ctrl+P → Salvar como PDF.');
+    return;
+  }
+  try{
+    w.document.open();
+    w.document.write(html.replace('<body class="printing">','<body class="printing" data-auto-pdf="1">'));
+    w.document.close();
+    w.document.title=baseName;
+  }catch(err){
+    try{w.location=blobUrl;}catch(_){}
+    setTimeout(()=>{try{w.print();}catch(_){}},600);
+  }
+  toast('Fallback: na janela de impressão escolha “Salvar como PDF”.');
+}
+
+function _exportCardsWithCss(cardEls,opts,appCss,printCss){
+  opts=opts||{};
+  const built=buildExportHtml(cardEls,opts,appCss,printCss);
+  const html=built.html;
+  const now=built.now;
+  const b=new Blob([html],{type:'text/html;charset=utf-8'});
+  const u=URL.createObjectURL(b);
+  const baseName=_exportFileSlug(cardEls,opts,now);
   const asPdf=opts.format==='pdf'||opts.pdf===true;
 
   if(asPdf){
-    // Abre com document.write + data-auto-pdf (dispara print → Salvar como PDF).
-    const w=window.open('','_blank');
-    if(!w){
-      const a=document.createElement('a');
-      a.href=u;a.download=baseName+'.html';a.click();
-      toast('Permita pop-ups para PDF, ou abra o HTML e use Ctrl+P → Salvar como PDF.');
-      setTimeout(()=>URL.revokeObjectURL(u),60_000);
-      return;
-    }
-    try{
-      w.document.open();
-      // Reusa o mesmo HTML com atributo de auto-PDF
-      w.document.write(html.replace('<body class="printing">','<body class="printing" data-auto-pdf="1">'));
-      w.document.close();
-      w.document.title=baseName;
-    }catch(err){
-      // Fallback: navega para o blob
-      try{w.location=u;}catch(_){}
-      setTimeout(()=>{try{w.print();}catch(_){}},600);
-    }
-    toast('Na janela de impressão: destino “Salvar como PDF” (ou Microsoft Print to PDF).');
-    setTimeout(()=>URL.revokeObjectURL(u),120_000);
+    // One-click PDF (html2pdf) → se falhar, diálogo de impressão
+    _downloadPdfOneClick(html,baseName).then(ok=>{
+      if(!ok)_exportPdfViaPrintDialog(html,baseName,u);
+    }).catch(err=>{
+      console.warn('PDF one-click falhou, usando impressão:',err);
+      _exportPdfViaPrintDialog(html,baseName,u);
+    }).finally(()=>{
+      setTimeout(()=>URL.revokeObjectURL(u),120_000);
+    });
+    toast('Gerando PDF…');
     return;
   }
 
@@ -176,7 +253,13 @@ try{
   a.href=u;a.download=baseName+'.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(u),30_000);
-  toast('HTML baixado. Para PDF: use o botão PDF no app ou Ctrl+P no arquivo.');
+  toast('HTML baixado. Para PDF: use o botão PDF no app.');
 }
 
-
+if(typeof window!=='undefined'){
+  window.exportReport=exportReport;
+  window.exportSingle=exportSingle;
+  window.toggleExportMenu=toggleExportMenu;
+  window.exportCards=exportCards;
+  window.buildExportHtml=buildExportHtml;
+}
