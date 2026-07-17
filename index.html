@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meridian v2</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0c1016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meridian v2">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css?v=40">
+<script>
+/* Aplica tema antes do paint (aurora | verde | mono) */
+try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
+</script>
+</head>
+<body>
+<div class="wc-blobs">
+  <div class="wc-blob wc-blob1"></div>
+  <div class="wc-blob wc-blob2"></div>
+  <div class="wc-blob wc-blob3"></div>
+</div>
+<div class="app">
+
+  <!-- â”€â”€ LEFT SIDEBAR â”€â”€ -->
+  <aside class="l-sb" id="l-sb">
+    <div class="ls-brand">
+      <div class="ls-emblem">
+        <div class="ls-emblem-aura"></div>
+        <div class="ls-emblem-face">
+          <img class="ls-emblem-photo" id="ls-brand-logo" src="assets/logo-aurora.png" alt="Meridian" onerror="this.remove()">
+          <svg class="ls-emblem-trophy" viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg" aria-label="Meridian" aria-hidden="true">
+            <defs>
+              <linearGradient id="wcgold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#fbeeb0"/><stop offset=".42" stop-color="#e8c46a"/><stop offset="1" stop-color="#b9852f"/>
+              </linearGradient>
+              <linearGradient id="wcgreen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#6ba8a0"/><stop offset="1" stop-color="#2a3540"/>
+              </linearGradient>
+            </defs>
+            <!-- globe -->
+            <circle cx="60" cy="29" r="18" fill="url(#wcgold)"/>
+            <path d="M60 11a18 18 0 0 1 0 36" fill="none" stroke="#9c6e29" stroke-width="1.3" opacity=".45"/>
+            <line x1="42" y1="29" x2="78" y2="29" stroke="#9c6e29" stroke-width="1.3" opacity=".4"/>
+            <ellipse cx="60" cy="29" rx="7" ry="18" fill="none" stroke="#9c6e29" stroke-width="1.1" opacity=".38"/>
+            <!-- twisting body -->
+            <path d="M52 47C46 60 45 72 50 84c3 8 7 12 8 22h4c1-10 5-14 8-22 5-12 4-24-2-37-2 3-5 4-8 4s-6-1-8-4Z" fill="url(#wcgold)"/>
+            <!-- base -->
+            <path d="M44 106h32l-3.5 17h-25Z" fill="url(#wcgold)"/>
+            <rect x="46.5" y="111" width="27" height="3.6" fill="url(#wcgreen)"/>
+            <rect x="48" y="117.5" width="24" height="3.6" fill="url(#wcgreen)"/>
+            <rect x="43" y="123" width="34" height="6.5" rx="2" fill="url(#wcgold)"/>
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div class="ls-name">MERIDIAN<span class="ls-name-agent wc-lime">SPORTS INTELLIGENCE</span></div>
+      </div>
+    </div>
+
+    <button class="ls-new" onclick="clearAll();closeSidebar()">+ Nova Análise</button>
+
+    <nav class="ls-nav">
+      <button class="ls-link active" id="nav-chat" onclick="showView('chat');closeSidebar()">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+      <button class="ls-link" id="nav-library" onclick="showView('library');closeSidebar()">
+        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Biblioteca de Jogos
+      </button>
+      <button class="ls-link" id="nav-saved" onclick="showView('saved');closeSidebar()">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Relatórios Salvos
+      </button>
+      <button class="ls-link soon" disabled title="Em breve">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Modelos de Análise
+        <span class="ls-soon-tag">em breve</span>
+      </button>
+      <button class="ls-link" onclick="openSettings();closeSidebar()">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </button>
+    </nav>
+
+    <div class="ls-hist" id="ls-hist">
+      <span class="ls-hist-empty">Nenhuma análise ainda</span>
+    </div>
+
+    <div class="ls-foot">
+      <div class="ls-avatar">U</div>
+      <div class="ls-user-meta">
+        <div class="ls-uname">Usuário</div>
+        <div class="ls-uplan">Plano API · Claude</div>
+      </div>
+      <button type="button" class="ls-help-btn" id="ls-help-btn" onclick="openHelpAnalysis()" title="Como funciona a análise" aria-label="Ajuda: tipos de análise">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- â”€â”€ MAIN PANEL â”€â”€ -->
+  <main class="main">
+    <header class="m-hdr">
+      <button class="m-burger" onclick="toggleSidebar()" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <div style="flex:1;min-width:0">
+        <div class="m-title">Chat</div>
+        <div class="m-sub" style="display:none"></div>
+      </div>
+      <div class="m-hdr-acts export-acts">
+        <div class="export-menu-wrap">
+          <button type="button" class="hdr-primary" id="export-menu-btn" onclick="toggleExportMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Exportar relatório (HTML ou PDF)">
+            <svg class="hdr-export-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg><span class="hdr-text"> Exportar</span>
+            <svg class="hdr-caret-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="export-pop" id="export-pop" role="menu" style="display:none" aria-hidden="true">
+            <button type="button" class="export-opt" id="export-opt-html" role="menuitem" onclick="toggleExportMenu();exportReport('html')">HTML</button>
+            <button type="button" class="export-opt export-opt-pdf" id="export-opt-pdf" role="menuitem" onclick="toggleExportMenu();exportReport('pdf')">PDF</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="ntick" id="ntick" style="display:none" role="region" aria-label="Notícias e alertas">
+      <span class="ntick-tag" title="Alertas" aria-hidden="true">
+        <svg class="ntick-alert-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </span>
+      <div class="ntick-wrap"><div class="ntick-inner" id="ntick-inner"></div></div>
+    </div>
+
+    <div class="chat" id="chat">
+      <!-- Empty state -->
+      <div id="empty-state">
+        <div class="empty-greet">
+          <h2>Olá, tudo pronto para analisar.</h2>
+          <p>Selecione uma partida abaixo ou descreva o que quer analisar.</p>
+        </div>
+
+        <!-- Mobile fallback for featured (right sidebar hidden <640px) -->
+        <div class="es-mobile-featured" id="es-mobile-featured"></div>
+
+        <!-- Schedule chips -->
+        <div class="ex-wrap">
+          <div class="ex-hdr">
+            <span class="ex-lbl" id="sched-lbl">jogos de hoje e próximos dias</span>
+            <button class="ex-reload" id="reload-btn" onclick="loadSchedule(true)" style="display:none">» atualizar</button>
+          </div>
+          <div class="ex-chips" id="ex-chips">
+            <span class="ex-loading" id="ex-auto-hint"><span class="ldot"></span> Carregando agenda…</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Conversation -->
+      <div id="conversation"></div>
+    </div>
+
+    <!-- Relatórios Salvos panel -->
+    <div class="lib-panel" id="saved-panel" style="display:none">
+      <div class="lib-filter-bar" style="justify-content:space-between">
+        <span class="lib-filter-lbl" style="font-size:12px;color:var(--mid);font-weight:500">Partidas analisadas salvas automaticamente</span>
+        <button class="lib-filter-btn" id="saved-clear-btn" onclick="clearHistory()" style="display:none">Limpar tudo</button>
+      </div>
+      <div class="lib-matches" id="saved-list"></div>
+    </div>
+
+    <!-- Biblioteca de Jogos panel (cards de campeonato → jogos) -->
+    <div class="lib-panel" id="lib-panel" style="display:none">
+      <div class="lib-filter-bar" id="lib-filter-bar">
+        <button class="lib-back" id="lib-back-btn" style="display:none" onclick="libBackToComps()"> Campeonatos</button>
+        <span class="lib-filter-lbl" id="lib-filter-lbl">Campeonatos</span>
+        <span id="lib-match-filters" style="display:none;align-items:center;gap:5px;flex-wrap:wrap">
+          <button class="lib-filter-btn active" data-f="todos" onclick="setLibFilter('todos')">Todos</button>
+          <button class="lib-filter-btn" data-f="hoje" onclick="setLibFilter('hoje')">Hoje</button>
+          <button class="lib-filter-btn" data-f="amanha" onclick="setLibFilter('amanha')">Amanhã</button>
+          <button class="lib-filter-btn" data-f="semana" onclick="setLibFilter('semana')">7 dias</button>
+        </span>
+      </div>
+      <div class="lib-matches" id="lib-matches"></div>
+      <div class="lib-cache-note" id="lib-cache-note"></div>
+    </div>
+
+    <!-- Input dock -->
+    <div class="i-dock">
+      <div id="error-box" class="err-box" style="display:none"><span id="error-msg"></span></div>
+      <input type="file" id="attach-input" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,.pdf,.txt,.md,.markdown,.csv" multiple style="display:none" onchange="onAttachInput(this)">
+      <div class="attach-chips" id="attach-chips"></div>
+      <div class="attach-chips" id="context-chips"></div>
+      <div id="context-editor" class="ctx-editor" style="display:none">
+        <label class="ctx-editor-lbl">Contexto adicional para esta conversa</label>
+        <textarea id="context-input" class="ctx-textarea" rows="3" placeholder="Ex.: Considere que o jogo é em altitude e sob calor extremo. O zagueiro titular X está suspenso. Foco em mercados de gols."></textarea>
+        <div class="ctx-editor-acts">
+          <button class="ctx-btn-cancel" onclick="toggleContextEditor()">Cancelar</button>
+          <button class="ctx-btn-save" onclick="applyContext()">Salvar contexto</button>
+        </div>
+      </div>
+      <textarea id="match-input" rows="1" placeholder="Descreva uma partida ou pergunte…"></textarea>
+      <div class="i-bar">
+        <div class="i-selectors">
+          <button class="i-sel-btn" id="model-sel-btn" onclick="toggleModelPop(event)">
+            <span id="model-sel-lbl">Sonnet</span>
+            <svg class="i-sel-arr" viewBox="0 0 8 5"><path d="M0 0l4 5 4-5z"/></svg>
+          </button>
+          <button class="i-sel-btn" id="effort-sel-btn" onclick="toggleEffortPop(event)">
+            <span id="effort-sel-lbl">Padrão</span>
+            <svg class="i-sel-arr" viewBox="0 0 8 5"><path d="M0 0l4 5 4-5z"/></svg>
+          </button>
+        </div>
+        <div class="i-tok-mini" id="i-tok-mini" style="display:none">
+          <svg class="tok-ring-svg" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="7" class="tok-ring-track"/>
+            <circle cx="10" cy="10" r="7" class="tok-ring-fill" id="tok-ring-fill" stroke-dasharray="0 43.98"/>
+          </svg>
+          <span class="i-tok-n" id="i-tok-num">0</span>
+          <span class="i-tok-s">tok ·</span>
+          <span class="i-tok-c" id="i-tok-cost">$0.00</span>
+        </div>
+        <div class="i-actions">
+          <button class="i-attach" id="context-btn" onclick="toggleContextEditor()" title="Adicionar contexto à conversa" aria-label="Adicionar contexto">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+          <button class="i-attach" onclick="document.getElementById('attach-input').click()" title="Anexar imagem, PDF ou texto (ou cole imagem com Ctrl+V)" aria-label="Anexar arquivo">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="i-clear" onclick="clearAll()" title="Limpar">º</button>
+          <button class="i-analyze" id="run-btn" onclick="toggleRun()">Analisar</button>
+        </div>
+      </div>
+      <p class="i-disc">O agente pode cometer erros. Sempre valide as informações.</p>
+
+      <!-- â”€â”€ Model popup â”€â”€ -->
+      <div class="sel-pop" id="model-pop">
+        <div class="sp-title">Modelo</div>
+        <button class="sp-opt" data-model="claude-haiku-4-5-20251001" onclick="pickModel('claude-haiku-4-5-20251001')">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Haiku 4.5</span><span class="sp-desc">Rápido e econômico · sem raciocínio</span></span>
+          <span class="sp-tag">$0.80/M</span>
+        </button>
+        <button class="sp-opt sp-active" data-model="claude-sonnet-4-6" onclick="pickModel('claude-sonnet-4-6')">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Sonnet 4.6</span><span class="sp-desc">Padrão — melhor custo-benefício</span></span>
+          <span class="sp-tag">$3/M</span>
+        </button>
+        <button class="sp-opt" data-model="claude-opus-4-8" onclick="pickModel('claude-opus-4-8')">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Opus 4.8</span><span class="sp-desc">Máxima capacidade e precisão</span></span>
+          <span class="sp-tag">$15/M</span>
+        </button>
+      </div>
+
+      <!-- â”€â”€ Effort popup â”€â”€ -->
+      <div class="sel-pop" id="effort-pop">
+        <div class="sp-title">Raciocínio do modelo</div>
+        <button class="sp-opt sp-active" data-eff="0" onclick="pickEffort(0)">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Padrão</span><span class="sp-desc">1 busca · sem raciocínio · mais rápido</span></span>
+        </button>
+        <button class="sp-opt" data-eff="1" onclick="pickEffort(1)">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Leve</span><span class="sp-desc">1 busca · ~2k de raciocínio</span></span>
+        </button>
+        <button class="sp-opt" data-eff="2" onclick="pickEffort(2)">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Médio</span><span class="sp-desc">2 buscas · ~5k de raciocínio</span></span>
+        </button>
+        <button class="sp-opt" data-eff="3" onclick="pickEffort(3)">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Alto</span><span class="sp-desc">3 buscas · ~10k de raciocínio</span></span>
+        </button>
+        <button class="sp-opt" data-eff="4" onclick="pickEffort(4)">
+          <span class="sp-dot"></span>
+          <span class="sp-txt"><span class="sp-name">Máximo</span><span class="sp-desc">3 buscas · ~16k de raciocínio</span></span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- â”€â”€ RIGHT SIDEBAR â”€â”€ -->
+  <aside class="r-sb">
+   <div class="rs-scroll">
+    <!-- Featured (empty state) -->
+    <div id="rs-featured">
+      <div class="rs-block" id="rs-copa-stats" style="display:none">
+        <div class="rs-stats-hdr">
+          <div class="rs-lbl">ðŸ“Š Estatísticas</div>
+          <button type="button" class="rs-stats-sel" id="rs-stats-sel" onclick="toggleStatsCompPop(event)" aria-haspopup="listbox" aria-expanded="false">
+            <span class="rs-stats-sel-name" id="rs-stats-comp-lbl">Série A</span>
+            <svg viewBox="0 0 10 6" fill="currentColor" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </button>
+          
+        </div>
+        <div id="rs-copa-stats-body"></div>
+      </div>
+      <div class="rs-block" id="rs-teams" style="display:none">
+        <div class="rs-lbl">★ Clubes em Destaque</div>
+        <div id="rs-teams-grid"></div>
+      </div>
+      <div class="rs-block" id="rs-calendar" style="display:none">
+        <div class="rs-lbl">ðŸ“… Próximos Jogos</div>
+        <div id="rs-calendar-list"></div>
+      </div>
+    </div>
+
+    <!-- Match context -->
+    <div class="rs-block" id="rs-match" style="display:none">
+      <div class="rs-lbl">Contexto da Partida</div>
+      <div id="rs-match-card"></div>
+    </div>
+
+    <!-- Key insights -->
+    <div class="rs-block" id="rs-insights" style="display:none">
+      <div class="rs-lbl">Insights Rápidos</div>
+      <div id="rs-insights-list"></div>
+    </div>
+
+    <!-- Match stats -->
+    <div class="rs-block" id="rs-stats" style="display:none">
+      <div class="rs-lbl">Estatísticas Comparativas</div>
+      <div id="rs-stats-list"></div>
+    </div>
+
+    <!-- Token bar -->
+    <div class="rs-block" id="token-bar" style="display:none">
+      <div class="rs-lbl">Uso da API</div>
+      <div class="tok-row"><span class="tok-lbl">Janela de contexto</span><span class="tok-val" id="tok-ctx-val">—</span></div>
+      <div class="tok-track"><div class="tok-fill" id="tok-ctx-fill"></div></div>
+      <div class="tok-row"><span class="tok-lbl">Sessão total</span><span class="tok-val" id="tok-session-val">—</span></div>
+      <div class="tok-track"><div class="tok-fill tok-fill-dim" id="tok-session-fill"></div></div>
+      <div class="tok-footer">
+        <span id="tok-model-footer"></span>
+        <span id="tok-runs-footer"></span>
+        <span id="tok-cache-footer" style="color:var(--terra)"></span>
+      </div>
+    </div>
+
+   </div>
+  </aside>
+
+</div>
+
+<!-- â”€â”€ WELCOME POPUP â”€â”€ -->
+<div id="wov" class="wov">
+  <div class="wpanel">
+    <div class="wp-top">
+      <div class="wp-icon"><img class="wp-logo-img" id="wp-brand-logo" src="assets/logo-aurora.png" alt="Meridian" width="56" height="56"></div>
+      <div class="wp-title">Bem-vindo ao Meridian</div>
+    </div>
+    <div class="wp-body">
+      <p class="wp-text">A <b>chave API da Anthropic</b> é um código pessoal que libera o agente para usar inteligência artificial — sem ela, o agente não consegue analisar partidas nem responder perguntas.<br><br>Criar uma é gratuito e leva menos de 2 minutos: clique em <b>"Configurar agora"</b>, cole o código e pronto.</p>
+      <div class="wp-btns">
+        <button class="wp-cta" onclick="welcomeSetup()">Configurar agora</button>
+        <button class="wp-skip" onclick="welcomeDismiss()">Entendi, farei depois</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- â”€â”€ POPUP: ajuda — tipos de análise â”€â”€ -->
+<div id="help-analysis-ov" class="help-ov" style="display:none" role="dialog" aria-modal="true" aria-labelledby="help-analysis-title" aria-hidden="true" onclick="if(event.target===this)closeHelpAnalysis()">
+  <div class="help-panel" onclick="event.stopPropagation()">
+    <div class="help-hdr">
+      <div class="help-kicker">Como analisar</div>
+      <button type="button" class="help-x" onclick="closeHelpAnalysis()" aria-label="Fechar">✕</button>
+    </div>
+    <h2 class="help-title" id="help-analysis-title">Dois modos de entrega</h2>
+    <p class="help-lead">O Meridian escolhe o formato pelo que você digita. Entenda a diferença para evitar card “errado”.</p>
+
+    <div class="help-block help-block-std">
+      <div class="help-block-tag">Análise padrão</div>
+      <p class="help-block-body">Relatório completo no card com abas fixas — o mesmo modelo do export PDF:</p>
+      <ul class="help-list">
+        <li><b>Resumo</b> · fatores, tendências, tickets</li>
+        <li><b>Tática</b> · probabilidades, gols esperados, técnicos</li>
+        <li><b>Desempenho</b> · jogadores-chave e stats</li>
+        <li><b>Cartões &amp; Faltas</b> · disciplina</li>
+        <li><b>Escanteios</b> · leitura e mercados (PDF de referência)</li>
+        <li><b>Escalação</b> · mapa de campo / prováveis</li>
+        <li><b>Dados Avançados</b> · placares, incerteza, lacunas</li>
+      </ul>
+      <p class="help-how"><b>Como pedir:</b> <code>Flamengo x Palmeiras</code> ou <code>analise Brasil x Argentina</code> (confronto claro Time A Ã— Time B).</p>
+    </div>
+
+    <div class="help-block help-block-chat">
+      <div class="help-block-tag">Chat livre</div>
+      <p class="help-block-body">Card flexível (abas livres) ou texto — para opinião, recortes e pós-jogo sem relatório completo.</p>
+      <p class="help-how"><b>Exemplos:</b> “o que achou do 2º tempo?”, “só os gols do jogo”, “opinião sobre o jogo de hoje”.</p>
+    </div>
+
+    <div class="help-block help-block-ctx">
+      <div class="help-block-tag">Contexto</div>
+      <p class="help-block-body">Se a pergunta for ambígua (ex.: “jogo de hoje” sem times), o app abre um popup de opções — não inventa o jogo.</p>
+      <p class="help-how">Você também pode fixar pano de fundo com o ícone de <b>lápis/contexto</b> ao lado da caixa de mensagem (ao lado do clipe de anexo).</p>
+    </div>
+
+    <div class="help-acts">
+      <button type="button" class="help-btn-ok" onclick="closeHelpAnalysis()">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<!-- â”€â”€ POPUP: esclarecimento de contexto (não vai como bolha de chat) â”€â”€ -->
+<div id="ctx-prompt-ov" class="ctx-prompt-ov" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ctx-prompt-title">
+  <div class="ctx-prompt-panel" onclick="event.stopPropagation()">
+    <div class="ctx-prompt-hdr">
+      <div class="ctx-prompt-kicker">Contexto necessário</div>
+      <button type="button" class="ctx-prompt-x" onclick="closeContextPromptPopup()" aria-label="Fechar">✕</button>
+    </div>
+    <p class="ctx-prompt-q" id="ctx-prompt-title">Qual o contexto desta pergunta?</p>
+    <div class="ctx-prompt-opts" id="ctx-prompt-opts" role="radiogroup"></div>
+    <div class="ctx-prompt-other" id="ctx-prompt-other-wrap" style="display:none">
+      <label class="ctx-prompt-other-lbl" for="ctx-prompt-other-input">Descreva o contexto</label>
+      <textarea id="ctx-prompt-other-input" class="ctx-prompt-other-ta" rows="3" placeholder="Ex.: Jogo Argentina x País X de hoje, foco em desempenho no 2º tempo…"></textarea>
+    </div>
+    <div class="ctx-prompt-acts">
+      <button type="button" class="ctx-btn-cancel" onclick="closeContextPromptPopup()">Cancelar</button>
+      <button type="button" class="ctx-btn-save" id="ctx-prompt-ok" onclick="confirmContextPrompt()">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- â”€â”€ Menu de contexto (clique direito no texto do agente) â”€â”€ -->
+<div id="agent-ctx-menu" class="agent-ctx-menu" style="display:none" role="menu" aria-hidden="true" oncontextmenu="event.preventDefault();event.stopPropagation();">
+  <button type="button" class="agent-ctx-item" role="menuitem" onclick="attachSelectionAsContext()">
+    <span class="agent-ctx-ico">ðŸ“Ž</span>
+    Anexar como contexto
+  </button>
+  <button type="button" class="agent-ctx-item" role="menuitem" onclick="copyAgentMenuText()">
+    <span class="agent-ctx-ico">ðŸ“‹</span>
+    Copiar texto
+  </button>
+</div>
+
+<!-- â”€â”€ SETTINGS OVERLAY â”€â”€ -->
+<div id="sov" class="sov" style="display:none" onclick="closeSettings(event)">
+  <div class="spanel">
+    <div class="sp-hdr">
+      <h2>Configurações</h2>
+      <button class="sp-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="sf">
+      <label class="sf-lbl" for="api-key-input">API Key Anthropic</label>
+      <input id="api-key-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off">
+      <div class="sf-hint" id="key-status">Guardada apenas nesta aba · apagada ao fechar</div>
+      <div class="sf-hint" style="color:var(--terra);margin-top:.3rem">âš  Não compartilhe este arquivo publicamente — a chave ficaria exposta.</div>
+    </div>
+    <div class="sf">
+      <label class="sf-lbl" for="persona-input">Personalização do agente</label>
+      <textarea id="persona-input" rows="3" placeholder="Ex.: Me chame de 'chefe'. Seja informal, bem-humorado e use jargão de boleiro. Vá direto ao ponto." oninput="savePersona(this.value)"></textarea>
+      <div class="sf-hint">Define <b>como o agente fala com você</b> — nome, tom, humor, formato. Não altera a precisão das análises, os dados nem a estrutura das respostas; só o jeito de se dirigir a você. Guardado neste navegador.</div>
+    </div>
+    <details class="sf-adv">
+      <summary>Configurações avançadas</summary>
+      <div class="sf-adv-body">
+        <div class="sf">
+          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="auto-ai-toggle" onchange="setAutoAi(this.checked)" style="width:auto;margin:0;cursor:pointer">
+            Enriquecer dados via IA automaticamente
+          </label>
+          <div class="sf-hint">Desligado (padrão · economia): no automático usa só dados gratuitos do ESPN — créditos da API são gastos <b>somente nas análises que você pede</b>. Ligado: ao abrir, a IA pesquisa classificação/contexto extra (consome créditos).</div>
+        </div>
+        <div class="sf">
+          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="dynsearch-toggle" onchange="setDynSearch(this.checked)" style="width:auto;margin:0;cursor:pointer">
+            Filtragem dinâmica na busca (experimental)
+          </label>
+          <div class="sf-hint">Roda a coleta (Fase 1) no <b>Sonnet</b> com <code>web_search_20260209</code>, que filtra as páginas antes de entrarem no contexto. <b>Reduz a contagem de tokens, mas tende a aumentar o custo em $</b> (Sonnet custa ~3,75Ã— o Haiku). Se o seu acesso não suportar, volta sozinho à busca padrão. Padrão: desligado.</div>
+        </div>
+        <div class="sf">
+          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="perf-mode-toggle" onchange="setPerfMode(this.checked)" style="width:auto;margin:0;cursor:pointer">
+            Modo desempenho (menos efeitos visuais)
+          </label>
+          <div class="sf-hint" id="perf-mode-hint">Desliga o desfoque de fundo (blur/vidro fosco) e as animações decorativas — deixa a interface mais leve para computadores que engasgam. O app já detecta automaticamente quando o dispositivo está renderizando abaixo de 45fps e liga isso sozinho; use este botão para forçar manualmente.</div>
+        </div>
+      </div>
+    </details>
+    <div class="sf">
+      <label class="sf-lbl" for="worker-url-input">Worker URL (Cloudflare)</label>
+      <input id="worker-url-input" type="text" placeholder="https://seu-worker.workers.dev" autocomplete="off" oninput="saveWorkerUrl(this.value)">
+      <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic <b>e API-Football</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede a API-Football de funcionar direto. Código e passo a passo em <code>worker/</code> no repositório.</div>
+    </div>
+    <details class="sf-adv">
+      <summary>Informações avançadas (não interessantes)</summary>
+      <div class="sf-adv-body">
+        <div class="sf">
+          <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
+
+          <div class="ds-row">
+            <span class="ds-name">ESPN</span>
+            <span class="ds-status" id="espn-status">carregando…</span>
+          </div>
+
+          <div class="ds-row">
+            <span class="ds-name">API-Football</span>
+            <span class="ds-status" id="af-status"></span>
+          </div>
+          <input id="af-key-input" type="password" placeholder="Chave API-Football" autocomplete="off">
+
+          <div class="ds-row">
+            <span class="ds-name">football-data.org</span>
+            <span class="ds-status" id="fd-status"></span>
+          </div>
+          <input id="fd-key-input" type="password" placeholder="Chave football-data.org" autocomplete="off">
+
+          <div class="ds-row">
+            <span class="ds-name">StatsBomb</span>
+            <span class="ds-status" id="sb-status"></span>
+          </div>
+          <input id="sb-key-input" type="password" placeholder="Chave StatsBomb" autocomplete="off">
+
+          <div class="ds-row">
+            <span class="ds-name">Opta / Stats Perform</span>
+            <span class="ds-status" id="op-status"></span>
+          </div>
+          <input id="op-key-input" type="password" placeholder="Chave Opta (Stats Perform)" autocomplete="off">
+        </div>
+      </div>
+    </details>
+    <div class="sf" id="sf-install-section">
+      <label class="sf-lbl">Instalar no Windows</label>
+      <button type="button" class="lang-btn" id="btn-install-pwa" onclick="installPwaApp()" style="width:100%;margin-top:.35rem;padding:.65rem .8rem;font-weight:600">
+        Instalar Meridian v2 como app
+      </button>
+      <div class="sf-hint" id="sf-install-hint">
+        <b>Modo offline (sem servidor):</b> instale o app, abra <b>uma vez</b> com
+        <code>Iniciar Meridian v2.bat</code> ligado (grava o cache) e depois pode fechar o Node.
+        Reabra pelo menu Iniciar. Análises/APIs ainda precisam de internet.
+      </div>
+    </div>
+    <div class="sf" id="sf-theme-section">
+      <label class="sf-lbl" id="sf-theme-lbl">Cor</label>
+      <div class="lang-row theme-row">
+        <button type="button" class="lang-btn theme-btn active" data-theme="aurora" onclick="setTheme('aurora')" title="Paleta Aurora (atual)">
+          <span class="theme-swatch theme-swatch-aurora" aria-hidden="true"></span>
+          <span>Aurora</span>
+        </button>
+        <button type="button" class="lang-btn theme-btn" data-theme="verde" onclick="setTheme('verde')" title="Verde clássico Meridian">
+          <span class="theme-swatch theme-swatch-verde" aria-hidden="true"></span>
+          <span>Verde</span>
+        </button>
+        <button type="button" class="lang-btn theme-btn" data-theme="mono" onclick="setTheme('mono')" title="Monocromático B&W (cinzas suaves)">
+          <span class="theme-swatch theme-swatch-mono" aria-hidden="true"></span>
+          <span>B&amp;W</span>
+        </button>
+      </div>
+    </div>
+    <div class="sf" id="sf-lang-section">
+      <label class="sf-lbl" id="sf-lang-lbl">Idioma</label>
+      <div class="lang-row">
+        <button class="lang-btn active" data-lang="pt" onclick="setLang('pt')">PT-BR</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <div class="sf" id="sf-tok-usage">
+      <label class="sf-lbl" id="sf-usage-lbl">Uso de API · Sessão</label>
+      <div class="tok-sf-empty" id="sf-tok-empty">Nenhuma análise nesta sessão</div>
+      <div class="tok-sf-cost-card" id="sf-tok-costcard" style="display:none">
+        <div class="tok-sf-cost-val" id="sf-tok-cost">—</div>
+        <div class="tok-sf-cost-lbl">custo estimado</div>
+      </div>
+      <div class="tok-sf-rows" id="sf-tok-rows" style="display:none">
+        <div class="tok-sf-row">
+          <span class="tok-sf-rkey">Tokens</span>
+          <span class="tok-sf-rval" id="sf-tok-tokens">—</span>
+        </div>
+        <div class="tok-sf-row" id="sf-tok-cache-row" style="display:none">
+          <span class="tok-sf-rkey">Cache</span>
+          <span class="tok-sf-rval tok-sf-green" id="sf-tok-cacherow">—</span>
+        </div>
+        <div class="tok-sf-row" id="sf-tok-miss-row" style="display:none">
+          <span class="tok-sf-rkey">Último miss</span>
+          <span class="tok-sf-rval tok-sf-amber" id="sf-tok-missrow">—</span>
+        </div>
+        <div class="tok-sf-row">
+          <span class="tok-sf-rkey">Análises</span>
+          <span class="tok-sf-rval" id="sf-tok-runs">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- â”€â”€ LIVE MATCH PANEL â”€â”€ -->
+<div id="lpov" class="lpov" style="display:none" onclick="if(event.target===this)closeLivePanel()">
+  <div class="lpanel" id="lpanel">
+    <div class="lp-loading"><span class="ldot" style="margin:4px"></span> Carregando…</div>
+  </div>
+</div>
+
+<!-- Módulos (ordem importa; defer preserva sequência) — decomposição code-review -->
+<script src="js/lib/intent.js?v=40" defer></script>
+<script src="js/analysis/tab-helpers.js?v=40" defer></script>
+<script src="js/analysis/lineup.js?v=40" defer></script>
+<script src="js/analysis/prompts.js?v=40" defer></script>
+<script src="js/export/report.js?v=40" defer></script>
+<script src="js/app.js?v=40" defer></script>
+
+
+<!-- Mobile sidebar backdrop -->
+<div class="sb-backdrop" id="sb-backdrop" onclick="closeSidebar()"></div>
+
+<!-- Mobile bottom navigation -->
+<nav class="m-nav" id="m-nav">
+  <div class="m-nav-inner">
+    <button class="m-nav-btn active" id="mnav-chat" onclick="showView('chat');closeSidebar()">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Chat
+    </button>
+    <button class="m-nav-btn" id="mnav-library" onclick="showView('library');closeSidebar()">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Biblioteca
+    </button>
+    <button class="m-nav-btn" id="mnav-saved" onclick="showView('saved');closeSidebar()">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Relatórios
+    </button>
+    <button class="m-nav-btn" id="mnav-settings" onclick="openSettings();closeSidebar()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Config
+    </button>
+  </div>
+</nav>
+<script>
+/* PWA: SW + evento de instalação (Edge/Chrome) */
+(function(){
+  // Captura o prompt nativo o mais cedo possível
+  window.__pwaInstallEvt = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    window.__pwaInstallEvt = e;
+    try{
+      var b = document.getElementById('btn-install-pwa');
+      var h = document.getElementById('sf-install-hint');
+      if(b){ b.disabled = false; b.textContent = 'Instalar Meridian v2 como app'; }
+      if(h) h.innerHTML = 'Pronto para instalar. Clique no botão acima (ou use â‹¯ → Aplicativos no Edge).';
+    }catch(_){}
+  });
+  window.addEventListener('appinstalled', function(){
+    window.__pwaInstallEvt = null;
+    try{
+      var b = document.getElementById('btn-install-pwa');
+      var h = document.getElementById('sf-install-hint');
+      if(b){ b.disabled = true; b.textContent = 'Meridian v2 já instalado'; }
+      if(h) h.textContent = 'App instalado. Abra pelo menu Iniciar ou pelos aplicativos do Edge.';
+    }catch(_){}
+  });
+
+  if(!('serviceWorker' in navigator))return;
+  window.addEventListener('load', async function(){
+    try{
+      var q = new URLSearchParams(location.search);
+      var wantReset = q.has('resetsw') || q.has('limparsw');
+      if(wantReset){
+        var regs = await navigator.serviceWorker.getRegistrations();
+        for(var i=0;i<regs.length;i++) await regs[i].unregister();
+        if(window.caches){
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+        }
+        q.delete('resetsw'); q.delete('limparsw');
+        var clean = location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash;
+        location.replace(clean || location.pathname);
+        return;
+      }
+      var reg = await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
+      try { reg.update(); } catch(_){}
+      await navigator.serviceWorker.ready;
+      // Grava o shell no cache enquanto o servidor estiver no ar (1x basta)
+      try {
+        var sw = navigator.serviceWorker.controller || (reg.active);
+        if (sw) {
+          var mc = new MessageChannel();
+          sw.postMessage({ type: 'PRECACHE' }, [mc.port2]);
+        }
+        // reforço: pede os assets principais para encher o cache
+        ['/', '/index.html', '/css/app.css?v=40', '/js/app.js?v=40', '/manifest.json',
+         '/assets/icon-192.png', '/assets/icon-512.png', '/assets/logo-aurora.png'
+        ].forEach(function(u){ fetch(u, { cache: 'reload' }).catch(function(){}); });
+      } catch(_){}
+
+      var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      var b = document.getElementById('btn-install-pwa');
+      var h = document.getElementById('sf-install-hint');
+      if(standalone){
+        if(b){ b.disabled = true; b.textContent = 'Rodando como app'; }
+        if(h) h.innerHTML = 'Modo app. Depois do cache gravado, <b>pode fechar o servidor Node</b> e reabrir o Meridian v2 pelo menu Iniciar.';
+      } else if(h && !window.__pwaInstallEvt){
+        h.innerHTML = 'Após instalar: abra o app <b>uma vez com o servidor ligado</b> para gravar o cache. Depois o app do Edge abre <b>sem Node</b> (análises ainda precisam de internet).';
+      }
+    }catch(e){ console.warn('SW register failed', e); }
+  });
+})();
+</script>
+</body>
+</html>

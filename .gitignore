@@ -1,0 +1,8 @@
+﻿node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+.git-heranca-v1-IGNORAR/
+docs/_*.js
+docs/ui-smoke-*.png

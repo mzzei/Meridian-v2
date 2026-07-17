@@ -1,0 +1,41 @@
+{
+  "id": "/?app=meridian-v2",
+  "name": "Meridian v2",
+  "short_name": "Meridian v2",
+  "description": "Meridian v2 — inteligência esportiva multi-campeonato.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c1016",
+  "theme_color": "#0c1016",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["sports", "utilities"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

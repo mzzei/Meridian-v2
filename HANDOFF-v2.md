@@ -1,0 +1,39 @@
+# Handoff — Meridian v2
+
+Leia **`ISOLAMENTO.md`** e, se precisar de detalhe de sessão, **`SESSAO-HANDOFF-DETALHADO.md`**.
+
+## Identidade
+
+- **Meridian v2** (multi-campeonato) — **não** é o Meridian v1.
+- Pasta can�nica: `C:\Users\Gabriel\Projetos\Meridian-v2` (backup: Downloads + D:\Meridian-v2)
+- Porta: **3457**
+- Stack: `index.html` + `css/app.css` + `js/app.js` + `serve.js`
+- Verdade = arquivos locais (ainda sem git próprio) + backup `D:\Meridian-v2*`.
+
+## Como rodar
+
+- `Iniciar Meridian v2.bat`
+- ou `Abrir-Meridian-v2.vbs` (atalho **Meridian v2**)
+- ou `node serve.js` → http://localhost:3457/
+
+## CompContext (não misturar)
+
+| Contexto | Variável | Uso |
+|----------|----------|-----|
+| **analysis** | `_activeCompId` | prompts, `fillMatch` |
+| **stats** | `_statsCompId` | seletor Estatísticas / featured |
+| **library** | `_libCompId` | drill-down Biblioteca |
+
+## Temas
+
+`meridian_ui_theme` → `aurora` | `verde` | `mono` (B&W)
+
+## Análise padrão (não regredir)
+
+7 abas = PDF `Relatório · Meridian · Copa 2026.pdf` + v1:  
+Resumo · Tática · Desempenho · Cartões · **Escanteios** · Escalação · Avançados.  
+Escalação: linhas por formação + L→R laterais (`_rowsFromOnze` / `_pitchTeam`).
+
+## Continuando com IA
+
+*“Estou no Meridian v2 (não na v1). Porta 3457. Lê ISOLAMENTO.md e HANDOFF-v2.md. CompContext + 3 temas. Continua no v2.”*
