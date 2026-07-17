@@ -9,9 +9,11 @@ Leia **`ISOLAMENTO.md`**, **`ARCHITECTURE.md`** e, se precisar de detalhe de ses
 - Backups: `Downloads\Meridian-v2\…` · `D:\Meridian-v2`
 - Porta: **3457**
 - Stack modular: ver `ARCHITECTURE.md` (intent / lineup / prompts / export / app)
-- Git local próprio (não misturar com monólito v1)
+- **GitHub (repo separado do v1):** https://github.com/mzzei/Meridian-v2  
+  - branch `main` · remote `origin`  
+  - Pages: ver `docs/GITHUB-PAGES.md` → URL esperada `https://mzzei.github.io/Meridian-v2/`
 - Testes: `node tests/run.mjs`
-- Cache: `?v=40` · SW `meridian-v2-offline-v25`
+- Cache: `?v=40` · SW `meridian-v2-offline-v26`
 
 ## Como rodar
 
