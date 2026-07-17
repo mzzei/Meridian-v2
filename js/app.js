@@ -112,14 +112,15 @@ const FLAGS = {
 };
 
 // ─── State ───────────────────────────────────────────────────────────────
+// var (não let): compartilha com módulos ESM via globalThis (window._schedule etc.)
 let currentModel  = 'claude-sonnet-4-6';
 let currentEffort = 0;
 let _lastAnalysisId = null;
 let _lastChatId     = null;
-let _schedule     = []; // união (próximos) de todos os campeonatos — chips / destaque
-let _schedByComp  = {}; // { [compId]: jogo[] } — agendas por campeonato
+var _schedule     = []; // união (próximos) de todos os campeonatos — chips / destaque
+var _schedByComp  = {}; // { [compId]: jogo[] } — agendas por campeonato
 let _cardCount    = 0;
-let _history      = [];
+var _history      = [];
 // ── Multi-campeonato ─────────────────────────────────────────────────────
 // Vários campeonatos rodam em paralelo: cada um tem agenda/cache/logo próprios.
 // Biblioteca: cards de campeonato → jogos do card aberto.
@@ -128,7 +129,7 @@ let _history      = [];
 //   'year'      — temporada = ano civil (Brasileirão, Libertadores): 2026 → "2026"
 //   'european'  — ago–mai; API usa ano de início; UI mostra "2025/26"
 // season NÃO é hardcoded: calculada em runtime por seasonYearFor / compSeasonLabel
-const COMPETITIONS = {
+var COMPETITIONS = {
   brsa: {
     id:'brsa', name:'Brasileirão Série A', short:'Série A', country:'Brasil',
     calendar:'year', kind:'league',
@@ -165,9 +166,9 @@ const COMPETITIONS = {
     labelDefault:'Champions League'
   }
 };
-const COMP_ORDER = ['brsa','libertadores','epl','laliga','ucl'];
-const COMP_ACTIVE_STORE = 'meridian_active_comp';
-const COMP_SCHED_STORE  = 'meridian_sched_by_comp_v2'; // v2: fase só rodada estruturada (não nome de jogo)
+var COMP_ORDER = ['brsa','libertadores','epl','laliga','ucl'];
+var COMP_ACTIVE_STORE = 'meridian_active_comp';
+var COMP_SCHED_STORE  = 'meridian_sched_by_comp_v2'; // v2: fase só rodada estruturada (não nome de jogo)
 
 // Faixas EXATAS por competição (sanity-check de números / anti-alucinação)
 // leagueGames = jogos de liga por clube na temporada regular; maxPlayer* = tetos plausíveis
@@ -219,10 +220,10 @@ function compSanity(id){return COMP_SANITY[id||_activeCompId]||COMP_SANITY.brsa;
  * Um clique em chip/jogo NÃO deve mudar o seletor de Estatísticas.
  * Abrir uma liga na Biblioteca NÃO deve resetar o seletor de Estatísticas.
  */
-let _activeCompId = (()=>{try{const v=localStorage.getItem(COMP_ACTIVE_STORE);return (v&&COMPETITIONS[v])?v:'brsa';}catch{return'brsa';}})();
-let _statsCompId = _activeCompId;
-let _libCompId = null;
-let _compStatus = {}; // { loading, checked, upcoming, total, soon, error, roundLabel }
+var _activeCompId = (()=>{try{const v=localStorage.getItem(COMP_ACTIVE_STORE);return (v&&COMPETITIONS[v])?v:'brsa';}catch{return'brsa';}})();
+var _statsCompId = _activeCompId;
+var _libCompId = null;
+var _compStatus = {}; // { loading, checked, upcoming, total, soon, error, roundLabel }
 
 function getComp(id){return COMPETITIONS[id||_activeCompId]||COMPETITIONS.brsa;}
 function analysisCompId(){return _activeCompId;}
@@ -277,7 +278,7 @@ function _syncStatsSelLabels(id){
 
 // ── Seletor de liga: SEMPRE portal no body (um path só) ──
 let _statsPopAnchor=null;
-let _featuredPaintGen=0;
+var _featuredPaintGen=0;
 let _featuredPaintTimer=0;
 function scheduleFeaturedPaint(opts){
   opts=opts||{};
@@ -517,12 +518,13 @@ function teamTablePos(t){
   return t.posicao_tabela||t.ranking_fifa||'—';
 }
 // Storage por app (não só por liga) + chaves legadas brsa_*
-const HIST_KEY    = 'meridian_history_v1';
-const SCHED_STORE = 'meridian_sched_union_v1';
-const SCHED_TTL   = 24 * 60 * 60 * 1000;
-const CTX_STORE   = 'meridian_ctx_v1';
-const CTX_TTL     = 12 * 60 * 60 * 1000;
-const ESPN_TTL    = 15 * 60 * 1000;
+// var: legível por ESM via globalThis.HIST_KEY / SCHED_STORE / …
+var HIST_KEY    = 'meridian_history_v1';
+var SCHED_STORE = 'meridian_sched_union_v1';
+var SCHED_TTL   = 24 * 60 * 60 * 1000;
+var CTX_STORE   = 'meridian_ctx_v1';
+var CTX_TTL     = 12 * 60 * 60 * 1000;
+var ESPN_TTL    = 15 * 60 * 1000;
 // Data API keys (localStorage — read-only data providers)
 const AF_KEY_STORE= 'meridian_af_key';
 const AF_BASE     = 'https://v3.football.api-sports.io';
@@ -536,7 +538,7 @@ const FD_BASE     = 'https://api.football-data.org/v4';
 const FD_TTL      = 20 * 60 * 1000;
 const WORKER_URL_STORE='meridian_worker_url';
 // ESPN_BASE dinâmico (compat com código que ainda lê a const)
-let ESPN_BASE = espnBase(_activeCompId);
+var ESPN_BASE = espnBase(_activeCompId);
 const tokenState  = {sessionIn:0,sessionOut:0,sessionIn_p1:0,sessionOut_p1:0,lastIn:0,lastOut:0,runs:0,lastCacheCreated:0,lastCacheRead:0,sessionCacheRead:0,sessionCacheSaved:0,lastCacheHitPct:0,lastCacheMissReason:null};
 const MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-4-6':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
 const MODEL_DOCK  = {'claude-haiku-4-5-20251001':'Haiku','claude-sonnet-4-6':'Sonnet','claude-opus-4-8':'Opus'};
@@ -564,11 +566,11 @@ const MEM_CACHE_TTL      = 30 * 60 * 1000; // 30 min
 let _memCache = null, _memCacheAt = 0;
 const rlState = {tokLimit:0,tokRemaining:0,tokReset:'',reqLimit:0,reqRemaining:0};
 let _thkInterval  = null, _thkStart = 0, _thkTokCount = 0, _thkP1Toks = 0, _thkEl = null;
-let _running      = false, _abort = null, _pendingQuery = '';
-let _currentView  = 'chat';
-let _libFilter    = 'todos';
+var _running      = false, _abort = null, _pendingQuery = '';
+var _currentView  = 'chat';
+var _libFilter    = 'todos';
 let _chatThread   = [];
-let currentLang   = (()=>{try{return localStorage.getItem('brsa_lang')||'pt';}catch{return'pt';}})();
+var currentLang   = (()=>{try{return localStorage.getItem('brsa_lang')||'pt';}catch{return'pt';}})();
 
 /**
  * Análise PADRÃO (pipeline completo → card Resumo/Tática/Desempenho/Cartões/Escalação/Avançado)
@@ -1357,7 +1359,7 @@ async function installPwaApp(){
 // ─── Tema de cor (Aurora | Verde | B&W mono) ─────────────────────────────
 const THEME_STORE='meridian_ui_theme';
 const THEME_IDS=['aurora','verde','mono'];
-let currentTheme=(()=>{try{const v=localStorage.getItem(THEME_STORE);return THEME_IDS.includes(v)?v:'aurora';}catch{return'aurora';}})();
+var currentTheme=(()=>{try{const v=localStorage.getItem(THEME_STORE);return THEME_IDS.includes(v)?v:'aurora';}catch{return'aurora';}})();
 const LOGO_AURORA='assets/logo-aurora.png';
 const LOGO_VERDE='assets/wc-trophy.png';
 function _applyBrandLogo(theme){

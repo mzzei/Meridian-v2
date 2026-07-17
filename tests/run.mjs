@@ -169,8 +169,14 @@ assert(libSrc.includes('function showView') && libSrc.includes('function renderL
 assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
 assert(mainSrc.includes("import './data/history.js'"), 'main imports history ESM');
 assert(mainSrc.includes("import './export/report.js'"), 'main imports export ESM');
-assert(!mainSrc.includes("'js/data/history.js'") && !mainSrc.includes('"js/data/history.js"'), 'history not in CLASSIC');
+assert(mainSrc.includes("import './data/schedule.js'"), 'main imports schedule ESM');
+assert(mainSrc.includes("import './ui/featured.js'"), 'main imports featured ESM');
+assert(mainSrc.includes("import './ui/library.js'"), 'main imports library ESM');
+assert(!mainSrc.includes("'js/data/history.js'"), 'history not in CLASSIC');
 assert(!mainSrc.includes("'js/export/report.js'"), 'report not in CLASSIC');
+assert(!mainSrc.includes("'js/data/schedule.js'"), 'schedule not in CLASSIC');
+assert(!mainSrc.includes("'js/ui/featured.js'"), 'featured not in CLASSIC');
+assert(!mainSrc.includes("'js/ui/library.js'"), 'library not in CLASSIC');
 assert(mainSrc.includes('loadClassic') || mainSrc.includes('CLASSIC'), 'main loads classic chain');
 assert(mainSrc.includes('SHELL_VERSION'), 'main uses SHELL_VERSION');
 
@@ -181,6 +187,16 @@ const Exp = await import(pathToFileURL(path.join(ROOT, 'js/export/report.js')).h
 assert(typeof Exp.exportSlugify === 'function' && Exp.exportSlugify('A × B') === 'a-b', 'exportSlugify ESM');
 assert(typeof Exp.exportReport === 'function', 'exportReport ESM');
 assert(fs.existsSync(path.join(ROOT, 'js/runtime.js')), 'runtime.js host helper');
+
+const Sched = await import(pathToFileURL(path.join(ROOT, 'js/data/schedule.js')).href);
+assert(typeof Sched.loadSchedule === 'function' && typeof Sched.nearestMatches === 'function', 'schedule ESM exports');
+const Feat = await import(pathToFileURL(path.join(ROOT, 'js/ui/featured.js')).href);
+assert(typeof Feat._matchState === 'function' && typeof Feat.renderEmptyStateFeatured === 'function', 'featured ESM exports');
+const Lib = await import(pathToFileURL(path.join(ROOT, 'js/ui/library.js')).href);
+assert(typeof Lib.showView === 'function' && typeof Lib.renderLibrary === 'function', 'library ESM exports');
+// match state pure smoke
+const st = Feat._matchState({ data_iso: '2099-01-01', hora_brt: '15:00' });
+assert(st && st.state === 'upcoming', 'matchState upcoming future kick');
 
 assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k');
 assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k');

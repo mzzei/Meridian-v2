@@ -1,7 +1,9 @@
-/* js/ui/library.js — views chat/library/saved + grade de partidas */
-// ─── Biblioteca de Jogos ──────────────────────────────────────────────────
+/* ESM low-risk — js/ui/library.js */
+import { expose } from '../expose.js';
+
+// ÔöÇÔöÇÔöÇ Biblioteca de Jogos ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function showView(view){
-  _currentView=view;
+  globalThis._currentView=view;
   const chatEl=document.getElementById('chat');
   const libEl=document.getElementById('lib-panel');
   const savedEl=document.getElementById('saved-panel');
@@ -15,17 +17,17 @@ function showView(view){
   chatEl.style.display='none';libEl.style.display='none';savedEl.style.display='none';dockEl.style.display='none';
   if(view==='library'){
     libEl.style.display='flex';navLib.classList.add('active');
-    mTitle.textContent=t('title_library');
-    if(mSub){mSub.textContent=t('sub_library');mSub.style.display='';}
+    mTitle.textContent=globalThis.t('title_library');
+    if(mSub){mSub.textContent=globalThis.t('sub_library');mSub.style.display='';}
     renderLibrary();
   }else if(view==='saved'){
     savedEl.style.display='flex';navSaved.classList.add('active');
-    mTitle.textContent=t('title_saved');
-    if(mSub){mSub.textContent=t('sub_saved');mSub.style.display='';}
+    mTitle.textContent=globalThis.t('title_saved');
+    if(mSub){mSub.textContent=globalThis.t('sub_saved');mSub.style.display='';}
     renderSavedReports();
   }else{
     chatEl.style.display='';dockEl.style.display='';navChat.classList.add('active');
-    mTitle.textContent=t('title_chat');
+    mTitle.textContent=globalThis.t('title_chat');
     if(mSub){mSub.textContent='';mSub.style.display='none';}
   }
   ['chat','library','saved'].forEach(v=>{const b=document.getElementById('mnav-'+v);if(b)b.classList.toggle('active',v===view);});
@@ -34,45 +36,45 @@ function showView(view){
 function renderSavedReports(){
   const listEl=document.getElementById('saved-list');
   const clrBtn=document.getElementById('saved-clear-btn');
-  if(clrBtn)clrBtn.style.display=_history.length?'inline-flex':'none';
-  if(!_history.length){
-    listEl.innerHTML=`<div class="lib-empty">${t('saved_empty')}</div>`;
+  if(clrBtn)clrBtn.style.display=globalThis._history.length?'inline-flex':'none';
+  if(!globalThis._history.length){
+    listEl.innerHTML=`<div class="lib-empty">${globalThis.t('saved_empty')}</div>`;
     return;
   }
-  listEl.innerHTML=_history.map(a=>`
+  listEl.innerHTML=globalThis._history.map(a=>`
     <div class="lib-match" onclick="openSaved('${a.hid}')">
       <div style="flex:1;min-width:0">
-        <div class="lib-match-teams">${esc(a.title)}</div>
-        <div class="lib-match-meta">${esc(a.fase||a.comp_label||compLabel(a.comp_id||_activeCompId))} · ${esc(a.ts)}</div>
+        <div class="lib-match-teams">${globalThis.esc(a.title)}</div>
+        <div class="lib-match-meta">${globalThis.esc(a.fase||a.comp_label||globalThis.compLabel(a.comp_id||globalThis._activeCompId))} ┬À ${globalThis.esc(a.ts)}</div>
       </div>
-      <button class="lib-match-btn" onclick="event.stopPropagation();openSaved('${a.hid}')">${t('saved_open')}</button>
+      <button class="lib-match-btn" onclick="event.stopPropagation();openSaved('${a.hid}')">${globalThis.t('saved_open')}</button>
     </div>`).join('');
 }
 function openSaved(hid){
   showView('chat');
-  openHistory(hid);
+  globalThis.openHistory(hid);
 }
 function setLibFilter(f){
-  _libFilter=f;
+  globalThis._libFilter=f;
   document.querySelectorAll('#lib-match-filters .lib-filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.f===f));
   renderLibrary();
 }
 function libBackToComps(){
-  _libCompId=null;
+  globalThis._libCompId=null;
   renderLibrary();
 }
 function openLibComp(compId){
-  if(!COMPETITIONS[compId])return;
-  setLibComp(compId);
-  // Foca o agente nesta liga para análises a partir da lista — NÃO mexe no seletor de Estatísticas
-  setAnalysisComp(compId);
-  const st=_compStatus[compId]||{};
+  if(!globalThis.COMPETITIONS[compId])return;
+  globalThis.setLibComp(compId);
+  // Foca o agente nesta liga para an├ílises a partir da lista ÔÇö N├âO mexe no seletor de Estat├¡sticas
+  globalThis.setAnalysisComp(compId);
+  const st=globalThis._compStatus[compId]||{};
   if(!st.checked||st.loading||!(st.upcoming>0)){
-    _setCompStatus(compId,{loading:true});
-    loadEspnComp(compId,true).then(()=>{
-      _rebuildUnionSchedule();
-      if(_libCompId===compId)renderLibrary();
-      // não repinta featured (stats é independente)
+    globalThis._setCompStatus(compId,{loading:true});
+    globalThis.loadEspnComp(compId,true).then(()=>{
+      globalThis._rebuildUnionSchedule();
+      if(globalThis._libCompId===compId)renderLibrary();
+      // n├úo repinta featured (stats ├® independente)
     });
   }
   renderLibrary();
@@ -84,110 +86,130 @@ function renderLibrary(){
   const mfilters=document.getElementById('lib-match-filters');
   const note=document.getElementById('lib-cache-note');
 
-  // ── Nível 1: cards de campeonato ──────────────────────────────────────
-  if(!_libCompId){
+  // ÔöÇÔöÇ N├¡vel 1: cards de campeonato ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  if(!globalThis._libCompId){
     if(back)back.style.display='none';
     if(flbl){flbl.style.display='';flbl.textContent='Campeonatos';}
     if(mfilters)mfilters.style.display='none';
-    // Sempre revalida disponibilidade ao abrir a grade (força checagem se ainda não checked)
-    const needCheck=COMP_ORDER.some(id=>!(_compStatus[id]&&_compStatus[id].checked)&&!(_compStatus[id]&&_compStatus[id].loading));
+    // Sempre revalida disponibilidade ao abrir a grade (for├ºa checagem se ainda n├úo checked)
+    const needCheck=globalThis.COMP_ORDER.some(id=>!(globalThis._compStatus[id]&&globalThis._compStatus[id].checked)&&!(globalThis._compStatus[id]&&globalThis._compStatus[id].loading));
     if(needCheck){
-      COMP_ORDER.forEach(id=>{if(!(_compStatus[id]&&_compStatus[id].checked))_setCompStatus(id,{loading:true});});
-      loadAllCompetitions(false).then(()=>{if(_currentView==='library'&&!_libCompId)renderLibrary();});
+      globalThis.COMP_ORDER.forEach(id=>{if(!(globalThis._compStatus[id]&&globalThis._compStatus[id].checked))globalThis._setCompStatus(id,{loading:true});});
+      globalThis.loadAllCompetitions(false).then(()=>{if(globalThis._currentView==='library'&&!globalThis._libCompId)renderLibrary();});
     }
     const today=new Date();today.setHours(0,0,0,0);
     const notPast=j=>{if(!j.data_iso)return true;return new Date(j.data_iso+'T12:00:00')>=today;};
     let html='<div class="lib-comp-grid">';
-    COMP_ORDER.forEach(id=>{
-      const c=COMPETITIONS[id];
-      const st=_compStatus[id]||{};
-      const jogos=(_schedByComp[id]||[]).filter(notPast);
+    globalThis.COMP_ORDER.forEach(id=>{
+      const c=globalThis.COMPETITIONS[id];
+      const st=globalThis._compStatus[id]||{};
+      const jogos=(globalThis._schedByComp[id]||[]).filter(notPast);
       const n=st.upcoming!=null&&st.checked?st.upcoming:jogos.length;
       let countHtml;
-      if(st.loading||(!st.checked&&!(_schedByComp[id]||[]).length)){
-        countHtml=`<div class="lib-comp-count loading">verificando…</div>`;
-      }else if(st.soon||(st.checked&&!n&&!(_schedByComp[id]||[]).length)){
+      if(st.loading||(!st.checked&&!(globalThis._schedByComp[id]||[]).length)){
+        countHtml=`<div class="lib-comp-count loading">verificandoÔÇª</div>`;
+      }else if(st.soon||(st.checked&&!n&&!(globalThis._schedByComp[id]||[]).length)){
         countHtml=`<div class="lib-comp-count soon">Em breve</div>`;
       }else if(st.checked&&!n){
-        countHtml=`<div class="lib-comp-count soon">Sem jogos próximos</div>`;
+        countHtml=`<div class="lib-comp-count soon">Sem jogos pr├│ximos</div>`;
       }else{
-        countHtml=`<div class="lib-comp-count">${n} jogo${n===1?'':'s'} à frente</div>`;
+        countHtml=`<div class="lib-comp-count">${n} jogo${n===1?'':'s'} ├á frente</div>`;
       }
-      const soonCls=(st.soon||(st.checked&&!n&&!(_schedByComp[id]||[]).length))?' soon':'';
+      const soonCls=(st.soon||(st.checked&&!n&&!(globalThis._schedByComp[id]||[]).length))?' soon':'';
       html+=`<button type="button" class="lib-comp-card${soonCls}" onclick="openLibComp('${id}')">
         ${_compLogo(id)}
-        <div class="lib-comp-name">${esc(c.name)}</div>
-        <div class="lib-comp-meta">${esc(compMetaLine(id))}</div>
+        <div class="lib-comp-name">${globalThis.esc(c.name)}</div>
+        <div class="lib-comp-meta">${globalThis.esc(compMetaLine(id))}</div>
         ${countHtml}
       </button>`;
     });
     html+='</div>';
     libMatches.innerHTML=html;
     if(note){
-      const total=COMP_ORDER.reduce((a,id)=>a+((_schedByComp[id]||[]).length),0);
-      const soonN=COMP_ORDER.filter(id=>(_compStatus[id]||{}).soon).length;
-      const loading=COMP_ORDER.some(id=>(_compStatus[id]||{}).loading);
+      const total=globalThis.COMP_ORDER.reduce((a,id)=>a+((globalThis._schedByComp[id]||[]).length),0);
+      const soonN=globalThis.COMP_ORDER.filter(id=>(globalThis._compStatus[id]||{}).soon).length;
+      const loading=globalThis.COMP_ORDER.some(id=>(globalThis._compStatus[id]||{}).loading);
       note.textContent=loading
-        ?`Verificando disponibilidade dos ${COMP_ORDER.length} campeonatos…`
-        :`${COMP_ORDER.length} campeonatos · ${total} jogos em agenda${soonN?` · ${soonN} em breve`:''}`;
+        ?`Verificando disponibilidade dos ${globalThis.COMP_ORDER.length} campeonatosÔÇª`
+        :`${globalThis.COMP_ORDER.length} campeonatos ┬À ${total} jogos em agenda${soonN?` ┬À ${soonN} em breve`:''}`;
     }
     return;
   }
 
-  // ── Nível 2: jogos do campeonato ──────────────────────────────────────
-  const comp=getComp(_libCompId);
+  // ÔöÇÔöÇ N├¡vel 2: jogos do campeonato ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  const comp=globalThis.getComp(globalThis._libCompId);
   if(back)back.style.display='inline-flex';
   if(flbl){flbl.style.display='none';}
   if(mfilters)mfilters.style.display='inline-flex';
-  document.querySelectorAll('#lib-match-filters .lib-filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.f===_libFilter));
-  const st=_compStatus[_libCompId]||{};
-  const jogos=(_schedByComp[_libCompId]&&_schedByComp[_libCompId].length)?_schedByComp[_libCompId]:_schedule.filter(j=>(j.comp_id||_activeCompId)===_libCompId);
+  document.querySelectorAll('#lib-match-filters .lib-filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.f===globalThis._libFilter));
+  const st=globalThis._compStatus[globalThis._libCompId]||{};
+  const jogos=(globalThis._schedByComp[globalThis._libCompId]&&globalThis._schedByComp[globalThis._libCompId].length)?globalThis._schedByComp[globalThis._libCompId]:globalThis._schedule.filter(j=>(j.comp_id||globalThis._activeCompId)===globalThis._libCompId);
   if(!jogos.length){
     const soon=st.soon||(st.checked&&!st.upcoming);
     const loading=st.loading||!st.checked;
-    libMatches.innerHTML=`<div class="lib-comp-hdr"><img src="${esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;background:transparent;padding:0;box-shadow:none;border-radius:0" onerror="this.remove()"><div class="lib-comp-hdr-title">${esc(comp.name)}</div></div>
+    libMatches.innerHTML=`<div class="lib-comp-hdr"><img src="${globalThis.esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;background:transparent;padding:0;box-shadow:none;border-radius:0" onerror="this.remove()"><div class="lib-comp-hdr-title">${globalThis.esc(comp.name)}</div></div>
       <div class="lib-empty">${loading
-        ?`Verificando disponibilidade de jogos…`
+        ?`Verificando disponibilidade de jogosÔÇª`
         :soon
-          ?`<b>Em breve</b><br>Este campeonato ainda não tem jogos na janela atual (temporada não iniciada ou hiato).<br><button class="chip chip-cta" style="margin-top:10px" onclick="loadEspnComp('${_libCompId}',true).then(()=>{_rebuildUnionSchedule();renderLibrary();})">↻ Verificar de novo</button>`
-          :`Sem jogos próximos neste campeonato.<br><button class="chip chip-cta" style="margin-top:10px" onclick="loadEspnComp('${_libCompId}',true).then(()=>{_rebuildUnionSchedule();renderLibrary();})">↻ Buscar agora</button>`
+          ?`<b>Em breve</b><br>Este campeonato ainda n├úo tem jogos na janela atual (temporada n├úo iniciada ou hiato).<br><button class="chip chip-cta" style="margin-top:10px" onclick="globalThis.loadEspnComp('${globalThis._libCompId}',true).then(()=>{globalThis._rebuildUnionSchedule();renderLibrary();})">Ôå╗ Verificar de novo</button>`
+          :`Sem jogos pr├│ximos neste campeonato.<br><button class="chip chip-cta" style="margin-top:10px" onclick="globalThis.loadEspnComp('${globalThis._libCompId}',true).then(()=>{globalThis._rebuildUnionSchedule();renderLibrary();})">Ôå╗ Buscar agora</button>`
       }</div>`;
-    if(note)note.textContent=soon?`${comp.name} · em breve`:comp.name;
+    if(note)note.textContent=soon?`${comp.name} ┬À em breve`:comp.name;
     return;
   }
   const today=new Date();today.setHours(0,0,0,0);
   const notPast=j=>{if(!j.data_iso)return true;return new Date(j.data_iso+'T12:00:00')>=today;};
   let filtered=jogos.filter(notPast);
-  if(_libFilter==='hoje')filtered=filtered.filter(j=>dateLabelFromISO(j.data_iso)==='hoje');
-  else if(_libFilter==='amanha')filtered=filtered.filter(j=>dateLabelFromISO(j.data_iso)==='amanhã');
-  else if(_libFilter==='semana'){const lim=new Date(today.getTime()+7*864e5);filtered=filtered.filter(j=>{if(!j.data_iso)return false;const d=new Date(j.data_iso+'T12:00:00');return d<lim;});}
-  if(!filtered.length){libMatches.innerHTML=`<div class="lib-comp-hdr"><img src="${esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;border-radius:6px" onerror="this.remove()"><div class="lib-comp-hdr-title">${esc(comp.name)}</div></div><div class="lib-empty">Nenhuma partida neste filtro.</div>`;return;}
+  if(globalThis._libFilter==='hoje')filtered=filtered.filter(j=>dateLabelFromISO(j.data_iso)==='hoje');
+  else if(globalThis._libFilter==='amanha')filtered=filtered.filter(j=>dateLabelFromISO(j.data_iso)==='amanh├ú');
+  else if(globalThis._libFilter==='semana'){const lim=new Date(today.getTime()+7*864e5);filtered=filtered.filter(j=>{if(!j.data_iso)return false;const d=new Date(j.data_iso+'T12:00:00');return d<lim;});}
+  if(!filtered.length){libMatches.innerHTML=`<div class="lib-comp-hdr"><img src="${globalThis.esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;border-radius:6px" onerror="this.remove()"><div class="lib-comp-hdr-title">${globalThis.esc(comp.name)}</div></div><div class="lib-empty">Nenhuma partida neste filtro.</div>`;return;}
   const grp={};filtered.forEach(j=>{const k=j.data_iso||'outros';if(!grp[k])grp[k]=[];grp[k].push(j);});
-  let html=`<div class="lib-comp-hdr"><img src="${esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;border-radius:6px" onerror="this.remove()"><div class="lib-comp-hdr-title">${esc(comp.name)}</div></div>`;
+  let html=`<div class="lib-comp-hdr"><img src="${globalThis.esc(comp.logo||'')}" alt="" width="28" height="28" style="object-fit:contain;border-radius:6px" onerror="this.remove()"><div class="lib-comp-hdr-title">${globalThis.esc(comp.name)}</div></div>`;
   Object.keys(grp).sort().forEach(dateKey=>{
     const lbl=dateLabelFromISO(dateKey);
     const full=dateKey!=='outros'?new Date(dateKey+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}):'';
-    const hdr=lbl==='hoje'?`Hoje · ${full}`:lbl==='amanhã'?`Amanhã · ${full}`:full||dateKey;
-    html+=`<div class="lib-day-hdr">${esc(hdr)}</div>`;
+    const hdr=lbl==='hoje'?`Hoje ┬À ${full}`:lbl==='amanh├ú'?`Amanh├ú ┬À ${full}`:full||dateKey;
+    html+=`<div class="lib-day-hdr">${globalThis.esc(hdr)}</div>`;
     grp[dateKey].forEach(j=>{
-      // index na união _schedule (fillMatch)
-      let idx=_schedule.findIndex(x=>x.mandante===j.mandante&&x.visitante===j.visitante&&x.data_iso===j.data_iso&&(x.comp_id||'')===(j.comp_id||_libCompId));
-      if(idx<0){// garante presença
-        j.comp_id=j.comp_id||_libCompId;_schedule.push(j);idx=_schedule.length-1;
+      // index na uni├úo globalThis._schedule (globalThis.fillMatch)
+      let idx=globalThis._schedule.findIndex(x=>x.mandante===j.mandante&&x.visitante===j.visitante&&x.data_iso===j.data_iso&&(x.comp_id||'')===(j.comp_id||globalThis._libCompId));
+      if(idx<0){// garante presen├ºa
+        j.comp_id=j.comp_id||globalThis._libCompId;globalThis._schedule.push(j);idx=globalThis._schedule.length-1;
       }
-      const crestH=teamBadge(j.mandante,18),crestA=teamBadge(j.visitante,18);
-      html+=`<div class="lib-match" onclick="fillMatch(${idx})">
+      const crestH=globalThis.teamBadge(j.mandante,18),crestA=globalThis.teamBadge(j.visitante,18);
+      html+=`<div class="lib-match" onclick="globalThis.fillMatch(${idx})">
         <div style="flex:1;min-width:0">
-          <div class="lib-match-teams" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${crestH}<span>${esc(j.mandante)}</span> <span style="color:var(--muted);font-weight:400">×</span> ${crestA}<span>${esc(j.visitante)}</span></div>
-          <div class="lib-match-meta">${esc(j.fase||compLabel(j.comp_id||_libCompId))}${j.sede?` · ${esc(j.sede)}`:''}</div>
+          <div class="lib-match-teams" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${crestH}<span>${globalThis.esc(j.mandante)}</span> <span style="color:var(--muted);font-weight:400">├ù</span> ${crestA}<span>${globalThis.esc(j.visitante)}</span></div>
+          <div class="lib-match-meta">${globalThis.esc(j.fase||globalThis.compLabel(j.comp_id||globalThis._libCompId))}${j.sede?` ┬À ${globalThis.esc(j.sede)}`:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-right:8px">
-          <div class="lib-match-time">${esc(j.hora_brt||'–:––')} BRT</div>
+          <div class="lib-match-time">${globalThis.esc(j.hora_brt||'ÔÇô:ÔÇôÔÇô')} BRT</div>
         </div>
-        <button class="lib-match-btn" onclick="event.stopPropagation();fillMatch(${idx})">Analisar</button>
+        <button class="lib-match-btn" onclick="event.stopPropagation();globalThis.fillMatch(${idx})">Analisar</button>
       </div>`;
     });
   });
   libMatches.innerHTML=html;
-  if(note)note.textContent=`${comp.name} · ${filtered.length} partida${filtered.length===1?'':'s'} · filtros acima`;
+  if(note)note.textContent=`${comp.name} ┬À ${filtered.length} partida${filtered.length===1?'':'s'} ┬À filtros acima`;
 }
+
+export {
+  showView,
+  renderSavedReports,
+  openSaved,
+  setLibFilter,
+  libBackToComps,
+  openLibComp,
+  renderLibrary
+};
+
+expose({
+  showView,
+  renderSavedReports,
+  openSaved,
+  setLibFilter,
+  libBackToComps,
+  openLibComp,
+  renderLibrary
+});

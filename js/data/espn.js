@@ -1,6 +1,6 @@
 /* js/data/espn.js — ESPN unofficial API helpers */
 // ─── ESPN unofficial API (gratuito · sem key · Brasileirão bra.1) ────────
-let _espnLastError='';
+var _espnLastError='';
 async function fetchEspn(path,cacheKey,ttl=ESPN_TTL){
   let stale=null;
   try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c){if((Date.now()-c.ts)<ttl)return c.data;stale=c.data;}}catch{}
@@ -223,9 +223,9 @@ async function loadEspnData(force){
 
 /* ── standings / results / news / chat scoreboards (moved from app.js) ── */
 // Resultados finalizados por campeonato (cache em memória)
-let _compResults={},_compResultsAt={};
+var _compResults={},_compResultsAt={};
 /** Classificação + fase por liga (seletor de Estatísticas). Nunca misturar com ctx de análise. */
-let _compStandings={},_compStandingsAt={};
+var _compStandings={},_compStandingsAt={};
 const COPA_RESULTS_TTL=5*60*1000;
 const COMP_STANDINGS_TTL=15*60*1000;
 function _ymd(dt){return dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0');}

@@ -20,14 +20,16 @@
 
 - `lib/intent.js`
 - `analysis/tab-helpers.js`, `lineup.js`, `normalize.js`
-- `data/history.js` — usa `migrateAnalysisPayload` via **import**
-- `export/report.js` — PDF/HTML; host só em call-time (`toast`, `esc`, …)
+- `data/history.js`, `data/schedule.js`
+- `export/report.js`
+- `ui/featured.js`, `ui/library.js`
 
 ## Camada clássica (ainda em CLASSIC)
 
-- `prompts`, `render`, `espn`, `football-apis`, `schedule`, `live`
-- `ui/featured`, `ui/library`
+- `prompts`, `render`, `espn`, `football-apis`, `live`
 - `pipeline-facts`, `pipeline-run`, `app`
+
+**Nota:** state compartilhado no app usa `var` (não `let`) para ser o mesmo slot que `globalThis` nos módulos ESM.
 
 ## Migração segura (arquivo a arquivo)
 
