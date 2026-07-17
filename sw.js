@@ -7,7 +7,7 @@
  * - Shell (HTML/CSS/JS/ícones): cache primeiro
  * - APIs externas (Anthropic, ESPN…): rede normal, sem interceptar
  */
-const CACHE_VERSION = 'meridian-v2-offline-v25';
+const CACHE_VERSION = 'meridian-v2-offline-v26';
 
 // Arquivos do app (relativos ao scope do SW)
 const SHELL = [
@@ -137,15 +137,17 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       } catch (_) {
+        const origin = self.registration && self.registration.scope
+          ? self.registration.scope
+          : './';
         return new Response(
           '<!doctype html><meta charset=utf-8><title>Meridian v2</title>' +
           '<body style="font-family:system-ui;background:#0c1016;color:#f4efe6;padding:2rem;max-width:36rem;line-height:1.5">' +
           '<h1 style="color:#e8b44a">Cache ainda vazio</h1>' +
-          '<p>Abra <b>uma vez</b> com o servidor ligado para gravar o app no Edge:</p>' +
-          '<ol><li><code>Iniciar Meridian v2.bat</code></li>' +
-          '<li>Abra <code>http://127.0.0.1:3457/</code></li>' +
-          '<li>Depois pode fechar o servidor e usar o app instalado</li></ol>' +
-          '<p><a href="/" style="color:#e8b44a">Tentar de novo</a></p>',
+          '<p>Abra o app <b>uma vez online</b> (GitHub Pages ou servidor local) para gravar o shell no cache.</p>' +
+          '<ul><li>Local: <code>Iniciar Meridian v2.bat</code> → <code>http://127.0.0.1:3457/</code></li>' +
+          '<li>Pages: recarregue esta URL com rede</li></ul>' +
+          '<p><a href="'+origin+'" style="color:#e8b44a">Tentar de novo</a></p>',
           { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
         );
       }
