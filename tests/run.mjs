@@ -158,6 +158,10 @@ const mainSrc = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
 
 assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline-facts');
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
+// Shell 70: perfil de análise por modelo (esforço removido; profundidade escala com o modelo)
+assert(appSrc.includes('MODEL_PROFILES') && appSrc.includes('function modelProfile'), 'model profiles in app.js');
+assert(!appSrc.includes('EFFORT_LEVELS') && !runSrc.includes('EFFORT_LEVELS'), 'effort selector removed');
+assert(runSrc.includes('globalThis.modelProfile()'), 'pipeline-run uses modelProfile');
 // Shell 69: thinking devolvido à API precisa da signature (senão 400 no tool_use → modo simplificado)
 assert(runSrc.includes("signature_delta"), 'streamOnce captures signature_delta');
 assert(runSrc.includes("signature:curSig"), 'thinking block re-sent with signature');

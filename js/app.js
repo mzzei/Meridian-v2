@@ -1,14 +1,16 @@
 // ─── Constants ───────────────────────────────────────────────────────────
 const MODEL_CTX   = {'claude-haiku-4-5-20251001':200000,'claude-sonnet-4-6':200000,'claude-opus-4-8':200000};
 const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-4-6':'Sonnet 4.6','claude-opus-4-8':'Opus 4.8'};
-var EFFORT_LEVELS = [
-  {label:'Padrão',budget:0},{label:'Leve',budget:2000},{label:'Médio',budget:5000},
-  {label:'Alto',budget:10000},{label:'Máximo',budget:16000}
-];
-// Buscas web por nível de esforço (Padrão→Máximo). web_search ingere o conteúdo das
-// páginas como tokens — é o maior gasto e NÃO é raciocínio. Escala com o esforço para
-// manter o consumo congruente: a profundidade vem do thinking budget acima, não da coleta.
-var EFFORT_SEARCHES = [1,1,2,3,3];
+// Perfil de análise POR MODELO (roteamento por código, sem seletor de esforço):
+// trocar de modelo muda a análise DE VERDADE — thinking budget e buscas web escalam
+// juntos com a capacidade do modelo, não só o preço. Fase 1 (coleta) e verificador
+// seguem SEMPRE no Haiku, independente daqui. Chat livre: sem thinking (regra de UX).
+var MODEL_PROFILES = {
+  'claude-haiku-4-5-20251001':{label:'Rápido',budget:0,searches:1},
+  'claude-sonnet-4-6':{label:'Padrão',budget:5000,searches:2},
+  'claude-opus-4-8':{label:'Profundo',budget:16000,searches:3}
+};
+function modelProfile(){return MODEL_PROFILES[currentModel]||MODEL_PROFILES['claude-sonnet-4-6'];}
 // Brasões dos clubes da Série A (ESPN CDN). Chaves normalizadas em _normTeamKey.
 // Completado em runtime por scoreboard/standings da ESPN e pela API-Football.
 const _ESPN_CREST=id=>`https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`;
@@ -115,7 +117,6 @@ const FLAGS = {
 // → js/state.js (schedule, history, views, setters + bridges globalThis)
 // → js/comp/competitions.js (COMPETITIONS, COMP_ORDER, season/API helpers)
 var currentModel  = 'claude-sonnet-4-6';
-var currentEffort = 0;
 let _lastAnalysisId = null;
 let _lastChatId     = null;
 
@@ -1345,21 +1346,10 @@ function setTheme(theme){
 function applyStoredTheme(){setTheme(currentTheme);}
 function closeSettings(e){if(!e||e.target===document.getElementById('sov'))document.getElementById('sov').style.display='none';}
 
-// ─── Model / Effort ──────────────────────────────────────────────────────
-function setEffort(val){
-  currentEffort=Number(val);
-  const cur=document.getElementById('effort-cur');if(cur)cur.textContent=EFFORT_LEVELS[currentEffort].label;
-  document.querySelectorAll('.estep').forEach((s,i)=>{s.classList.toggle('done',i<currentEffort);s.classList.toggle('cur',i===currentEffort);});
-  const fg=document.getElementById('effort-fg');if(fg)fg.style.width=(currentEffort/4*100)+'%';
-  const lbl=document.getElementById('effort-sel-lbl');if(lbl)lbl.textContent=EFFORT_LEVELS[currentEffort].label;
-  document.querySelectorAll('#effort-pop .sp-opt').forEach((b,i)=>b.classList.toggle('sp-active',i===currentEffort));
-}
-function setModel(btn){
-  currentModel=btn?.dataset?.model||btn;
+// ─── Model (perfil de análise embutido — ver MODEL_PROFILES) ─────────────
+function setModel(id){
+  currentModel=id;
   _lastAnalysisId=null;
-  const isHaiku=currentModel==='claude-haiku-4-5-20251001';
-  if(isHaiku)setEffort(0);
-  const efBtn=document.getElementById('effort-sel-btn');if(efBtn)efBtn.disabled=isHaiku;
   const lbl=document.getElementById('model-sel-lbl');if(lbl)lbl.textContent=MODEL_DOCK[currentModel]||'Modelo';
   document.querySelectorAll('#model-pop .sp-opt').forEach(b=>b.classList.toggle('sp-active',b.dataset.model===currentModel));
   if(tokenState.runs>0)updateTokenBar();
@@ -1412,26 +1402,12 @@ function toggleModelPop(e){
   const pop=document.getElementById('model-pop');
   const open=pop.classList.toggle('open');
   document.getElementById('model-sel-btn').classList.toggle('pop-open',open);
-  document.getElementById('effort-pop').classList.remove('open');
-  document.getElementById('effort-sel-btn').classList.remove('pop-open');
-}
-function toggleEffortPop(e){
-  e&&e.stopPropagation();
-  const pop=document.getElementById('effort-pop');
-  const open=pop.classList.toggle('open');
-  document.getElementById('effort-sel-btn').classList.toggle('pop-open',open);
-  document.getElementById('model-pop').classList.remove('open');
-  document.getElementById('model-sel-btn').classList.remove('pop-open');
 }
 function closeSelPops(){
-  ['model-pop','effort-pop'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
-  ['model-sel-btn','effort-sel-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('pop-open');});
+  const el=document.getElementById('model-pop');if(el)el.classList.remove('open');
+  const b=document.getElementById('model-sel-btn');if(b)b.classList.remove('pop-open');
 }
-function pickModel(id){
-  setModel({dataset:{model:id}});
-  closeSelPops();
-}
-function pickEffort(idx){setEffort(idx);closeSelPops();}
+function pickModel(id){setModel(id);closeSelPops();}
 
 // ─── Chat helpers ─────────────────────────────────────────────────────────
 function scrollChat(){const c=document.getElementById('chat');setTimeout(()=>{c.scrollTop=c.scrollHeight;},60);}
@@ -1577,7 +1553,7 @@ function buildUserContent(query,atts){
 // ─── Thinking ─────────────────────────────────────────────────────────────
 function startThinking(){
   _thkStart=Date.now();_thkTokCount=0;_thkP1Toks=0;
-  const effort=EFFORT_LEVELS[currentEffort];
+  const effort=modelProfile();
   _thkEl=document.createElement('div');
   _thkEl.className='thk-compact';
   _thkEl.id='thk-compact';

@@ -133,10 +133,9 @@ async function runChat(){
     }else{
       reqMessages=trimmedThread.slice(0,-1).concat([{role:'user',content:effectiveQuery}]);
     }
-    const _chatEffort=globalThis.EFFORT_LEVELS[globalThis.currentEffort]||{budget:0};
-    // Chat: thinking estendido DESLIGADO por padrão de segurança UX —
-    // raciocínio/tool monologue não pode vazar na bolha. Só liga se esforço ≥ Médio.
-    const _chatThink=_chatEffort.budget>=5000 && !/opus-4-8|opus-4-7|fable-5/.test(globalThis.currentModel);
+    // Chat: thinking estendido SEMPRE desligado (segurança UX — raciocínio/tool
+    // monologue não pode vazar na bolha). Profundidade por modelo é só da análise padrão.
+    const _chatThink=false;const _chatEffort={budget:0};
     const _chatBase=(atts.length||liveData||scoreFacts)?4500:3200;
     const _searchUses=scoreFacts?2:(hasAnchor?4:2);
     const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase+(_chatThink?_chatEffort.budget:0),
@@ -408,7 +407,7 @@ async function runAnalysis(){
   _h('showUserBubble')(query);
   _h('startThinking')();
 
-  const effort=globalThis.EFFORT_LEVELS[globalThis.currentEffort];
+  const effort=globalThis.modelProfile(); // {label,budget,searches} — perfil por modelo
   // diagnostics + beta cache-diagnosis são internos do proxy; em modo browser direto quebram o CORS → só com Worker
   const reqHeaders=_h('getReqHeaders')(apiKey,_h('getWorkerUrl')()?['cache-diagnosis-2026-04-07']:[]);
 
@@ -419,7 +418,7 @@ async function runAnalysis(){
     _h('updateThinkingToks')({status:'Coleta estruturada…',phase:1});
     let rawFacts=null,p1in=0,p1out=0;
     try{
-      const r1=await gatherFacts(query,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}),globalThis.EFFORT_SEARCHES[globalThis.currentEffort]??1);
+      const r1=await gatherFacts(query,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}),effort.searches??1);
       rawFacts=r1.rawFacts;p1in=r1.inTokens;p1out=r1.outTokens;
       // Anti-fantasma: status só com fontes ativas (não lista vazios)
       if(r1.statusHuman)_h('updateThinkingToks')({status:r1.statusHuman,phase:1});
