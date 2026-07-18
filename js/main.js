@@ -21,8 +21,9 @@ import './analysis/lineup.js';
 import './analysis/normalize.js';
 import './data/history.js';
 import './export/report.js';
-// Passos 2–4: coleta de fatos com competitions+state por import
+// Passos 2–5: pipeline ESM (facts + run)
 import './analysis/pipeline-facts.js';
+import './analysis/pipeline-run.js';
 
 expose({ SHELL_VERSION, MERIDIAN_SHELL_VERSION: SHELL_VERSION });
 
@@ -35,7 +36,6 @@ const CLASSIC = [
   'js/data/live.js',
   'js/ui/featured.js',
   'js/ui/library.js',
-  'js/analysis/pipeline-run.js',
   'js/app.js',
 ];
 
@@ -60,7 +60,7 @@ try {
   console.info(
     '[Meridian v2] shell',
     SHELL_VERSION,
-    '· state+competitions+pipeline-facts',
+    '· state+competitions+pipeline',
     '· classic:',
     CLASSIC.length
   );

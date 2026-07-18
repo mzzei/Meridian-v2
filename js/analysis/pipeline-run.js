@@ -1,39 +1,68 @@
-/* js/analysis/pipeline-run.js — runChat, runAnalysis, streamOnce */
+/* js/analysis/pipeline-run.js — ESM (runChat, runAnalysis, streamOnce)
+ * Passo 5: intent + facts + competitions + state por import.
+ * UI/API shell em call-time via _h() (não precisa de chave para carregar o módulo).
+ */
+import { expose } from '../expose.js';
+import { host } from '../runtime.js';
+import { state, setRunning } from '../state.js';
+import { compLabel, COMP_ORDER } from '../comp/competitions.js';
+import { routeUserIntent } from '../lib/intent.js';
+import {
+  gatherFacts,
+  hasExplicitMatchAnchor,
+  isVagueMatchQuery,
+  _chatNeedsLiveData,
+  _chatNeedsScoreVerification,
+  fetchVerifiedMatchFacts,
+  parseAnalysisJson,
+  buildEnrichedQuery,
+  fillDataGaps,
+  verifyLineupNames,
+  verifyAnalysis,
+} from './pipeline-facts.js';
+import { attachAnalysisDerived, finalizeAnalysisPads } from './normalize.js';
+
+function _h(name) {
+  const fn = host()[name];
+  if (typeof fn === 'function') return fn;
+  throw new Error('[pipeline-run] host missing: ' + name);
+}
+
 async function runChat(){
-  if(_running)return; // state.running via bridge
+  if(state.running)return; // state.running via bridge
   const apiKey=document.getElementById('api-key-input').value.trim();
   const query=document.getElementById('match-input').value.trim();
-  const atts=_attachments.slice();
+  const atts=globalThis._attachments.slice();
   if(!query&&!atts.length){document.getElementById('match-input').focus();return;}
-  const skipBubble=!!_skipNextUserBubble;_skipNextUserBubble=false;
-  if(!skipBubble)showUserBubble(query,atts);
-  const ta=document.getElementById('match-input');taReset(ta);if(!skipBubble)clearAttachments();
-  if(!apiKey&&!getWorkerUrl()){
-    showAgentBubble(t('no_key_chat'));
+  const skipBubble=!!globalThis._skipNextUserBubble;globalThis._skipNextUserBubble=false;
+  if(!skipBubble)_h('showUserBubble')(query,atts);
+  const ta=document.getElementById('match-input');_h('taReset')(ta);if(!skipBubble)_h('clearAttachments')();
+  if(!apiKey&&!_h('getWorkerUrl')()){
+    _h('showAgentBubble')(_h('t')('no_key_chat'));
     return;
   }
 
   // ═══ GATE DE AMBIGUIDADE (cliente) ═══
   // "opinião sobre o jogo de hoje" SEM times → popup ANTES do LLM.
   // Zero suposição de partida. Zero raciocínio/scripts no chat.
-  const histPeek=_chatThread.slice(-6).map(m=>m.content||'').join('\n');
-  const skipVague=!!_skipVagueGateOnce;_skipVagueGateOnce=false;
+  const histPeek=globalThis._chatThread.slice(-6).map(m=>m.content||'').join('\n');
+  const skipVague=!!globalThis._skipVagueGateOnce;globalThis._skipVagueGateOnce=false;
   const vague=!skipVague&&isVagueMatchQuery(query)&&!atts.length
-    &&!hasExplicitMatchAnchor((getChatContext()||'')+'\n'+histPeek+'\n'+query)
+    &&!hasExplicitMatchAnchor((_h('getChatContext')()||'')+'\n'+histPeek+'\n'+query)
     &&!/\[Contexto confirmado:/i.test(query);
   if(vague){
-    _running=true;setRunBtn(true);
-    _chatThread.push({role:'user',content:query});
-    _chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-    const inferredGate=inferCompIdsFromText((query||'')+'\n'+histPeek);
+    state.running=true;setRunBtn(true);
+    globalThis._chatThread.push({role:'user',content:query});
+    globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+    const inferredGate=_h('inferCompIdsFromText')((query||'')+'\n'+histPeek);
     const espnIdsGate=inferredGate.length?inferredGate:COMP_ORDER.slice();
     try{
-      startThinking();
+      _h('startThinking')();
       const lbl=document.getElementById('thk-label');
       if(lbl)lbl.textContent='listando jogos de hoje…';
-      await openMatchPickerPopup(query,espnIdsGate);
+      await _h('openMatchPickerPopup')(query,espnIdsGate);
     }catch{
-      openContextPromptPopup({
+      _h('openContextPromptPopup')({
         question:'Qual jogo você quer analisar ou comentar?',
         options:[
           {id:'a',label:'Jogo de clube de hoje (informo times/liga)'},
@@ -41,46 +70,46 @@ async function runChat(){
         ]
       },query);
     }finally{
-      stopThinking(true);
-      _running=false;_abort=null;setRunBtn(false);
+      _h('stopThinking')(true);
+      state.running=false;state.abort=null;setRunBtn(false);
     }
     return;
   }
 
-  _running=true;_abort=new AbortController();
+  state.running=true;state.abort=new AbortController();
   document.getElementById('error-box').style.display='none';
   setRunBtn(true);
   // O thread guarda só texto (stub p/ anexos) — base64 jamais persiste no histórico.
   const histStub=atts.length?[query,...atts.map(a=>`[anexo: ${a.name}]`)].filter(Boolean).join('\n'):query;
-  _chatThread.push({role:'user',content:histStub});
+  globalThis._chatThread.push({role:'user',content:histStub});
   // Bolha oculta desde a criação (sem flash do chip amarelo). Só thk-compact no loading.
   // Reaparece apenas se houver prosa/erro; card/popup removem a linha.
-  const bubble=showAgentBubble('',{hidden:true});
+  const bubble=_h('showAgentBubble')('',{hidden:true});
   const _agentRow=bubble.closest('.msg-agent-chat');
-  const _revealAgent=()=>{if(_agentRow){_agentRow.style.display='';scrollChat();}};
-  startThinking();
+  const _revealAgent=()=>{if(_agentRow){_agentRow.style.display='';_h('scrollChat')();}};
+  _h('startThinking')();
   try{
     // Multi-liga + verificação de placar (seleções/amistosos fora do COMP_ORDER).
-    const histText=_chatThread.slice(-8).map(m=>m.content||'').join('\n');
-    const inferred=inferCompIdsFromText((query||'')+'\n'+histText);
+    const histText=globalThis._chatThread.slice(-8).map(m=>m.content||'').join('\n');
+    const inferred=_h('inferCompIdsFromText')((query||'')+'\n'+histText);
     const espnIds=inferred.length?inferred:COMP_ORDER.slice();
     const needsLive=_chatNeedsLiveData(query,atts.length);
     const needsScore=_chatNeedsScoreVerification(query)||needsLive;
-    const hasAnchor=hasExplicitMatchAnchor(query)||hasExplicitMatchAnchor(getChatContext()||'')||atts.length>0;
+    const hasAnchor=hasExplicitMatchAnchor(query)||hasExplicitMatchAnchor(_h('getChatContext')()||'')||atts.length>0;
     let liveData='', scoreFacts='';
     if(needsLive||needsScore){
       const lbl=document.getElementById('thk-label');
       if(lbl)lbl.textContent='resolvendo jogo e status (ESPN)…';
       // 1) ESPN primeiro (pista estruturada)
-      liveData=await gatherEspnForChat(espnIds).catch(()=>'');
+      liveData=await _h('gatherEspnForChat')(espnIds).catch(()=>'');
       // 2) Verificador de placar SÓ com âncora clara — se vago, não deixa o Haiku "escolher" um jogo
       if(needsScore&&hasAnchor){
         if(lbl)lbl.textContent='confirmando resultado oficial (web)…';
-        scoreFacts=await fetchVerifiedMatchFacts(query,apiKey,_abort.signal,liveData).catch(()=>'');
+        scoreFacts=await fetchVerifiedMatchFacts(query,apiKey,state.abort.signal,liveData).catch(()=>'');
         if(!scoreFacts){
           if(lbl)lbl.textContent='segunda passagem: full-time / resultado final…';
           const retryQ=`${query}\n\n[Instrução ao verificador: identifique o jogo mais recente compatível; confirme se está FT ou LIVE; busque "full time" / "resultado final" / scoreboard oficial — NÃO assuma placar na query.]`;
-          scoreFacts=await fetchVerifiedMatchFacts(retryQ,apiKey,_abort.signal,liveData).catch(()=>'');
+          scoreFacts=await fetchVerifiedMatchFacts(retryQ,apiKey,state.abort.signal,liveData).catch(()=>'');
         }
       }
     }
@@ -94,35 +123,35 @@ async function runChat(){
       ? `\n\n=== DADOS REAIS ESPN (placares/tabelas; se divergir de PLACARES VERIFICADOS, prevalece PLACARES VERIFICADOS) ===\n${liveData}\n=== FIM ESPN ===\n\nREGRA DURA: se houver VÁRIOS jogos no bloco ESPN e o usuário NÃO nomeou times, NÃO escolha um sozinho — responda APENAS com context_prompt listando 2 jogos concretos do bloco.`
       :'';
     const effectiveQuery=`${query||'(sem texto — analise o anexo)'}\n\n${metaComp}${scoreBlock}${liveBlock}`;
-    let trimmedThread=_chatThread.length>20?_chatThread.slice(-20):_chatThread;
+    let trimmedThread=globalThis._chatThread.length>20?globalThis._chatThread.slice(-20):globalThis._chatThread;
     if(trimmedThread.length>0&&trimmedThread[0].role!=='user')trimmedThread=trimmedThread.slice(1);
     // Mídia/dados só no turno atual (efêmeros)
     let reqMessages=trimmedThread;
     if(atts.length||liveData||scoreFacts||needsScore){
-      const lastContent=atts.length?buildUserContent(effectiveQuery,atts):effectiveQuery;
+      const lastContent=atts.length?_h('buildUserContent')(effectiveQuery,atts):effectiveQuery;
       reqMessages=trimmedThread.slice(0,-1).concat([{role:'user',content:lastContent}]);
     }else{
       reqMessages=trimmedThread.slice(0,-1).concat([{role:'user',content:effectiveQuery}]);
     }
-    const _chatEffort=EFFORT_LEVELS[currentEffort]||{budget:0};
+    const _chatEffort=globalThis.EFFORT_LEVELS[globalThis.currentEffort]||{budget:0};
     // Chat: thinking estendido DESLIGADO por padrão de segurança UX —
     // raciocínio/tool monologue não pode vazar na bolha. Só liga se esforço ≥ Médio.
-    const _chatThink=_chatEffort.budget>=5000 && !/opus-4-8|opus-4-7|fable-5/.test(currentModel);
+    const _chatThink=_chatEffort.budget>=5000 && !/opus-4-8|opus-4-7|fable-5/.test(globalThis.currentModel);
     const _chatBase=(atts.length||liveData||scoreFacts)?4500:3200;
     const _searchUses=scoreFacts?2:(hasAnchor?4:2);
-    const _chatBody={model:currentModel,max_tokens:_chatBase+(_chatThink?_chatEffort.budget:0),
-      system:[{type:'text',text:analystSystemPrompt(),cache_control:{type:'ephemeral'}}],
+    const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase+(_chatThink?_chatEffort.budget:0),
+      system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
       messages:reqMessages,stream:true,
       tools:[{type:'web_search_20250305',name:'web_search',max_uses:_searchUses}]};
     if(_chatThink){_chatBody.thinking={type:'enabled',budget_tokens:_chatEffort.budget};_chatBody.temperature=1;}
-    if(getWorkerUrl())_chatBody.diagnostics={previous_message_id:_lastChatId};
-    const res=await fetch(getApiBase()+'/v1/messages',{
+    if(_h('getWorkerUrl')())_chatBody.diagnostics={previous_message_id:_lastChatId};
+    const res=await fetch(_h('getApiBase')()+'/v1/messages',{
       method:'POST',
-      headers:getReqHeaders(apiKey,getWorkerUrl()?['cache-diagnosis-2026-04-07']:[]),
+      headers:_h('getReqHeaders')(apiKey,_h('getWorkerUrl')()?['cache-diagnosis-2026-04-07']:[]),
       body:JSON.stringify(_chatBody),
-      signal:_abort.signal
+      signal:state.abort.signal
     });
-    parseRateLimitHeaders(res);if(!res.ok)throw new Error(`Erro ${res.status}`);
+    _h('parseRateLimitHeaders')(res);if(!res.ok)throw new Error(`Erro ${res.status}`);
     let text='';const reader=res.body.getReader(),dec=new TextDecoder();
     // Streaming: NUNCA pinta thinking/tool noise; JSON → placeholder; prosa limpa → stream.
     let _isJson=null;
@@ -133,7 +162,7 @@ async function runChat(){
       const lead=text.replace(/^\s+/,'');
       if(!lead)return;
       // noise interno (raciocínio/scripts) — não mostra bolha
-      if(isInternalModelNoise(lead)||isInternalModelNoise(text)){
+      if(_h('isInternalModelNoise')(lead)||_h('isInternalModelNoise')(text)){
         _isNoise=true;
         if(_agentRow)_agentRow.style.display='none';
         return;
@@ -146,7 +175,7 @@ async function runChat(){
           const lb=document.getElementById('thk-label');if(lb)lb.textContent='montando análise…';
         }
       }
-      if(!_isJson&&!_isCtxProse&&text.length>40&&detectProseContextPrompt(text)){
+      if(!_isJson&&!_isCtxProse&&text.length>40&&_h('detectProseContextPrompt')(text)){
         _isCtxProse=true;
         if(_agentRow)_agentRow.style.display='none';
         const lb=document.getElementById('thk-label');if(lb)lb.textContent='precisando de contexto…';
@@ -154,13 +183,13 @@ async function runChat(){
       }
       if(_isCtxProse||_isJson)return;
       // prosa: só pinta se NÃO for monólogo interno
-      const clean=stripInternalReasoning(text);
-      if(!clean||isInternalModelNoise(clean)){
+      const clean=_h('stripInternalReasoning')(text);
+      if(!clean||_h('isInternalModelNoise')(clean)){
         if(_agentRow)_agentRow.style.display='none';
         return;
       }
       _revealAgent();
-      bubble.innerHTML=simpleMd(clean);scrollChat();
+      bubble.innerHTML=_h('simpleMd')(clean);_h('scrollChat')();
     };
     while(true){
       const{done,value}=await reader.read();if(done)break;
@@ -173,75 +202,75 @@ async function runChat(){
           // ignora thinking_delta, input_json_delta, signatures etc. de propósito
           if(j.type==='message_start'){
             if(j.message?.usage){
-              tokenState.lastIn=j.message.usage.input_tokens||0;tokenState.sessionIn+=tokenState.lastIn;
+              globalThis.tokenState.lastIn=j.message.usage.input_tokens||0;globalThis.tokenState.sessionIn+=globalThis.tokenState.lastIn;
               const _chatCR=j.message.usage.cache_read_input_tokens||0;
-              if(_chatCR>0){tokenState.sessionCacheRead+=_chatCR;const _cP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-4-6'];tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
+              if(_chatCR>0){globalThis.tokenState.sessionCacheRead+=_chatCR;const _cP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-4-6'];globalThis.tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
             }
             if(j.message?.id)_lastChatId=j.message.id;
             if(j.message?.diagnostics?.cache_miss_reason)console.debug('[cache-diag chat] miss:',j.message.diagnostics.cache_miss_reason.type);
           }
-          if(j.type==='message_delta'&&j.usage){tokenState.lastOut=(j.usage.output_tokens||0);tokenState.sessionOut+=j.usage.output_tokens||0;}
+          if(j.type==='message_delta'&&j.usage){globalThis.tokenState.lastOut=(j.usage.output_tokens||0);globalThis.tokenState.sessionOut+=j.usage.output_tokens||0;}
         }catch{}
       }
     }
     // Pós-processamento: limpa raciocínio, extrai JSON, bloqueia suposição de jogo
-    text=stripInternalReasoning(text);
-    const _ctxP=resolveContextPrompt(text);
+    text=_h('stripInternalReasoning')(text);
+    const _ctxP=_h('resolveContextPrompt')(text);
     if(_ctxP){
       const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-      const lastUser=(_chatThread.length&&_chatThread[_chatThread.length-1].role==='user')
-        ?_chatThread[_chatThread.length-1].content:query;
-      _chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-      openContextPromptPopup(_ctxP,lastUser);
-      stopThinking(true);setTimeout(()=>{updateTokenBar();updateDockTokens();},400);
+      const lastUser=(globalThis._chatThread.length&&globalThis._chatThread[globalThis._chatThread.length-1].role==='user')
+        ?globalThis._chatThread[globalThis._chatThread.length-1].content:query;
+      globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+      _h('openContextPromptPopup')(_ctxP,lastUser);
+      _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},400);
     }else{
-      let _card=chatCardFrom(text);
+      let _card=_h('chatCardFrom')(text);
       // Segurança: pergunta vaga + card de jogo específico = suposição → popup, não análise
-      const presup=_card?cardPresupposedVagueMatch(_card,query):null;
+      const presup=_card?_h('cardPresupposedVagueMatch')(_card,query):null;
       if(presup){
         const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-        _chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-        openContextPromptPopup(presup,query);
-        stopThinking(true);setTimeout(()=>{updateTokenBar();updateDockTokens();},400);
+        globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+        _h('openContextPromptPopup')(presup,query);
+        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},400);
       }else if(_card){
         const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-        const painted=renderChatCard(_card);
+        const painted=_h('renderChatCard')(_card);
         if(!painted){
           // card oco/quebrado — nunca mostrar casca vazia (print do bug)
-          const err=showAgentBubble('A análise veio incompleta (card sem conteúdo substantivo). Peça de novo com times, placar e foco — ex.: <em>"Inglaterra x Argentina FT — análise tática e gols"</em>.');
-          _chatThread.push({role:'assistant',content:'[card incompleto — pedido de reenvio]'});
+          const err=_h('showAgentBubble')('A análise veio incompleta (card sem conteúdo substantivo). Peça de novo com times, placar e foco — ex.: <em>"Inglaterra x Argentina FT — análise tática e gols"</em>.');
+          globalThis._chatThread.push({role:'assistant',content:'[card incompleto — pedido de reenvio]'});
         }else{
-          _chatThread.push({role:'assistant',content:cardToPlain(_card)||'…'});
+          globalThis._chatThread.push({role:'assistant',content:_h('cardToPlain')(_card)||'…'});
         }
-        stopThinking(true);setTimeout(()=>{updateTokenBar();updateDockTokens();},1300);
+        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
       }else{
-        const clean=stripInternalReasoning(text||'');
-        if(!clean||isInternalModelNoise(clean)){
+        const clean=_h('stripInternalReasoning')(text||'');
+        if(!clean||_h('isInternalModelNoise')(clean)){
           // fallback: se o modelo só vomitou raciocínio, pede contexto em vez de mostrar lixo
           if(isVagueMatchQuery(query)||needsScore){
             const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-            _chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-            await openMatchPickerPopup(query,espnIds);
+            globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+            await _h('openMatchPickerPopup')(query,espnIds);
           }else{
             _revealAgent();
-            bubble.innerHTML=simpleMd('Não consegui montar uma resposta limpa. Reformule com times e competição (ex.: "Flamengo x Palmeiras hoje").');
-            _chatThread.push({role:'assistant',content:'[resposta sanitizada — pedido de reformulação]'});
+            bubble.innerHTML=_h('simpleMd')('Não consegui montar uma resposta limpa. Reformule com times e competição (ex.: "Flamengo x Palmeiras hoje").');
+            globalThis._chatThread.push({role:'assistant',content:'[resposta sanitizada — pedido de reformulação]'});
           }
         }else{
           _revealAgent();
-          bubble.innerHTML=simpleMd(clean);
-          _chatThread.push({role:'assistant',content:clean});
+          bubble.innerHTML=_h('simpleMd')(clean);
+          globalThis._chatThread.push({role:'assistant',content:clean});
         }
-        stopThinking(true);setTimeout(()=>{updateTokenBar();updateDockTokens();},1300);
+        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
       }
     }
   }catch(e){
-    stopThinking(false);
+    _h('stopThinking')(false);
     _revealAgent();
     if(e?.name==='AbortError')bubble.innerHTML='<em>Parado.</em>';
-    else bubble.innerHTML=simpleMd('Erro: '+e.message);
-    _chatThread.pop();
-  }finally{_running=false;_abort=null;setRunBtn(false);}
+    else bubble.innerHTML=_h('simpleMd')('Erro: '+e.message);
+    globalThis._chatThread.pop();
+  }finally{state.running=false;state.abort=null;setRunBtn(false);}
 }
 
 // Flexible analyst persona — multi-campeonato + double-check de contexto
@@ -252,11 +281,11 @@ function showFallbackCard(query){
   const el=document.createElement('div');
   el.innerHTML=`<div class="a-card">
     <div class="a-hdr">
-      <div class="a-agent"><div class="a-ball a-ball-plain">${brandStar()}</div></div>
+      <div class="a-agent"><div class="a-ball a-ball-plain">${_h('brandStar')()}</div></div>
       <div class="a-hdr-r"><span class="a-ts">${ts}</span></div>
     </div>
     <div class="a-subtitle">Análise em texto · modo simplificado</div>
-    <div class="a-title">${esc(query||'Análise').slice(0,80)}</div>
+    <div class="a-title">${_h('esc')(query||'Análise').slice(0,80)}</div>
     <div class="a-tc" style="padding:1rem 1.25rem;line-height:1.6"><span class="ldot" style="display:inline-block;margin:4px"></span></div>
     <div class="disc">Gerada em texto livre porque o relatório estruturado não pôde ser montado nesta resposta. Pode ser exportada normalmente. Para o relatório completo com abas, tente de novo (de preferência sem o raciocínio estendido "Leve/Médio").</div>
   </div>`;
@@ -264,22 +293,22 @@ function showFallbackCard(query){
   card.dataset.hid='fb'+Date.now().toString(36);
   document.getElementById('empty-state').style.display='none';
   document.getElementById('conversation').appendChild(card);
-  scrollChat();
+  _h('scrollChat')();
   return card.querySelector('.a-tc');
 }
 async function conversationalFallback(query,apiKey,reqHeaders,signal){
-  const ctx=getTournamentCtxString?getTournamentCtxString():'';
+  const ctx=getTournamentCtxString?_h('getTournamentCtxString')():'';
   const bubble=showFallbackCard(query);
-  const res=await fetch(getApiBase()+'/v1/messages',{
+  const res=await fetch(_h('getApiBase')()+'/v1/messages',{
     method:'POST',
     headers:reqHeaders,
-    body:JSON.stringify({model:currentModel,max_tokens:3500,
-      system:[{type:'text',text:analystSystemPrompt(),cache_control:{type:'ephemeral'}}],
-      messages:[{role:'user',content:`DATA: ${currentDateFull()}${ctx?`\n\nContexto do torneio:\n${ctx}`:''}\n\n${query}\n\n(Formato desta resposta: TEXTO CORRIDO analítico, sem JSON — este é o modo simplificado.)`}],
+    body:JSON.stringify({model:globalThis.currentModel,max_tokens:3500,
+      system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
+      messages:[{role:'user',content:`DATA: ${_h('currentDateFull')()}${ctx?`\n\nContexto do torneio:\n${ctx}`:''}\n\n${query}\n\n(Formato desta resposta: TEXTO CORRIDO analítico, sem JSON — este é o modo simplificado.)`}],
       stream:true}),
     signal
   });
-  parseRateLimitHeaders(res);
+  _h('parseRateLimitHeaders')(res);
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
   let text='';const reader=res.body.getReader(),dec=new TextDecoder();
   while(true){
@@ -288,31 +317,31 @@ async function conversationalFallback(query,apiKey,reqHeaders,signal){
       if(!line.startsWith('data:'))continue;
       const d=line.slice(5).trim();if(d==='[DONE]')continue;
       try{const j=JSON.parse(d);
-        if(j.type==='content_block_delta'&&j.delta?.type==='text_delta'){text+=j.delta.text;bubble.innerHTML=simpleMd(text);scrollChat();}
-        if(j.type==='message_start'&&j.message?.usage){tokenState.lastIn=j.message.usage.input_tokens||0;tokenState.sessionIn+=tokenState.lastIn;}
-        if(j.type==='message_delta'&&j.usage){tokenState.lastOut=j.usage.output_tokens||0;tokenState.sessionOut+=j.usage.output_tokens||0;}
+        if(j.type==='content_block_delta'&&j.delta?.type==='text_delta'){text+=j.delta.text;bubble.innerHTML=_h('simpleMd')(text);_h('scrollChat')();}
+        if(j.type==='message_start'&&j.message?.usage){globalThis.tokenState.lastIn=j.message.usage.input_tokens||0;globalThis.tokenState.sessionIn+=globalThis.tokenState.lastIn;}
+        if(j.type==='message_delta'&&j.usage){globalThis.tokenState.lastOut=j.usage.output_tokens||0;globalThis.tokenState.sessionOut+=j.usage.output_tokens||0;}
       }catch{}
     }
   }
   if(!text)throw new Error('sem resposta');
-  _chatThread.push({role:'user',content:query});
-  _chatThread.push({role:'assistant',content:text});
-  setTimeout(()=>{updateTokenBar();updateDockTokens();},1300);
+  globalThis._chatThread.push({role:'user',content:query});
+  globalThis._chatThread.push({role:'assistant',content:text});
+  setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
   return text;
 }
 
 // ─── Main analysis ────────────────────────────────────────────────────────
 function toggleRun(){
-  if(_running){cancelAnalysis();return;}
+  if(state.running){cancelAnalysis();return;}
   const q=document.getElementById('match-input').value.trim();
-  const route=routeUserIntent(q,{hasAttachments:!!(_attachments&&_attachments.length)});
+  const route=routeUserIntent(q,{hasAttachments:!!(globalThis._attachments&&globalThis._attachments.length)});
   if(route.mode==='need_teams'){
-    toast('Para análise completa, diga os times: ex. Flamengo x Palmeiras');
+    _h('toast')('Para análise completa, diga os times: ex. Flamengo x Palmeiras');
     document.getElementById('match-input').focus();
     return;
   }
   if(route.mode==='analysis'){
-    if(route.reason==='explicit_full')toast('Gerando análise padrão (7 abas)…');
+    if(route.reason==='explicit_full')_h('toast')('Gerando análise padrão (7 abas)…');
     runAnalysis();
     return;
   }
@@ -327,12 +356,12 @@ function closeHelpAnalysis(e){
   const ov=document.getElementById('help-analysis-ov');
   if(ov){ov.style.display='none';ov.setAttribute('aria-hidden','true');}
 }
-function cancelAnalysis(){if(_running&&_abort){try{_abort.abort();}catch(e){}}}
+function cancelAnalysis(){if(state.running&&state.abort){try{state.abort.abort();}catch(e){}}}
 function setRunBtn(running){
   const b=document.getElementById('run-btn');
   b.classList.toggle('i-stop',running);
-  if(running)b.textContent=t('btn_stop');
-  else b.textContent=(_attachments.length||_chatThread.length>0)?t('btn_send'):t('btn_analyze');
+  if(running)b.textContent=_h('t')('btn_stop');
+  else b.textContent=(globalThis._attachments.length||globalThis._chatThread.length>0)?_h('t')('btn_send'):_h('t')('btn_analyze');
 }
 
 // Condensa a análise estruturada num texto curto para servir de MEMÓRIA em follow-ups
@@ -358,46 +387,46 @@ function _analysisSummaryForThread(d){
   return L.join('\n');
 }
 async function runAnalysis(){
-  if(_running)return;
+  if(state.running)return;
   const apiKey=document.getElementById('api-key-input').value.trim();
-  if(!apiKey&&!getWorkerUrl()){
+  if(!apiKey&&!_h('getWorkerUrl')()){
     const q=document.getElementById('match-input').value.trim();
-    showUserBubble(q);taReset(document.getElementById('match-input'));
-    showAgentBubble(t('no_key_analyze'));
+    _h('showUserBubble')(q);_h('taReset')(document.getElementById('match-input'));
+    _h('showAgentBubble')(_h('t')('no_key_analyze'));
     return;
   }
   const query=document.getElementById('match-input').value.trim();
   if(!query){document.getElementById('match-input').focus();return;}
 
-  _abort=new AbortController();_pendingQuery=query;
-  if(typeof setRunning==='function')setRunning(true,_abort,query);else _running=true;
+  state.abort=new AbortController();state.pendingQuery=query;
+  if(typeof setRunning==='function')setRunning(true,state.abort,query);else state.running=true;
   document.getElementById('error-box').style.display='none';
   setRunBtn(true);
   const ks=document.getElementById('key-status');ks.textContent='Analisando…';ks.style.color='var(--muted)';
 
-  taReset(document.getElementById('match-input'));
-  showUserBubble(query);
-  startThinking();
+  _h('taReset')(document.getElementById('match-input'));
+  _h('showUserBubble')(query);
+  _h('startThinking')();
 
-  const effort=EFFORT_LEVELS[currentEffort];
+  const effort=globalThis.EFFORT_LEVELS[globalThis.currentEffort];
   // diagnostics + beta cache-diagnosis são internos do proxy; em modo browser direto quebram o CORS → só com Worker
-  const reqHeaders=getReqHeaders(apiKey,getWorkerUrl()?['cache-diagnosis-2026-04-07']:[]);
+  const reqHeaders=_h('getReqHeaders')(apiKey,_h('getWorkerUrl')()?['cache-diagnosis-2026-04-07']:[]);
 
   let finalText='',lastIn=0,lastOut=0,lastCacheCreated=0,lastCacheRead=0;
 
   try{
     // ── Fase 1: Haiku coleta fatos via web_search ─────────────────────────
-    updateThinkingToks({status:'Pesquisando dados…',phase:1});
+    _h('updateThinkingToks')({status:'Pesquisando dados…',phase:1});
     let rawFacts=null,p1in=0,p1out=0;
     try{
-      const r1=await gatherFacts(query,apiKey,_abort.signal,(upd)=>updateThinkingToks({...upd,phase:1}),EFFORT_SEARCHES[currentEffort]??1);
+      const r1=await gatherFacts(query,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}),globalThis.EFFORT_SEARCHES[globalThis.currentEffort]??1);
       rawFacts=r1.rawFacts;p1in=r1.inTokens;p1out=r1.outTokens;
     }catch(e1){
       if(e1.message==='cancelled'||e1.name==='AbortError')throw e1;
-      updateThinkingToks({status:'Pesquisa falhou, analisando diretamente…',phase:1});
+      _h('updateThinkingToks')({status:'Pesquisa falhou, analisando diretamente…',phase:1});
     }
-    tokenState.sessionIn+=p1in;tokenState.sessionOut+=p1out;
-    tokenState.sessionIn_p1+=p1in;tokenState.sessionOut_p1+=p1out;
+    globalThis.tokenState.sessionIn+=p1in;globalThis.tokenState.sessionOut+=p1out;
+    globalThis.tokenState.sessionIn_p1+=p1in;globalThis.tokenState.sessionOut_p1+=p1out;
     _thkP1Toks=p1in+p1out;
 
     // Portão de completude: preenche dados-chave faltantes (stats de titulares citados
@@ -409,30 +438,30 @@ async function runAnalysis(){
       try{[rawFacts.mandante,rawFacts.visitante].filter(Boolean).forEach(tm=>{
         if(Array.isArray(tm.jogadores_chave))tm.jogadores_chave=tm.jogadores_chave.map(p=>typeof p==='string'?{nome:p}:p);
       });}catch(_){}
-      const g=await fillDataGaps(rawFacts,apiKey,_abort.signal,(upd)=>updateThinkingToks({...upd,phase:1}));
-      tokenState.sessionIn+=g.inTokens;tokenState.sessionOut+=g.outTokens;
-      tokenState.sessionIn_p1+=g.inTokens;tokenState.sessionOut_p1+=g.outTokens;
+      const g=await fillDataGaps(rawFacts,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}));
+      globalThis.tokenState.sessionIn+=g.inTokens;globalThis.tokenState.sessionOut+=g.outTokens;
+      globalThis.tokenState.sessionIn_p1+=g.inTokens;globalThis.tokenState.sessionOut_p1+=g.outTokens;
       _thkP1Toks+=g.inTokens+g.outTokens;
       // Portão anti-alucinação: cruza cada nome da escalação com busca fresca e escova os
       // comprovadamente fora do elenco ANTES da Fase 2 — a escalação errada não chega ao render.
-      const lv=await verifyLineupNames(rawFacts,apiKey,_abort.signal,(upd)=>updateThinkingToks({...upd,phase:1}));
-      tokenState.sessionIn+=lv.inTokens;tokenState.sessionOut+=lv.outTokens;
-      tokenState.sessionIn_p1+=lv.inTokens;tokenState.sessionOut_p1+=lv.outTokens;
+      const lv=await verifyLineupNames(rawFacts,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}));
+      globalThis.tokenState.sessionIn+=lv.inTokens;globalThis.tokenState.sessionOut+=lv.outTokens;
+      globalThis.tokenState.sessionIn_p1+=lv.inTokens;globalThis.tokenState.sessionOut_p1+=lv.outTokens;
       _thkP1Toks+=lv.inTokens+lv.outTokens;
     }
 
     // ── Fase 2: modelo escolhido analisa (sem ferramentas se fatos OK) ────
-    updateThinkingToks({status:'Raciocinando…',phase:2});
+    _h('updateThinkingToks')({status:'Raciocinando…',phase:2});
     const useEnriched=!!rawFacts;
-    const ctx=useEnriched?getTournamentCtxString():'';
+    const ctx=useEnriched?_h('getTournamentCtxString')():'';
     const finalQuery=useEnriched?buildEnrichedQuery(query,rawFacts,ctx):query;
-    const sysText=useEnriched?getSystemPromptPhase2():getSystemPrompt();
-    const memCtx=await fetchMemoryContext();
+    const sysText=useEnriched?_h('getSystemPromptPhase2')():_h('getSystemPrompt')();
+    const memCtx=await _h('fetchMemoryContext')();
     // Teto generoso: o JSON estruturado cheio passa de 6k tokens e truncava (→ fallback).
     // Cobra-se pelo uso real, não pelo teto, então elevar não aumenta custo. Soma-se o
     // budget de raciocínio porque thinking consome desse mesmo teto.
-    const baseBody={model:currentModel,max_tokens:9000+(effort.budget>0?effort.budget:0),system:[{type:'text',text:sysText,cache_control:{type:'ephemeral'}}]};
-    if(getWorkerUrl())baseBody.diagnostics={previous_message_id:_lastAnalysisId};
+    const baseBody={model:globalThis.currentModel,max_tokens:9000+(effort.budget>0?effort.budget:0),system:[{type:'text',text:sysText,cache_control:{type:'ephemeral'}}]};
+    if(_h('getWorkerUrl')())baseBody.diagnostics={previous_message_id:_lastAnalysisId};
     if(!useEnriched)baseBody.tools=[{type:'web_search_20250305',name:'web_search',max_uses:4}];
     if(effort.budget>0){baseBody.thinking={type:'enabled',budget_tokens:effort.budget};baseBody.temperature=1;}
     // NOTA (07/2026): structured outputs (output_config.format) foi testado ao vivo
@@ -440,7 +469,7 @@ async function runAnalysis(){
     // API ("compiled grammar is too large") em todos os modelos. Fase 2 permanece
     // no caminho provado (contrato no prompt + parseAnalysisJson + retry). O recurso
     // está ATIVO na Fase 1 (FACTS_SCHEMA, menor). Ver comentário em FACTS_SCHEMA.
-    const messages=[{role:'user',content:`DATA: ${currentDateFull()}${memCtx}\n\nAnalise esta partida/contexto de ${compLabel(_activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${contextBlock()}`}];
+    const messages=[{role:'user',content:`DATA: ${_h('currentDateFull')()}${memCtx}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`}];
     let _newAnalysisId=null;
 
     for(let iter=0;iter<10;iter++){
@@ -448,14 +477,14 @@ async function runAnalysis(){
       // Reconecta em qualquer iteração após queda de rede/proxy (não só na primeira)
       while(true){
         try{
-          _r2=await streamOnce({...baseBody,messages},reqHeaders,(upd)=>{updateThinkingToks({...upd,phase:2});},_abort.signal);
+          _r2=await streamOnce({...baseBody,messages},reqHeaders,(upd)=>{_h('updateThinkingToks')({...upd,phase:2});},state.abort.signal);
           break;
         }catch(e2){
           if(e2.name==='AbortError'||e2.message==='cancelled')throw e2;
           const isNet=(e2.name==='TypeError'||e2.message==='Failed to fetch');
-          if(isNet&&_netAttempt<2&&!_abort.signal.aborted){
+          if(isNet&&_netAttempt<2&&!state.abort.signal.aborted){
             _netAttempt++;
-            updateThinkingToks({status:'Reconectando…',phase:2});
+            _h('updateThinkingToks')({status:'Reconectando…',phase:2});
             await new Promise(r=>setTimeout(r,1200*_netAttempt));
             continue;
           }
@@ -467,9 +496,9 @@ async function runAnalysis(){
         _newAnalysisId=_r2.id;
         const{cacheRead:_cr0,inTokens:_in0,cacheCreated:_cc0}=_r2;
         const _tot0=_in0+_cr0+_cc0;
-        tokenState.lastCacheHitPct=_tot0>0?Math.round(_cr0/_tot0*100):0;
-        tokenState.lastCacheMissReason=_r2.diagnostics?.cache_miss_reason?.type||null;
-        if(tokenState.lastCacheMissReason)console.debug('[cache-diag] miss:',tokenState.lastCacheMissReason,'~'+(_r2.diagnostics.cache_miss_reason.cache_missed_input_tokens??'?')+'tok');
+        globalThis.tokenState.lastCacheHitPct=_tot0>0?Math.round(_cr0/_tot0*100):0;
+        globalThis.tokenState.lastCacheMissReason=_r2.diagnostics?.cache_miss_reason?.type||null;
+        if(globalThis.tokenState.lastCacheMissReason)console.debug('[cache-diag] miss:',globalThis.tokenState.lastCacheMissReason,'~'+(_r2.diagnostics.cache_miss_reason.cache_missed_input_tokens??'?')+'tok');
       }
       const{text,stopReason,allContent,toolUses,inTokens,outTokens,thinkingTokens,cacheCreated,cacheRead}=_r2;
       lastIn=inTokens;lastOut=outTokens;lastCacheCreated+=cacheCreated;lastCacheRead+=cacheRead;
@@ -477,17 +506,17 @@ async function runAnalysis(){
       if(stopReason==='tool_use'&&!useEnriched){
         messages.push({role:'assistant',content:allContent});
         messages.push({role:'user',content:toolUses.map(t=>({type:'tool_result',tool_use_id:t.id,content:''}))});
-        updateThinkingToks({inTokens:lastIn,outTokens:lastOut,thinkingTokens,status:'Pesquisando dados…',phase:2});
+        _h('updateThinkingToks')({inTokens:lastIn,outTokens:lastOut,thinkingTokens,status:'Pesquisando dados…',phase:2});
       }else{finalText=text;break;}
     }
 
     if(_newAnalysisId)_lastAnalysisId=_newAnalysisId;
-    const _mainP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-4-6'];
-    tokenState.sessionCacheSaved+=(lastCacheRead*(_mainP.crs||0))/1e6;
-    tokenState.lastIn=lastIn;tokenState.lastOut=lastOut;tokenState.sessionIn+=lastIn;tokenState.sessionOut+=lastOut;tokenState.runs++;
-    tokenState.lastCacheCreated=lastCacheCreated;tokenState.lastCacheRead=lastCacheRead;tokenState.sessionCacheRead+=lastCacheRead;
-    stopThinking(true);
-    setTimeout(()=>{updateTokenBar();updateDockTokens();},1300);
+    const _mainP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-4-6'];
+    globalThis.tokenState.sessionCacheSaved+=(lastCacheRead*(_mainP.crs||0))/1e6;
+    globalThis.tokenState.lastIn=lastIn;globalThis.tokenState.lastOut=lastOut;globalThis.tokenState.sessionIn+=lastIn;globalThis.tokenState.sessionOut+=lastOut;globalThis.tokenState.runs++;
+    globalThis.tokenState.lastCacheCreated=lastCacheCreated;globalThis.tokenState.lastCacheRead=lastCacheRead;globalThis.tokenState.sessionCacheRead+=lastCacheRead;
+    _h('stopThinking')(true);
+    setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
     // Extração robusta: aceita blocos markdown e repara JSON truncado.
     let parsed=parseAnalysisJson(finalText);
     if(!parsed){
@@ -495,16 +524,16 @@ async function runAnalysis(){
       // conversador → ele responde em prosa ou JSON truncado. Sem thinking, com teto alto
       // de tokens e contrato explícito, o JSON estruturado sai limpo. Dispara em QUALQUER
       // falha de parse (chaves ausentes OU JSON malformado/truncado), não só a primeira.
-      updateThinkingToks({status:'Reformulando resposta…',phase:2});
+      _h('updateThinkingToks')({status:'Reformulando resposta…',phase:2});
       const retryMessages=[
-        {role:'user',content:`DATA: ${currentDateFull()}\n\nAnalise esta partida/contexto de ${compLabel(_activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${contextBlock()}`},
+        {role:'user',content:`DATA: ${_h('currentDateFull')()}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`},
         {role:'assistant',content:finalText.slice(0,2000)},
         {role:'user',content:'Retorne APENAS o JSON estruturado da análise, começando com { e terminando com }, sem texto antes ou depois, sem blocos de código markdown.'}
       ];
       const retryBody={...baseBody,messages:retryMessages};
       delete retryBody.tools;delete retryBody.thinking;delete retryBody.temperature;
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
-      const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>updateThinkingToks({...upd,phase:2}),_abort.signal).catch(()=>null);
+      const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
       if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson(retryR.text);}
     }
     if(!parsed)throw new Error('O modelo não retornou uma análise estruturada. Tente descrever a partida com "PARTIDA: [Time A] x [Time B]" ou use um dos jogos sugeridos.');
@@ -512,28 +541,28 @@ async function runAnalysis(){
     attachAnalysisDerived(parsed, rawFacts);
     // Fase 3 · Verificador: auditoria barata (Haiku) da análise pronta ANTES de renderizar.
     // Falha do auditor nunca bloqueia a entrega (retorna null e a análise sai sem selo).
-    const _va=await verifyAnalysis(parsed,rawFacts,apiKey,_abort.signal,(upd)=>updateThinkingToks({...upd,phase:2}));
-    if(_va){tokenState.sessionIn+=_va.inTokens;tokenState.sessionOut+=_va.outTokens;}
+    const _va=await verifyAnalysis(parsed,rawFacts,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:2}));
+    if(_va){globalThis.tokenState.sessionIn+=_va.inTokens;globalThis.tokenState.sessionOut+=_va.outTokens;}
     // Rede de segurança de eventos (cartões/escanteios) — após auditoria
     finalizeAnalysisPads(parsed);
-    renderResults(parsed);
+    _h('renderResults')(parsed);
     // Memória: registra a análise estruturada no fio do chat para que perguntas de
     // acompanhamento ("e se a Bósnia abrir o placar?") sejam fundamentadas pela análise
     // já feita — e não apenas por uma nova consulta rasa à ESPN. Resumo condensado
     // (não o JSON inteiro) para manter o custo dos follow-ups baixo.
-    try{_chatThread.push({role:'user',content:_pendingQuery||query});_chatThread.push({role:'assistant',content:_analysisSummaryForThread(parsed)});}catch(_){}
+    try{globalThis._chatThread.push({role:'user',content:state.pendingQuery||query});globalThis._chatThread.push({role:'assistant',content:_analysisSummaryForThread(parsed)});}catch(_){}
     ks.textContent='Guardada apenas nesta aba · apagada ao fechar';ks.style.color='var(--muted)';
   }catch(e){
-    stopThinking(false);
+    _h('stopThinking')(false);
     if(e&&(e.name==='AbortError'||e.message==='cancelled')){
       const inp=document.getElementById('match-input');
-      if(!inp.value.trim())inp.value=_pendingQuery;
+      if(!inp.value.trim())inp.value=state.pendingQuery;
       ks.textContent='Análise interrompida · ajuste e tente de novo';ks.style.color='var(--muted)';
     }else{
       // Graceful fallback: pipeline estruturado falhou → resposta analítica livre
       let _fellBack=false;
-      if(!(_abort&&_abort.signal&&_abort.signal.aborted)){
-        try{await conversationalFallback(_pendingQuery||query,apiKey,reqHeaders,_abort?_abort.signal:undefined);_fellBack=true;}
+      if(!(state.abort&&state.abort.signal&&state.abort.signal.aborted)){
+        try{await conversationalFallback(state.pendingQuery||query,apiKey,reqHeaders,state.abort?state.abort.signal:undefined);_fellBack=true;}
         catch(e2){if(e2&&(e2.name==='AbortError'||e2.message==='cancelled'))_fellBack=true;}
       }
       if(_fellBack){
@@ -541,23 +570,23 @@ async function runAnalysis(){
       }else{
         let _msg=e.message||'Erro inesperado. Verifique sua conexão.';
         const _isNet=(e&&e.name==='TypeError')||/Failed to fetch|falha de conex/i.test(_msg);
-        if(_isNet){const _diag=await diagnoseConnection(apiKey).catch(()=>null);if(_diag)_msg='Diagnóstico: '+_diag;}
+        if(_isNet){const _diag=await _h('diagnoseConnection')(apiKey).catch(()=>null);if(_diag)_msg='Diagnóstico: '+_diag;}
         document.getElementById('error-box').style.display='block';
-        document.getElementById('error-msg').innerHTML=esc(_msg)+' <button class="inline-link" onclick="document.getElementById(\'error-box\').style.display=\'none\';toggleRun()">↺ tentar de novo</button>';
+        document.getElementById('error-msg').innerHTML=_h('esc')(_msg)+' <button class="inline-link" onclick="document.getElementById(\'error-box\').style.display=\'none\';toggleRun()">↺ tentar de novo</button>';
         ks.textContent='Guardada apenas nesta aba · apagada ao fechar';ks.style.color='var(--muted)';
       }
     }
   }finally{
     if(typeof setRunning==='function')setRunning(false,null,'');
-    else{_running=false;_abort=null;}
+    else{state.running=false;state.abort=null;}
     setRunBtn(false);
   }
 }
 
 // ─── Streaming ────────────────────────────────────────────────────────────
-async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||getApiBase()+'/v1/messages';
+async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||_h('getApiBase')()+'/v1/messages';
   const res=await fetch(url,{method:'POST',headers,body:JSON.stringify({...body,stream:true}),signal});
-  parseRateLimitHeaders(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
+  _h('parseRateLimitHeaders')(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
   const reader=res.body.getReader(),decoder=new TextDecoder();
   let buf='',inTokens=0,outTokens=0,thinkingChars=0,cacheCreated=0,cacheRead=0,msgId=null,msgDiag=undefined;
   let allBlocks=[],currentBlock=null,curText='',curThink='',curToolInput='',stopReason=null;
@@ -609,3 +638,30 @@ async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||getApiBa
   return{text:allBlocks.filter(b=>b.type==='text').map(b=>b.text).join(''),stopReason,allContent:allBlocks,toolUses:allBlocks.filter(b=>b.type==='tool_use'),inTokens,outTokens,thinkingTokens:0,cacheCreated,cacheRead,id:msgId,diagnostics:msgDiag};
 }
 
+export {
+  runChat,
+  runAnalysis,
+  toggleRun,
+  cancelAnalysis,
+  setRunBtn,
+  streamOnce,
+  showFallbackCard,
+  conversationalFallback,
+  openHelpAnalysis,
+  closeHelpAnalysis,
+  _analysisSummaryForThread
+};
+
+expose({
+  runChat,
+  runAnalysis,
+  toggleRun,
+  cancelAnalysis,
+  setRunBtn,
+  streamOnce,
+  showFallbackCard,
+  conversationalFallback,
+  openHelpAnalysis,
+  closeHelpAnalysis,
+  _analysisSummaryForThread
+});

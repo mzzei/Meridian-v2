@@ -57,9 +57,16 @@ Faça **um passo por vez**. Só avance se o passo anterior estiver “OK”.
 | **2** liga via catálogo | **OK** — `pipeline-facts` importa `compLabel` / `compSanity` / `compSeasonLabel` |
 | **3** state na análise | **OK** — `state.activeCompId`; `setRunning` no `runAnalysis` |
 | **4** pipeline-facts ESM | **OK** — import no `main.js`, fora do classic |
-| 5 pipeline-run ESM | pendente |
-| 6 espn/af/live ESM | pendente |
+| **5** pipeline-run ESM | **OK** — chat/análise/toggleRun em ESM (sem precisar de API para *carregar*) |
+| 6 espn/af/live ESM | pendente (próximo, se quiser) |
 | 7 limpeza final | pendente |
+
+### Sem chave de API — o que você ainda pode testar
+
+- App abre, temas, biblioteca, agenda ESPN (grátis)
+- Botão Analisar sem key: mensagem pedindo chave (comportamento esperado)
+- `node tests/run.mjs` (não usa API)
+- **Não** roda análise completa nem chat com o modelo sem key
 
 ### Passo 0 — Checklist de segurança (sempre)
 

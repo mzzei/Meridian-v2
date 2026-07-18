@@ -1,14 +1,14 @@
 // ─── Constants ───────────────────────────────────────────────────────────
 const MODEL_CTX   = {'claude-haiku-4-5-20251001':200000,'claude-sonnet-4-6':200000,'claude-opus-4-8':200000};
 const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-4-6':'Sonnet 4.6','claude-opus-4-8':'Opus 4.8'};
-const EFFORT_LEVELS = [
+var EFFORT_LEVELS = [
   {label:'Padrão',budget:0},{label:'Leve',budget:2000},{label:'Médio',budget:5000},
   {label:'Alto',budget:10000},{label:'Máximo',budget:16000}
 ];
 // Buscas web por nível de esforço (Padrão→Máximo). web_search ingere o conteúdo das
 // páginas como tokens — é o maior gasto e NÃO é raciocínio. Escala com o esforço para
 // manter o consumo congruente: a profundidade vem do thinking budget acima, não da coleta.
-const EFFORT_SEARCHES = [1,1,2,3,3];
+var EFFORT_SEARCHES = [1,1,2,3,3];
 // Brasões dos clubes da Série A (ESPN CDN). Chaves normalizadas em _normTeamKey.
 // Completado em runtime por scoreboard/standings da ESPN e pela API-Football.
 const _ESPN_CREST=id=>`https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`;
@@ -114,8 +114,8 @@ const FLAGS = {
 // ─── State / competitions ──────────────────────────────────────────────
 // → js/state.js (schedule, history, views, setters + bridges globalThis)
 // → js/comp/competitions.js (COMPETITIONS, COMP_ORDER, season/API helpers)
-let currentModel  = 'claude-sonnet-4-6';
-let currentEffort = 0;
+var currentModel  = 'claude-sonnet-4-6';
+var currentEffort = 0;
 let _lastAnalysisId = null;
 let _lastChatId     = null;
 
@@ -394,7 +394,7 @@ const FD_TTL      = 20 * 60 * 1000;
 const WORKER_URL_STORE='meridian_worker_url';
 // ESPN_BASE dinâmico (compat com código que ainda lê a const)
 var ESPN_BASE = espnBase(_activeCompId);
-const tokenState  = {sessionIn:0,sessionOut:0,sessionIn_p1:0,sessionOut_p1:0,lastIn:0,lastOut:0,runs:0,lastCacheCreated:0,lastCacheRead:0,sessionCacheRead:0,sessionCacheSaved:0,lastCacheHitPct:0,lastCacheMissReason:null};
+var tokenState  = {sessionIn:0,sessionOut:0,sessionIn_p1:0,sessionOut_p1:0,lastIn:0,lastOut:0,runs:0,lastCacheCreated:0,lastCacheRead:0,sessionCacheRead:0,sessionCacheSaved:0,lastCacheHitPct:0,lastCacheMissReason:null};
 const MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-4-6':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
 const MODEL_DOCK  = {'claude-haiku-4-5-20251001':'Haiku','claude-sonnet-4-6':'Sonnet','claude-opus-4-8':'Opus'};
 // Marca Meridian: estrela de 4 pontas. Gradiente com ID ÚNICO por instância (evita colisão
@@ -424,7 +424,7 @@ let _thkInterval  = null, _thkStart = 0, _thkTokCount = 0, _thkP1Toks = 0, _thkE
 var _running      = false, _abort = null, _pendingQuery = '';
 var _currentView  = 'chat';
 var _libFilter    = 'todos';
-let _chatThread   = [];
+var _chatThread   = [];
 var currentLang   = (()=>{try{return localStorage.getItem('brsa_lang')||'pt';}catch{return'pt';}})();
 
 /**
@@ -457,8 +457,8 @@ let _chatContext='';
 let _pendingCtxQuery=null;      // pergunta à espera do popup de contexto
 let _ctxPromptSelection=null;   // {type:'opt'|'other', label/text}
 let _agentMenuText='';          // texto alvo do menu de clique direito
-let _skipNextUserBubble=false;  // reenvio após popup (evita bolha duplicada)
-let _skipVagueGateOnce=false;   // após o usuário escolher no popup, não reabre o gate
+var _skipNextUserBubble=false;  // reenvio após popup (evita bolha duplicada)
+var _skipVagueGateOnce=false;   // após o usuário escolher no popup, não reabre o gate
 let _lastCtxPromptPayload=null; // {question, options} para reabrir após Cancelar
 let _ctxResumeHintEl=null;      // bolha "definir contexto" no chat
 function getChatContext(){return _chatContext;}
@@ -1554,7 +1554,7 @@ function copyUserMsg(){copyToClipboard(_lastQuery);}
 // ─── Anexos (imagens) ───────────────────────────────────────────────────────
 // Mídia em base64 nunca entra no _chatThread (evita bloat de memória e re-cobrança
 // de tokens): é enviada só no turno em que é anexada; o histórico guarda um stub.
-let _attachments=[],_attSeq=0;
+var _attachments=[],_attSeq=0;
 const ATT_MAX_IMG=5*1024*1024;       // limite da API por imagem
 const ATT_MAX_PDF=12*1024*1024;      // PDF base64 (cuidado: cada página consome muitos tokens)
 const ATT_MAX_TXT=200*1024;          // texto inline (.txt/.md/.csv) — ~50k tokens no pior caso

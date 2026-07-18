@@ -167,6 +167,12 @@ assert(factsSrc.includes('state.activeCompId'), 'pipeline-facts uses state.activ
 assert(factsSrc.includes("export {"), 'pipeline-facts has export');
 assert(mainSrc.includes("import './analysis/pipeline-facts.js'"), 'main imports pipeline-facts ESM');
 assert(!mainSrc.includes("'js/analysis/pipeline-facts.js'"), 'pipeline-facts not in CLASSIC');
+assert(mainSrc.includes("import './analysis/pipeline-run.js'"), 'main imports pipeline-run ESM');
+assert(!mainSrc.includes("'js/analysis/pipeline-run.js'"), 'pipeline-run not in CLASSIC');
+assert(runSrc.includes("from '../lib/intent.js'"), 'pipeline-run imports intent');
+assert(runSrc.includes("from './pipeline-facts.js'"), 'pipeline-run imports facts');
+assert(runSrc.includes("from '../state.js'"), 'pipeline-run imports state');
+assert(runSrc.includes('export {'), 'pipeline-run has export');
 assert(!appSrc.includes('function loadSchedule'), 'schedule not in app.js');
 assert(!appSrc.includes('function showView'), 'library not in app.js');
 assert(!appSrc.includes('function _copaStatsHTML'), 'featured not in app.js');
@@ -211,6 +217,11 @@ assert(St.setAnalysisCompId('epl') === true && St.state.activeCompId === 'epl', 
 St.setAnalysisCompId('brsa');
 const Bridge = await import(pathToFileURL(path.join(ROOT, 'js/html-bridge.js')).href);
 assert(Array.isArray(Bridge.HTML_ONCLICK_API) && Bridge.HTML_ONCLICK_API.includes('toggleRun'), 'html-bridge API list');
+
+// pipeline-run ESM loads without API key (module evaluation only)
+const Run = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-run.js')).href);
+assert(typeof Run.toggleRun === 'function' && typeof Run.runAnalysis === 'function', 'pipeline-run ESM exports');
+assert(typeof Run.streamOnce === 'function', 'streamOnce exported');
 
 // classic UI/data: no globalThis soup, no mojibake markers, loadable as classic
 assert(!schedSrc.includes('globalThis.'), 'schedule free of globalThis soup');

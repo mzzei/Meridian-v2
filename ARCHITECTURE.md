@@ -23,11 +23,11 @@ Ordem no `main.js`:
 
 ## ESM real
 
-intent · tab-helpers · lineup · normalize · history · export · competitions · state · html-bridge
+intent · tab-helpers · lineup · normalize · history · export · competitions · state · html-bridge · **pipeline-facts** · **pipeline-run**
 
 ## Classic
 
-prompts · render · espn · football-apis · schedule · live · featured · library · pipeline-* · app
+prompts · render · espn · football-apis · schedule · live · featured · library · app
 
 ## Write path do agente
 
