@@ -540,6 +540,13 @@ async function runAnalysis(){
     // no caminho provado (contrato no prompt + parseAnalysisJson + retry). O recurso
     // está ATIVO na Fase 1 (FACTS_SCHEMA, menor). Ver comentário em FACTS_SCHEMA.
     const messages=[{role:'user',content:`DATA: ${_h('currentDateFull')()}${memCtx}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`}];
+    // PREFILL '{' (shell 77): com thinking OFF e sem tools, pré-preencher o assistant
+    // com "{" OBRIGA a API a continuar o objeto — prosa/recusa ("o jogo ainda não
+    // aconteceu…") fica estruturalmente impossível. Só no caminho enriquecido (sem
+    // tools; prefill + tool_use não combinam). Comprovado: shell 76 ainda caía em
+    // prosa mesmo com a regra ENTREGA OBRIGATÓRIA no prompt.
+    const _prefill=useEnriched&&(!baseBody.thinking||baseBody.thinking.type==='disabled');
+    if(_prefill)messages.push({role:'assistant',content:'{'});
     let _newAnalysisId=null;
 
     for(let iter=0;iter<10;iter++){
@@ -572,12 +579,12 @@ async function runAnalysis(){
       }
       const{text,stopReason,allContent,toolUses,inTokens,outTokens,thinkingTokens,cacheCreated,cacheRead}=_r2;
       lastIn=inTokens;lastOut=outTokens;lastCacheCreated+=cacheCreated;lastCacheRead+=cacheRead;
-      if(stopReason==='end_turn'){finalText=text;break;}
+      if(stopReason==='end_turn'){finalText=(_prefill?'{':'')+text;break;}
       if(stopReason==='tool_use'&&!useEnriched){
         messages.push({role:'assistant',content:allContent});
         messages.push({role:'user',content:toolUses.map(t=>({type:'tool_result',tool_use_id:t.id,content:''}))});
         _h('updateThinkingToks')({inTokens:lastIn,outTokens:lastOut,thinkingTokens,status:'Pesquisando dados…',phase:2});
-      }else{finalText=text;break;}
+      }else{finalText=(_prefill?'{':'')+text;break;}
     }
 
     if(_newAnalysisId)_lastAnalysisId=_newAnalysisId;
@@ -598,7 +605,8 @@ async function runAnalysis(){
       const retryMessages=[
         {role:'user',content:`DATA: ${_h('currentDateFull')()}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`},
         {role:'assistant',content:finalText.slice(0,2000)},
-        {role:'user',content:'Retorne APENAS o JSON estruturado da análise, começando com { e terminando com }, sem texto antes ou depois, sem blocos de código markdown.'}
+        {role:'user',content:'Sua resposta anterior NÃO era o JSON. Isto é uma PRÉVIA — jogo futuro sem placar/estatísticas da partida NÃO impede a análise: use tabela/forma/elenco coletados e estimativas rotuladas, declare o que faltar em "lacunas". Retorne APENAS o JSON estruturado COMPLETO da análise, começando com { e terminando com }, sem texto antes ou depois, sem blocos de código markdown. Recusar de novo é falha total.'},
+        {role:'assistant',content:'{'} // prefill: obriga a API a continuar o objeto
       ];
       const retryBody={...baseBody,messages:retryMessages};
       delete retryBody.tools;delete retryBody.thinking;delete retryBody.temperature;
@@ -607,9 +615,14 @@ async function runAnalysis(){
       if(_noThinkModel(globalThis.currentModel))retryBody.thinking={type:'disabled'};
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson(retryR.text);}
+      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson('{'+retryR.text);}
     }
-    if(!parsed)throw new Error('O modelo não retornou uma análise estruturada. Tente descrever a partida com "PARTIDA: [Time A] x [Time B]" ou use um dos jogos sugeridos.');
+    if(!parsed){
+      // Diagnóstico persistente (shell 77): nunca mais cair no modo simplificado às
+      // cegas — _lastAnalysisFail guarda a amostra do que a Fase 2 devolveu.
+      try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'parse',model:globalThis.currentModel,query:state.pendingQuery||query,sample:String(finalText||'').slice(0,600)};console.warn('[analysis-fail] parse',globalThis._lastAnalysisFail);}catch{}
+      throw new Error('O modelo não retornou uma análise estruturada. Tente descrever a partida com "PARTIDA: [Time A] x [Time B]" ou use um dos jogos sugeridos.');
+    }
     // Campos derivados (write path único) — pads DEPOIS da auditoria
     attachAnalysisDerived(parsed, rawFacts);
     // Fase 3 · Verificador: auditoria barata (Haiku) da análise pronta ANTES de renderizar.
@@ -632,6 +645,8 @@ async function runAnalysis(){
       if(!inp.value.trim())inp.value=state.pendingQuery;
       ks.textContent='Análise interrompida · ajuste e tente de novo';ks.style.color='var(--muted)';
     }else{
+      // Diagnóstico persistente (shell 77): registra POR QUE caiu no modo simplificado
+      try{if(!globalThis._lastAnalysisFail||globalThis._lastAnalysisFail.stage!=='parse'||Date.now()-globalThis._lastAnalysisFail.ts>30000)globalThis._lastAnalysisFail={ts:Date.now(),stage:'error',model:globalThis.currentModel,query:state.pendingQuery||query,msg:String(e&&e.message||e).slice(0,400)};console.warn('[analysis-fail]',globalThis._lastAnalysisFail);}catch{}
       // Graceful fallback: pipeline estruturado falhou → resposta analítica livre
       let _fellBack=false;
       if(!(state.abort&&state.abort.signal&&state.abort.signal.aborted)){

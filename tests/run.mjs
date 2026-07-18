@@ -396,6 +396,19 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(covPos.contexto_analise === 'pos_jogo', 'normalize tolerates pós-jogo variants');
 }
 
+// Shell 77: prefill '{' força JSON por construção + diagnóstico de falha
+{
+  const runSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert(runSrc2.includes("messages.push({role:'assistant',content:'{'})"), 'F2 prefill on enriched path');
+  assert((runSrc2.match(/_prefill\?'\{':''/g) || []).length >= 2, 'prefill prepended to finalText');
+  assert(runSrc2.includes("{role:'assistant',content:'{'} // prefill"), 'retry has prefill');
+  assert(runSrc2.includes("parseAnalysisJson('{'+retryR.text)"), 'retry parse prepends brace');
+  assert((runSrc2.match(/_lastAnalysisFail/g) || []).length >= 3, 'failure diagnostics persisted');
+  const promptsSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert((promptsSrc3.match(/PRÉVIA É O CASO NORMAL/g) || []).length >= 2, 'previa-is-normal rule in both prompts');
+  assert(runSrc2.includes('Recusar de novo é falha total'), 'hard retry message');
+}
+
 // --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
