@@ -6,3 +6,6 @@
 .git-heranca-v1-IGNORAR/
 docs/_*.js
 docs/ui-smoke-*.png
+
+# wrangler local cache (nunca commitar)
+worker/.wrangler/
