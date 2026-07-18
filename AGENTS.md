@@ -4,11 +4,11 @@
 
 **Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
 
-1. Localize o handoff **mais recente**:
-   - Preferir `docs/HANDOFF-V2-SHELL-*.md` com o **maior número de shell** (ex.: shell 66 > 65 > 57).
-   - Se não houver nenhum, ler `HANDOFF-v2.md` / `SESSAO-HANDOFF-DETALHADO.md` como fallback.
-2. **Leia o handoff** (pelo menos seções de estado atual, arquitetura, commits recentes e próximos passos / invariantes).
-3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o shell citado no handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
+1. Localize e leia o handoff **mestre do agente** (prioridade máxima):
+   - `docs/HANDOFF-V2-SHELL-68-MESTRE-AGENTE-2026-07-18.md` (ou o `*MESTRE*` / shell mais alto se houver um mais novo).
+   - Esse arquivo é o canônico: dual-mode análise×chat, pipeline, fontes, Worker, invariantes — **não pular**.
+2. Se a tarefa for pontual de uma sessão antiga, complemente com `docs/HANDOFF-V2-SHELL-*.md` do shell relevante (65 Worker, 67 allowlist, etc.).
+3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
 4. Só então atenda o pedido do usuário.
 
 Isto foi pedido explicitamente pelo dono do projeto: *sempre que abrir sessão do Meridian v2, verificar o handoff*.
@@ -19,10 +19,11 @@ Leia também **`ISOLAMENTO.md`** (v2 ≠ v1).
 
 **Antes de encerrar o trabalho (sempre, sem o usuário precisar lembrar):**
 
-1. **Atualizar o handoff** em `docs/HANDOFF-V2-SHELL-<N>-YYYY-MM-DD.md`:
-   - Se o `SHELL_VERSION` subiu nesta sessão → **criar** handoff do shell novo (não só editar o antigo).
-   - Se o shell não subiu mas houve mudanças relevantes → **atualizar** o handoff mais recente (o que foi feito, HEAD, próximos passos).
-   - Incluir: shell, HEAD/commit, o que mudou, testes, deploy (Worker/Pages se aplicável), invariantes, próximos abertos, prompt pronto para a próxima sessão.
+1. **Atualizar handoff(s)**:
+   - Se o `SHELL_VERSION` subiu ou mudou algo **estrutural do agente** (intent, pipeline, fontes, Worker, dual-mode) → atualizar o **mestre** (`*MESTRE-AGENTE*` ou criar shell novo mestre) **e** um handoff de sessão `HANDOFF-V2-SHELL-<N>-…` se útil.
+   - Mudanças pequenas de sessão: handoff de sessão +, se afetar o agente, um parágrafo no mestre.
+   - Incluir: shell, HEAD, o que mudou, testes, deploy, invariantes, próximos passos, dual-mode se mexeu em intent/pipeline.
+   - O mestre deve continuar **detalhado o suficiente** para um agente novo entender o produto sem a conversa anterior (não economizar páginas no que for crucial).
 2. **`node tests/run.mjs`** se houve mudança de código (deve passar).
 3. **`git add` + `git commit`** com mensagem clara (shell no subject se bump).
 4. **`git push origin main`** (ou a branch em uso).
