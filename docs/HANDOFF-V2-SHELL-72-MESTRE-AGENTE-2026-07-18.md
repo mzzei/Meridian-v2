@@ -318,8 +318,8 @@ Definidas em `pipeline-facts.js` (`GROUNDING_RULE`, `SOURCE_RULE`) e prompts:
 | **B** Time | técnico, escalação | AF (técnico free via /teams+/coachs); escalação 2026 **só web_search** no Free AF |
 | **C** Analítico | xG, métricas jogador | web_search; EPL também FPL via Worker |
 
-- Badge visual A/B/C no dock foi **removido no shell 68** (`#data-coverage` saiu).  
-- **Telemetria interna mantida:** `_phase1Coverage`, sessionStorage, status pós-busca, REPERTOIRE/COBERTURA no **prompt** do agente (se ainda gerados no phase1).  
+- Badge visual A/B/C no dock foi **removido no shell 68** (`#data-coverage` saiu do HTML). As chamadas `renderCoverageBadge(...)` que restam em pipeline-facts/source-telemetry são **no-op inofensivo** (o elemento não existe) — não "consertar" reintroduzindo o badge sem pedido do usuário.  
+- **Telemetria interna mantida:** `_phase1Coverage`, sessionStorage, status pós-busca, REPERTOIRE/COBERTURA no **prompt** do agente (confirmado no phase1-context atual).  
 - Hint `#cov-help` nos settings explica A/B/C **sem** depender do badge.
 
 ## 11. Cascata e registry (phase1-context.js)
@@ -370,7 +370,7 @@ Resgate B: `_afTeamIdByName` + `_afCoachOnlyFallback` (`/teams?search` + `/coach
 | Rotas | `/v1/*` Anthropic · `/af/*` · `/fd/*` · `/fpl/*` · `/health` |
 | Secrets típicos | `AF_KEY`, `FD_KEY` — **sem** `ANTHROPIC_KEY` (decisão: chave por usuário no browser) |
 | Anthropic | app manda `x-api-key`; Worker repassa; se secret existisse, prevaleceria |
-| Origin allowlist (67) | default Pages + localhost:3457; evil origin → 403 |
+| Origin allowlist (67) | default Pages + localhost/127.0.0.1:3457 e :8787; evil origin → 403; sem Origin (curl/health) passa; `Origin: null` (file://) bloqueado salvo `ALLOW_NULL_ORIGIN=1` |
 | Fix shell ~68 | `/v1` **remove Origin/Referer** no repasse — Anthropic quebrava Fase 2 exigindo dangerous-direct quando Origin ia junto |
 
 **FD:** GET real **sem CORS** no browser → proxy obrigatório.  
@@ -530,7 +530,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **72** em version/sw/index  
+- [ ] `git pull` · `SHELL_VERSION` **atual** (ver topo deste doc) em version/sw/index  
 - [ ] Ler **este** handoff mestre (+ 65/67 se for mexer em Worker)  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `service: meridian-v2-proxy`, `origin_gate: true`  
@@ -544,7 +544,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 ## Prompt pronto
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 72).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main; shell = SHELL_VERSION no topo deste doc).
 
 Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
