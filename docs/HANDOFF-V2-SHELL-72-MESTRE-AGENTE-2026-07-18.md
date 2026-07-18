@@ -1,9 +1,11 @@
 # HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 72)
 
-**Data:** 2026-07-18  
+**Data:** 2026-07-18 (atualizado no shell 73)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `72` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** `d2fd1db` (shell 72) · `89b0b1c` (71) · `a900abe` (70) · `d120fca` (69)
+**SHELL_VERSION:** `73` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** shell 73 (botão Analisar largo) · `d2fd1db` (72) · `89b0b1c` (71) · `a900abe` (70)
+
+**Regra de manutenção (pedido do usuário, shell 73):** este handoff mestre é atualizado **a cada implementação** (não só no fim da sessão) — timeline + invariantes no mesmo push da mudança.
 
 Este é o **handoff detalhado e canônico** para contextualizar qualquer agente (Claude, Grok, etc.) sobre **tudo o que é crucial no desenvolvimento do Meridian v2**, em especial o **agente de análise**. Não economizar páginas: se faltar detalhe operacional, o próximo dev regride.
 
@@ -466,6 +468,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **70** | `MODEL_PROFILES`; seletor de esforço removido; chat thinking off; (tentou budget>0 — revertido no 71) |
 | **71** | `budget:0` em todos os perfis — thinking na Fase 2 quebrava JSON das 7 abas |
 | **72** | Default **Sonnet 5** (`claude-sonnet-5`); `_noThinkModel` + `thinking: disabled` explícito |
+| **73** | UI dock: botão Analisar/Enviar largo — `.i-tok-mini` `flex:0 1 auto` (encolhe ao conteúdo) e `.i-analyze` `flex:1 1 14rem`; botão preenche a linha e alinha a borda direita com o `#match-input` (validado: btnRight === inputRight) |
 
 ---
 

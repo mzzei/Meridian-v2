@@ -652,7 +652,8 @@ html[data-theme="mono"] .cov-overall.cov-o-low{color:#ffaaaa}
 .i-sel-btn.pop-open{background:var(--terra-pale);border-color:rgba(200,86,60,.28);color:var(--terra-dark)}
 .i-sel-arr{width:7px;height:5px;flex-shrink:0;fill:currentColor;opacity:.55;transition:transform .13s}
 .i-sel-btn.pop-open .i-sel-arr{transform:rotate(180deg)}
-.i-tok-mini{flex:1;min-width:0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;padding-left:4px}
+/* tok-mini encolhe ao conteúdo — o espaço livre da linha vai para o botão Analisar */
+.i-tok-mini{flex:0 1 auto;min-width:0;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;padding-left:4px}
 .i-tok-n{color:var(--deep);font-weight:500}.i-tok-s{opacity:.35}.i-tok-c{color:var(--terra);font-weight:500}
 .tok-ring-svg{width:20px;height:20px;transform:rotate(-90deg);flex-shrink:0}
 .tok-ring-track{fill:none;stroke:var(--cream-mid);stroke-width:3}
@@ -820,7 +821,8 @@ html[data-theme="mono"] .ctx-prompt-other-ta{background:#fff!important;color:#1a
 .sp-desc{display:block;font-size:11px;color:var(--muted);margin-top:1px}
 .sp-tag{font-size:10px;font-weight:500;color:var(--muted);background:var(--cream-mid);border-radius:4px;padding:2px 5px;white-space:nowrap;flex-shrink:0}
 .i-analyze{
-  flex:1 1 auto;min-width:0;max-width:100%;
+  /* base larga: o botão enquadra a linha, preenchendo até a borda do dock */
+  flex:1 1 14rem;min-width:0;max-width:100%;
   background:var(--terra);color:#fff;border:none;border-radius:9px;
   padding:.65rem 1rem;font-family:var(--sans);font-size:14px;font-weight:500;
   cursor:pointer;transition:background .2s;
