@@ -87,16 +87,15 @@ function formatEspnContext(sData,sbData){
 const TSDB_BASE='https://www.thesportsdb.com/api/v1/json/123';
 const TSDB_TTL=15*60*1000;
 async function fetchTsdb(path,cacheKey){
-  try{const raw=localStorage.getItem(cacheKey);if(raw){const c=JSON.parse(raw);if(c&&Date.now()-c.t<TSDB_TTL)return c.d;}}catch{}
-  const ctl=new AbortController();const tid=setTimeout(()=>ctl.abort(),8000);
+  const url=TSDB_BASE+path;
+  if(typeof cachedJsonFetch==='function'){
+    return cachedJsonFetch(url,cacheKey,{ttl:TSDB_TTL,timeout:8000});
+  }
   try{
-    const res=await fetch(TSDB_BASE+path,{signal:ctl.signal});
+    const res=await fetch(url);
     if(!res.ok)return null;
-    const d=await res.json();
-    try{localStorage.setItem(cacheKey,JSON.stringify({t:Date.now(),d}));}catch{}
-    return d;
+    return await res.json();
   }catch{return null;}
-  finally{clearTimeout(tid);}
 }
 function _tsdbLine(e){
   const sc=(e.intHomeScore!=null&&e.intAwayScore!=null)?`${e.intHomeScore}x${e.intAwayScore}`:'—';

@@ -1,40 +1,56 @@
-/* js/data/facts-memory.js — memória local de fatos básicos repetíveis
+/* js/data/facts-memory.js — memória local de fatos básicos (por time + liga)
  *
- * Objetivo: economizar web_search (tokens/$) guardando no localStorage
- * dimensões estáveis/repetidas (tabela, forma, técnico, xG médio…) e
- * injetando-as na próxima coleta em vez de re-buscar na web.
+ * Economia de web_search: reutiliza técnico/xG/etc. JÁ coletados nesta app.
+ * NÃO é memória de treino do modelo.
  *
- * NÃO substitui grounding: fatos voláteis (placar LIVE, escalação do dia)
- * têm TTL curto. Memória de treino do modelo continua proibida — isto é
- * cache de DADOS já coletados/API, não knowledge cut-off.
+ * Invariante de skip (code-review ultra):
+ *   dimensões de TIME (técnico, escalação, …) só entram em "coberto"
+ *   se TODOS os times do confronto tiverem entrada fresca.
+ *   Sem times parseados → NUNCA skip de dimensão de time (fail-safe).
  */
 const FACTS_MEM_STORE = 'meridian_facts_mem_v1';
-const FACTS_MEM_META = 'meridian_facts_mem_meta_v1';
 
-/** TTLs por dimensão (ms). Mais estável → maior TTL. */
+/** TTLs por dimensão (ms). */
 const FACTS_MEM_TTL = {
-  tabela: 6 * 60 * 60 * 1000, // classificação
-  resultados: 2 * 60 * 60 * 1000, // placares recentes
+  tabela: 6 * 60 * 60 * 1000,
+  resultados: 2 * 60 * 60 * 1000,
   forma: 4 * 60 * 60 * 1000,
-  tecnico: 24 * 60 * 60 * 1000, // técnico muda raro
+  tecnico: 24 * 60 * 60 * 1000,
   ranking: 6 * 60 * 60 * 1000,
   xg: 12 * 60 * 60 * 1000,
   estilo: 24 * 60 * 60 * 1000,
   escanteios: 12 * 60 * 60 * 1000,
-  // escalação/desfalques: voláteis — TTL curto; ainda economiza re-busca no mesmo dia
   escalacao: 3 * 60 * 60 * 1000,
   desfalques: 3 * 60 * 60 * 1000,
-  structured_blob: 2 * 60 * 60 * 1000, // bloco texto das APIs grátis
+  /** trechos reais de API (não placeholder) — liga */
+  api_tabela: 6 * 60 * 60 * 1000,
+  api_resultados: 2 * 60 * 60 * 1000,
 };
 
-/** Dimensões cobertas por fontes estruturadas (ESPN/TSDB/OF/Scorebat) — skip web por padrão se hasFd. */
-const FACTS_MEM_STRUCTURED_DIMS = ['tabela', 'resultados', 'forma', 'ranking'];
-
-/** Dimensões que, se frescas na memória, permitem enxugar tópicos de web_search. */
-const FACTS_MEM_SKIPPABLE = ['tecnico', 'xg', 'estilo', 'escanteios', 'escalacao', 'desfalques'];
+const FACTS_MEM_TEAM_DIMS = [
+  'tecnico',
+  'xg',
+  'estilo',
+  'escanteios',
+  'escalacao',
+  'desfalques',
+  'ranking',
+  'resultados',
+  'forma',
+];
+const FACTS_MEM_LEAGUE_DIMS = ['tabela', 'api_tabela', 'api_resultados'];
 
 function _fmNow() {
   return Date.now();
+}
+
+function _fmNormEntity(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 }
 
 function _fmLoad() {
@@ -52,14 +68,14 @@ function _fmSave(db) {
 }
 
 function _fmKey(compId, dim, entity) {
-  return [compId || 'brsa', dim, entity || '_liga'].join('::');
+  return [compId || 'brsa', dim, _fmNormEntity(entity) || '_liga'].join('::');
 }
 
 function factsMemGet(compId, dim, entity) {
   const db = _fmLoad();
   const k = _fmKey(compId, dim, entity);
   const e = db[k];
-  if (!e || e.v == null) return null;
+  if (!e || e.v == null || e.v === '') return null;
   const ttl = FACTS_MEM_TTL[dim] || 6 * 60 * 60 * 1000;
   if (_fmNow() - (e.ts || 0) > ttl) return null;
   return e.v;
@@ -71,10 +87,17 @@ function factsMemIsFresh(compId, dim, entity) {
 
 function factsMemSet(compId, dim, value, entity) {
   if (value == null || value === '') return;
+  // rejeita placeholders legados / vazios
+  const v = typeof value === 'string' ? value.trim() : value;
+  if (v === 'presente_no_bloco_estruturado') return;
   const db = _fmLoad();
   const k = _fmKey(compId, dim, entity);
-  db[k] = { ts: _fmNow(), v: value, dim: dim };
-  // GC simples: remove entradas > 7 dias
+  db[k] = {
+    ts: _fmNow(),
+    v: v,
+    dim: dim,
+    label: String(entity || '_liga').trim() || '_liga',
+  };
   const week = 7 * 24 * 60 * 60 * 1000;
   const now = _fmNow();
   Object.keys(db).forEach((key) => {
@@ -83,137 +106,191 @@ function factsMemSet(compId, dim, value, entity) {
   _fmSave(db);
 }
 
-function factsMemListFresh(compId) {
+/** Resolve entrada fresca por nome de time (match normalizado / includes). */
+function factsMemGetForTeam(compId, dim, teamName) {
+  const direct = factsMemGet(compId, dim, teamName);
+  if (direct != null) return direct;
+  const want = _fmNormEntity(teamName);
+  if (!want || want.length < 2) return null;
   const db = _fmLoad();
-  const prefix = (compId || 'brsa') + '::';
+  const prefix = (compId || 'brsa') + '::' + dim + '::';
   const now = _fmNow();
-  const out = [];
+  const ttl = FACTS_MEM_TTL[dim] || 6 * 60 * 60 * 1000;
+  let best = null;
   Object.keys(db).forEach((k) => {
     if (!k.startsWith(prefix)) return;
     const e = db[k];
-    if (!e) return;
-    const dim = e.dim || k.split('::')[1];
-    const ttl = FACTS_MEM_TTL[dim] || 6 * 60 * 60 * 1000;
-    if (now - (e.ts || 0) > ttl) return;
-    const entity = k.split('::')[2] || '_liga';
-    out.push({ dim, entity, value: e.v, ageMin: Math.round((now - e.ts) / 60000) });
+    if (!e || now - (e.ts || 0) > ttl) return;
+    const ent = k.slice(prefix.length);
+    if (ent === want || ent.includes(want) || want.includes(ent)) {
+      best = e.v;
+    }
   });
-  return out;
+  return best;
+}
+
+function factsMemTeamHas(compId, dim, teamName) {
+  return factsMemGetForTeam(compId, dim, teamName) != null;
 }
 
 /**
- * Monta bloco de texto "MEMÓRIA LOCAL" para injetar no prompt da Fase 1.
- * Só inclui entradas frescas da competição.
+ * Dimensões cobertas COM segurança:
+ * - liga: hasStructured (API real nesta run) OU api_* fresco
+ * - time: TODOS os teams[] têm a dim fresca; se teams vazio → nenhuma dim de time
  */
-function factsMemBuildKnownBlock(compId) {
-  const rows = factsMemListFresh(compId);
-  if (!rows.length) return '';
-  const L = [
-    '=== MEMÓRIA LOCAL (fatos básicos já coletados — NÃO re-busque na web o que já está abaixo; só busque lacunas/atualizações) ===',
-  ];
-  rows.forEach((r) => {
-    const who = r.entity === '_liga' ? 'liga' : r.entity;
-    const val = typeof r.value === 'string' ? r.value : JSON.stringify(r.value);
-    L.push('[' + r.dim + ' · ' + who + ' · ~' + r.ageMin + 'min] ' + String(val).slice(0, 400));
-  });
-  return L.join('\n');
-}
-
-/**
- * Quais dimensões skipáveis já estão cobertas (memória fresca + hasFd estruturado).
- * Retorna Set de dim names.
- */
-function factsMemCoveredDims(compId, hasStructured) {
+function factsMemCoveredDims(compId, hasStructured, teams) {
   const covered = new Set();
-  if (hasStructured) FACTS_MEM_STRUCTURED_DIMS.forEach((d) => covered.add(d));
-  FACTS_MEM_SKIPPABLE.forEach((d) => {
-    // coberto se existe entrada de liga OU de algum time (heurística: ≥1 fresh)
-    const rows = factsMemListFresh(compId).filter((r) => r.dim === d);
-    if (rows.length) covered.add(d);
-  });
-  // structured blob fresco também conta como tabela/resultados
-  if (factsMemIsFresh(compId, 'structured_blob')) {
-    FACTS_MEM_STRUCTURED_DIMS.forEach((d) => covered.add(d));
+  const teamList = Array.isArray(teams) ? teams.filter((t) => String(t || '').trim()) : [];
+
+  if (hasStructured || factsMemIsFresh(compId, 'api_tabela', '_liga')) {
+    covered.add('tabela');
+  }
+  if (hasStructured || factsMemIsFresh(compId, 'api_resultados', '_liga')) {
+    covered.add('resultados');
+    covered.add('forma');
+  }
+
+  if (teamList.length >= 2) {
+    FACTS_MEM_TEAM_DIMS.forEach((d) => {
+      if (teamList.every((t) => factsMemTeamHas(compId, d, t))) covered.add(d);
+    });
   }
   return covered;
 }
 
 /**
- * Filtra / enxuga a lista de tópicos de web_search conforme memória.
- * - hasStructured: remove buscas de tabela/forma
- * - técnico+escalação+xg na memória: reduz tópicos redundantes
- * Retorna { topics, skippedDims, maxUsesHint }
+ * Bloco MEMÓRIA LOCAL focado nos times do jogo (+ fatos de liga).
+ * Nunca re-injeta structured_blob inteiro (evita eco circular).
  */
-function factsMemFilterTopics(topics, compId, hasStructured) {
-  const covered = factsMemCoveredDims(compId, hasStructured);
+function factsMemBuildKnownBlock(compId, teams) {
+  const teamList = Array.isArray(teams) ? teams.filter(Boolean) : [];
+  const L = [];
+  const push = (dim, who, val, ageMin) => {
+    if (val == null || val === '') return;
+    const s = typeof val === 'string' ? val : JSON.stringify(val);
+    L.push('[' + dim + ' · ' + who + (ageMin != null ? ' · ~' + ageMin + 'min' : '') + '] ' + String(s).slice(0, 350));
+  };
+
+  // liga
+  ['api_tabela', 'api_resultados', 'tabela'].forEach((dim) => {
+    const v = factsMemGet(compId, dim, '_liga');
+    if (v) push(dim, 'liga', v, null);
+  });
+
+  // times do confronto
+  teamList.forEach((team) => {
+    FACTS_MEM_TEAM_DIMS.forEach((dim) => {
+      const v = factsMemGetForTeam(compId, dim, team);
+      if (v != null) push(dim, team, v, null);
+    });
+  });
+
+  if (!L.length) return '';
+  return (
+    '=== MEMÓRIA LOCAL (fatos já coletados NESTA app p/ estes times — NÃO é memória de treino; reutilize; só busque lacunas/atualizações) ===\n' +
+    L.slice(0, 40).join('\n')
+  );
+}
+
+/**
+ * Filtra tópicos de web_search.
+ * @param {string[]} topics
+ * @param {string} compId
+ * @param {boolean} hasStructured
+ * @param {string[]} [teams]
+ */
+function factsMemFilterTopics(topics, compId, hasStructured, teams) {
+  const covered = factsMemCoveredDims(compId, hasStructured, teams);
   const skipped = [];
   const kept = [];
+
   (topics || []).forEach((t) => {
     const low = String(t).toLowerCase();
     let drop = false;
-    // se já temos tabela+resultados estruturados, tópicos só de classificação caem
+
+    // tópico só de classificação (sem técnico/lesões/xG)
     if (
       covered.has('tabela') &&
       covered.has('resultados') &&
-      /classifica[cç][aã]o|tabela|forma recente resultados/i.test(low) &&
-      !/t[eé]cnico|les[oõ]es|escala[cç]|xg|desfalque/i.test(low)
+      /classifica[cç][aã]o|tabela estat/i.test(low) &&
+      !/t[eé]cnico|les[oõ]es|escala[cç]|xg|desfalque|vulnerab/i.test(low)
     ) {
       drop = true;
-      skipped.push('tabela/resultados');
+      skipped.push('tabela');
     }
-    // técnico + escalação + desfalques todos na memória → tópico de desfalques/técnico pode cair
+
+    // tópico de técnico/escalação/desfalques: só drop se os 3 dims cobertos p/ AMBOS os times
     if (
       covered.has('tecnico') &&
       covered.has('escalacao') &&
       covered.has('desfalques') &&
       /t[eé]cnico|escala[cç]|desfalque|les[oõ]es|suspens/i.test(low) &&
-      !/xg|vulnerab|estat/i.test(low)
+      !/xg|expected|fbref|vulnerab/i.test(low)
     ) {
       drop = true;
-      skipped.push('tecnico/escalacao');
+      skipped.push('tecnico/escalacao/desfalques');
     }
-    // xG + estilo na memória → tópico só de xG cai
-    if (covered.has('xg') && covered.has('estilo') && /xg|expected goals|estilo t[aá]tico/i.test(low) && !/les[oõ]es|escala/i.test(low)) {
+
+    // tópico puro de xG/estilo
+    if (
+      covered.has('xg') &&
+      covered.has('estilo') &&
+      /xg|expected goals|estilo t[aá]tico/i.test(low) &&
+      !/les[oõ]es|escala|t[eé]cnico/i.test(low)
+    ) {
       drop = true;
       skipped.push('xg/estilo');
     }
+
     if (!drop) kept.push(t);
   });
-  // nunca zerar: se tudo caiu, mantém 1 tópico mais genérico de lacunas
+
+  // fail-safe: nunca zerar buscas
   if (!kept.length && topics && topics.length) {
     kept.push(
-      '"[Mandante] [Visitante] atualizações de última hora lesões escalação" — Sofascore, imprensa (memória local já cobriu o resto — só lacunas)'
+      '"[Mandante] [Visitante] atualizações de última hora lesões escalação" — Sofascore, imprensa (memória local cobriu o resto — só lacunas)'
     );
   }
-  const uniqSkip = [...new Set(skipped)];
+
   return {
     topics: kept,
-    skippedDims: uniqSkip,
+    skippedDims: [...new Set(skipped)],
     coveredDims: [...covered],
     maxUsesHint: Math.max(1, kept.length),
   };
 }
 
 /**
- * Ingere bloco estruturado (fdCtx texto) como blob + tenta extrair linhas de tabela/resultados.
+ * Ingere texto de APIs estruturadas (SEM bloco de memória).
+ * Guarda trechos reais, não flags booleanas.
  */
-function factsMemIngestStructured(compId, fdCtx) {
-  if (!fdCtx || !String(fdCtx).trim()) return;
-  const text = String(fdCtx);
-  factsMemSet(compId, 'structured_blob', text.slice(0, 12000), '_liga');
-  // heurística leve: se tem bloco de classificação, marca dim
-  if (/classifica|standings|pts:|pontos/i.test(text)) {
-    factsMemSet(compId, 'tabela', 'presente_no_bloco_estruturado', '_liga');
+function factsMemIngestStructured(compId, apiText) {
+  if (!apiText || !String(apiText).trim()) return;
+  const text = String(apiText);
+  // não ingerir se o caller passou memória por engano
+  if (/===\s*MEMÓRIA LOCAL/i.test(text) && text.length < 500) return;
+
+  if (/classifica|standings|Pts:|pontos/i.test(text)) {
+    const snip = text
+      .split('\n')
+      .filter((l) => /pts:|pontos|classifica|standings|\d+\.\s/i.test(l))
+      .slice(0, 25)
+      .join('\n')
+      .slice(0, 2000);
+    if (snip) factsMemSet(compId, 'api_tabela', snip, '_liga');
   }
-  if (/resultado|confirmados|scoreboard|ft\b|\d+x\d+/i.test(text)) {
-    factsMemSet(compId, 'resultados', 'presente_no_bloco_estruturado', '_liga');
-    factsMemSet(compId, 'forma', 'presente_no_bloco_estruturado', '_liga');
+  if (/\d+\s*[xX\-–]\s*\d+|resultado|confirmados|scoreboard/i.test(text)) {
+    const snip = text
+      .split('\n')
+      .filter((l) => /\d+\s*[xX\-–]\s*\d+|·.*x\s/i.test(l))
+      .slice(0, 25)
+      .join('\n')
+      .slice(0, 2000);
+    if (snip) factsMemSet(compId, 'api_resultados', snip, '_liga');
   }
 }
 
-/**
- * Após Fase 1 bem-sucedida: grava fatos do rawFacts por time (técnico, xG, etc.).
- */
+/** Após Fase 1: grava fatos por time (entidade = nome do clube). */
 function factsMemIngestRawFacts(compId, rawFacts) {
   if (!rawFacts || typeof rawFacts !== 'object') return;
   const saveTeam = (tm) => {
@@ -251,8 +328,9 @@ function factsMemIngestRawFacts(compId, rawFacts) {
       factsMemSet(compId, 'desfalques', tm.desfalques.join(', ').slice(0, 400), ent);
     }
     if (Array.isArray(tm.resultados_recentes) && tm.resultados_recentes.length) {
-      factsMemSet(compId, 'resultados', JSON.stringify(tm.resultados_recentes).slice(0, 600), ent);
-      factsMemSet(compId, 'forma', JSON.stringify(tm.resultados_recentes).slice(0, 400), ent);
+      const js = JSON.stringify(tm.resultados_recentes).slice(0, 600);
+      factsMemSet(compId, 'resultados', js, ent);
+      factsMemSet(compId, 'forma', js.slice(0, 400), ent);
     }
   };
   saveTeam(rawFacts.mandante);
@@ -262,7 +340,6 @@ function factsMemIngestRawFacts(compId, rawFacts) {
   }
 }
 
-/** Limpa memória (debug / botão futuro). */
 function factsMemClear(compId) {
   if (!compId) {
     try {
@@ -278,7 +355,28 @@ function factsMemClear(compId) {
   _fmSave(db);
 }
 
-/** Stats leves p/ UI/debug. */
+function factsMemListFresh(compId) {
+  const db = _fmLoad();
+  const prefix = (compId || 'brsa') + '::';
+  const now = _fmNow();
+  const out = [];
+  Object.keys(db).forEach((k) => {
+    if (!k.startsWith(prefix)) return;
+    const e = db[k];
+    if (!e) return;
+    const dim = e.dim || k.split('::')[1];
+    const ttl = FACTS_MEM_TTL[dim] || 6 * 60 * 60 * 1000;
+    if (now - (e.ts || 0) > ttl) return;
+    out.push({
+      dim,
+      entity: e.label || k.split('::')[2] || '_liga',
+      value: e.v,
+      ageMin: Math.round((now - e.ts) / 60000),
+    });
+  });
+  return out;
+}
+
 function factsMemStats(compId) {
   const rows = factsMemListFresh(compId);
   return { count: rows.length, dims: [...new Set(rows.map((r) => r.dim))], rows: rows.slice(0, 30) };

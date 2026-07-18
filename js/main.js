@@ -30,10 +30,12 @@ expose({ SHELL_VERSION, MERIDIAN_SHELL_VERSION: SHELL_VERSION });
 const CLASSIC = [
   'js/analysis/prompts.js',
   'js/analysis/render.js',
+  'js/data/cached-fetch.js',
   'js/data/espn.js',
   'js/data/football-apis.js',
   'js/data/free-sources.js',
   'js/data/facts-memory.js',
+  'js/data/phase1-context.js',
   'js/data/schedule.js',
   'js/data/live.js',
   'js/ui/featured.js',

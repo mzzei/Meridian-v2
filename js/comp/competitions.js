@@ -22,7 +22,8 @@ export const COMPETITIONS = {
     // openfootball/football.json path stem (season prefix applied at fetch)
     openfootball: 'br.1',
     // Scorebat free feed: competition.name contains any of these (case-insensitive)
-    scorebat: ['brazil', 'brasileir', 'serie a'],
+    // Scorebat competition.name (ex.: "BRAZIL: Serie A") — NÃO usar "serie a" sozinho (casa Itália)
+    scorebat: ['brazil:', 'brasileir', 'brazil: serie'],
     // OpenLigaDB leagueShortcut — null when not in DE coverage
     openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png',

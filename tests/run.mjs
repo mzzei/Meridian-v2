@@ -160,17 +160,28 @@ assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
 assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
 assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
-// Multi-fonte grátis + FactsMemory (v53)
-assert(factsSrc.includes('getFreeSourcesContext'), 'gatherFacts uses free sources');
-assert(factsSrc.includes('factsMemFilterTopics') || factsSrc.includes('factsMemBuildKnownBlock'), 'gatherFacts uses FactsMemory');
+// Multi-fonte grátis + FactsMemory (v54 — code-review ultra fixes)
+assert(factsSrc.includes('collectPhase1Context'), 'gatherFacts uses collectPhase1Context');
+assert(factsSrc.includes('phase1FilterTopics'), 'gatherFacts uses phase1FilterTopics');
 assert(factsSrc.includes('factsMemIngestRawFacts'), 'gatherFacts ingests rawFacts to memory');
 assert(mainSrc.includes("'js/data/free-sources.js'"), 'free-sources in CLASSIC');
 assert(mainSrc.includes("'js/data/facts-memory.js'"), 'facts-memory in CLASSIC');
+assert(mainSrc.includes("'js/data/cached-fetch.js'"), 'cached-fetch in CLASSIC');
+assert(mainSrc.includes("'js/data/phase1-context.js'"), 'phase1-context in CLASSIC');
 const freeSrc = fs.readFileSync(path.join(ROOT, 'js/data/free-sources.js'), 'utf8');
 const memSrc = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8');
+const cachedSrc = fs.readFileSync(path.join(ROOT, 'js/data/cached-fetch.js'), 'utf8');
+const p1Src = fs.readFileSync(path.join(ROOT, 'js/data/phase1-context.js'), 'utf8');
 assert(freeSrc.includes('getOpenFootballContext') && freeSrc.includes('getScorebatContext') && freeSrc.includes('getOpenLigaContext'), '3 free sources');
 assert(freeSrc.includes('getFreeSourcesContext'), 'getFreeSourcesContext aggregator');
+assert(freeSrc.includes('Sem fallback') || freeSrc.includes('vazio honesto') || freeSrc.includes('não poluir'), 'Scorebat no cross-liga fallback');
 assert(memSrc.includes('factsMemFilterTopics') && memSrc.includes('factsMemIngestStructured'), 'FactsMemory API');
+assert(memSrc.includes('teamList.every') || memSrc.includes('teamList.length >= 2'), 'FactsMemory skip requires both teams');
+assert(!memSrc.includes('presente_no_bloco_estruturado') || memSrc.includes("=== 'presente_no_bloco_estruturado'"), 'no placeholder ingest (reject only)');
+assert(cachedSrc.includes('cachedJsonFetch') && cachedSrc.includes('joinContextBlocks'), 'cached-fetch helpers');
+assert(cachedSrc.includes('parseMatchTeamsFromQuery'), 'parseMatchTeamsFromQuery');
+assert(p1Src.includes('collectPhase1Context') && p1Src.includes('phase1FilterTopics'), 'phase1-context API');
+assert(p1Src.includes('apiText') && p1Src.includes('memoryText'), 'api/memory split');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -222,6 +233,8 @@ assert(Comp.compLabel('epl').includes('Premier') || Comp.compLabel('epl') === 'P
 assert(Comp.getComp('epl').tsdb === 4328 && Comp.getComp('laliga').tsdb === 4335 && Comp.getComp('ucl').tsdb === 4480, 'TSDB multi-liga IDs');
 assert(Comp.getComp('brsa').openfootball === 'br.1' && Comp.getComp('epl').openfootball === 'en.1', 'openfootball stems');
 assert(typeof Comp.tsdbLeague === 'function' && Comp.tsdbLeague('brsa') === 4351, 'tsdbLeague helper');
+assert(!(Comp.getComp('brsa').scorebat || []).includes('serie a'), 'brsa scorebat not bare serie a');
+assert((Comp.getComp('brsa').scorebat || []).some((k) => /brazil/i.test(k)), 'brsa scorebat has brazil key');
 const St = await import(pathToFileURL(path.join(ROOT, 'js/state.js')).href);
 assert(typeof St.setSchedule === 'function' && typeof St.setAnalysisCompId === 'function', 'state setters');
 St.setSchedule([{ id: 1 }]);
@@ -287,14 +300,15 @@ for (const rel of [
   'js/data/espn.js',
   'js/data/free-sources.js',
   'js/data/facts-memory.js',
+  'js/data/cached-fetch.js',
+  'js/data/phase1-context.js',
   'js/data/history.js',
 ]) {
   assert(fs.existsSync(path.join(ROOT, rel)), 'module ' + rel);
 }
 
-// FactsMemory pure smoke (classic script in vm)
+// FactsMemory + cached-fetch pure smoke (classic in vm)
 {
-  const code = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8');
   const store = {};
   const sandbox = {
     localStorage: {
@@ -313,29 +327,76 @@ for (const rel of [
     Array,
     Math,
     console,
+    Set,
   };
   vm.createContext(sandbox);
-  vm.runInContext(code, sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/cached-fetch.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8'), sandbox);
   assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
-  sandbox.factsMemSet('brsa', 'tecnico', 'Tite', 'Flamengo');
-  assert(sandbox.factsMemGet('brsa', 'tecnico', 'Flamengo') === 'Tite', 'factsMemGet roundtrip');
-  const filtered = sandbox.factsMemFilterTopics(
+  assert(typeof sandbox.parseMatchTeamsFromQuery === 'function', 'parseMatchTeamsFromQuery');
+  const teams = sandbox.parseMatchTeamsFromQuery(
+    'Análise do jogo (Brasileirão Série A): Flamengo × Palmeiras\n(rodada 12)'
+  );
+  assert(teams.length === 2 && /flamengo/i.test(teams[0]) && /palmeiras/i.test(teams[1]), 'parse teams from query');
+
+  // skip NÃO ocorre se só um time tem técnico
+  sandbox.factsMemSet('brsa', 'tecnico', 'Filipe Luís', 'Flamengo');
+  sandbox.factsMemSet('brsa', 'escalacao', 'A,B,C', 'Flamengo');
+  sandbox.factsMemSet('brsa', 'desfalques', 'ninguém', 'Flamengo');
+  let filtered = sandbox.factsMemFilterTopics(
     [
-      '"x x xG estilo tático" — fbref',
       '"x desfalques técnico escalação" — sofascore',
-      '"classificação tabela" — espn',
+      '"x xG estilo tático" — fbref',
+      '"classificação tabela estatísticas" — espn',
     ],
     'brsa',
-    true
+    true,
+    ['Flamengo', 'Palmeiras']
   );
-  assert(filtered && Array.isArray(filtered.topics) && filtered.topics.length >= 1, 'factsMemFilterTopics keeps >=1');
+  assert(
+    filtered.topics.some((t) => /t[eé]cnico|escala|desfalque/i.test(t)),
+    'does not skip team topics when only one team cached'
+  );
+
+  // skip de técnico só com AMBOS os times
+  sandbox.factsMemSet('brsa', 'tecnico', 'Abel', 'Palmeiras');
+  sandbox.factsMemSet('brsa', 'escalacao', 'D,E,F', 'Palmeiras');
+  sandbox.factsMemSet('brsa', 'desfalques', 'X', 'Palmeiras');
+  filtered = sandbox.factsMemFilterTopics(
+    ['"[M] desfalques técnico escalação lesões" — sofascore', '"[M] xG estilo" — fbref'],
+    'brsa',
+    true,
+    ['Flamengo', 'Palmeiras']
+  );
+  assert(
+    !filtered.topics.some((t) => /desfalque|t[eé]cnico|escala/i.test(t) && !/xg/i.test(t)),
+    'skips team topic when both teams fully covered'
+  );
+
+  // sem teams → fail-safe (não skip de time)
+  filtered = sandbox.factsMemFilterTopics(
+    ['"desfalques técnico escalação" — sofascore'],
+    'brsa',
+    true,
+    []
+  );
+  assert(filtered.topics.length >= 1 && /desfalque|t[eé]cnico/i.test(filtered.topics[0]), 'no team skip without parsed teams');
+
   sandbox.factsMemIngestRawFacts('brsa', {
     mandante: { nome: 'Flamengo', tecnico: 'Filipe Luís', xg_marcado: 1.5, xg_sofrido: 0.9 },
     visitante: { nome: 'Palmeiras', tecnico: 'Abel', ranking_fifa: '1º · 40 pts' },
   });
   assert(sandbox.factsMemIsFresh('brsa', 'tecnico', 'Flamengo'), 'ingest tecnico fresh');
-  const block = sandbox.factsMemBuildKnownBlock('brsa');
+  const block = sandbox.factsMemBuildKnownBlock('brsa', ['Flamengo', 'Palmeiras']);
   assert(typeof block === 'string' && block.includes('MEMÓRIA LOCAL'), 'memory block text');
+  assert(block.includes('Flamengo') || block.includes('tecnico'), 'memory focused on teams');
+
+  // reject placeholder
+  sandbox.factsMemSet('brsa', 'tabela', 'presente_no_bloco_estruturado', '_liga');
+  assert(sandbox.factsMemGet('brsa', 'tabela', '_liga') == null, 'rejects placeholder value');
+
+  const joined = sandbox.joinContextBlocks(['aaa', 'bbb', 'ccc'], { maxTotal: 10, maxEach: 5 });
+  assert(typeof joined === 'string' && joined.length <= 30, 'joinContextBlocks respects budget');
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
