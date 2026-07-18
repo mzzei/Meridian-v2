@@ -162,6 +162,10 @@ assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-r
 assert(appSrc.includes('MODEL_PROFILES') && appSrc.includes('function modelProfile'), 'model profiles in app.js');
 assert(!appSrc.includes('EFFORT_LEVELS') && !runSrc.includes('EFFORT_LEVELS'), 'effort selector removed');
 assert(runSrc.includes('globalThis.modelProfile()'), 'pipeline-run uses modelProfile');
+// Shell 71: budget:0 em TODOS os perfis — thinking ligado por padrão (shell 70) fazia a
+// Fase 2 responder em prosa em vez de JSON (schema via prompt-contrato, não structured
+// outputs) e toda análise caía no modo simplificado. NÃO reintroduzir budget>0 aqui.
+assert(!/budget:\s*[1-9]\d*/.test(appSrc.match(/var MODEL_PROFILES[\s\S]*?\n\};/)?.[0] || ''), 'no model profile has thinking budget > 0');
 // Shell 69: thinking devolvido à API precisa da signature (senão 400 no tool_use → modo simplificado)
 assert(runSrc.includes("signature_delta"), 'streamOnce captures signature_delta');
 assert(runSrc.includes("signature:curSig"), 'thinking block re-sent with signature');

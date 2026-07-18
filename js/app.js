@@ -2,13 +2,17 @@
 const MODEL_CTX   = {'claude-haiku-4-5-20251001':200000,'claude-sonnet-4-6':200000,'claude-opus-4-8':200000};
 const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-4-6':'Sonnet 4.6','claude-opus-4-8':'Opus 4.8'};
 // Perfil de análise POR MODELO (roteamento por código, sem seletor de esforço):
-// trocar de modelo muda a análise DE VERDADE — thinking budget e buscas web escalam
-// juntos com a capacidade do modelo, não só o preço. Fase 1 (coleta) e verificador
-// seguem SEMPRE no Haiku, independente daqui. Chat livre: sem thinking (regra de UX).
+// trocar de modelo muda a coleta (mais buscas na Fase 1) e a capacidade real que
+// analisa (Haiku→Sonnet→Opus), não só o preço. budget:0 em TODOS de propósito —
+// a Fase 2 usa JSON via prompt-contrato (não structured outputs; o schema completo
+// excede o limite de gramática da API, ver nota em pipeline-run.js) e thinking
+// ligado faz o modelo responder em PROSA em vez de JSON (comprovado ao vivo: shell
+// 70 ligou budget 5000 por padrão no Sonnet e toda análise caía no modo simplificado).
+// NÃO reativar budget>0 aqui sem resolver esse conflito primeiro.
 var MODEL_PROFILES = {
   'claude-haiku-4-5-20251001':{label:'Rápido',budget:0,searches:1},
-  'claude-sonnet-4-6':{label:'Padrão',budget:5000,searches:2},
-  'claude-opus-4-8':{label:'Profundo',budget:16000,searches:3}
+  'claude-sonnet-4-6':{label:'Padrão',budget:0,searches:2},
+  'claude-opus-4-8':{label:'Profundo',budget:0,searches:3}
 };
 function modelProfile(){return MODEL_PROFILES[currentModel]||MODEL_PROFILES['claude-sonnet-4-6'];}
 // Brasões dos clubes da Série A (ESPN CDN). Chaves normalizadas em _normTeamKey.
