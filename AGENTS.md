@@ -1,6 +1,19 @@
 # Regras para agentes de IA — Meridian v2
 
-Leia **`ISOLAMENTO.md`** primeiro.
+## Obrigatório no início de TODA sessão neste projeto
+
+**Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
+
+1. Localize o handoff **mais recente**:
+   - Preferir `docs/HANDOFF-V2-SHELL-*.md` com o **maior número de shell** (ex.: shell 66 > 65 > 57).
+   - Se não houver nenhum, ler `HANDOFF-v2.md` / `SESSAO-HANDOFF-DETALHADO.md` como fallback.
+2. **Leia o handoff** (pelo menos seções de estado atual, arquitetura, commits recentes e próximos passos / invariantes).
+3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o shell citado no handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
+4. Só então atenda o pedido do usuário.
+
+Isto foi pedido explicitamente pelo dono do projeto: *sempre que abrir sessão do Meridian v2, verificar o handoff*.
+
+Leia também **`ISOLAMENTO.md`** (v2 ≠ v1).
 
 ## Projeto
 
