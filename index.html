@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=65">
+<link rel="stylesheet" href="css/app.css?v=66">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -475,20 +475,6 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       <div class="sf-adv-body">
         <div class="sf">
           <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="auto-ai-toggle" onchange="setAutoAi(this.checked)" style="width:auto;margin:0;cursor:pointer">
-            Enriquecer dados via IA automaticamente
-          </label>
-          <div class="sf-hint">Desligado (padrão · economia): no automático usa só dados gratuitos do ESPN — créditos da API são gastos <b>somente nas análises que você pede</b>. Ligado: ao abrir, a IA pesquisa classificação/contexto extra (consome créditos).</div>
-        </div>
-        <div class="sf">
-          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="dynsearch-toggle" onchange="setDynSearch(this.checked)" style="width:auto;margin:0;cursor:pointer">
-            Filtragem dinâmica na busca (experimental)
-          </label>
-          <div class="sf-hint">Roda a coleta (Fase 1) no <b>Sonnet</b> com <code>web_search_20260209</code>, que filtra as páginas antes de entrarem no contexto. <b>Reduz a contagem de tokens, mas tende a aumentar o custo em $</b> (Sonnet custa ~3,75× o Haiku). Se o seu acesso não suportar, volta sozinho à busca padrão. Padrão: desligado.</div>
-        </div>
-        <div class="sf">
-          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
             <input type="checkbox" id="perf-mode-toggle" onchange="setPerfMode(this.checked)" style="width:auto;margin:0;cursor:pointer">
             Modo desempenho (menos efeitos visuais)
           </label>
@@ -571,11 +557,6 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       <button type="button" class="lang-btn" id="btn-install-pwa" onclick="installPwaApp()" style="width:100%;margin-top:.35rem;padding:.65rem .8rem;font-weight:600">
         Instalar Meridian v2 como app
       </button>
-      <div class="sf-hint" id="sf-install-hint">
-        <b>Modo offline (sem servidor):</b> instale o app, abra <b>uma vez</b> com
-        <code>Iniciar Meridian v2.bat</code> ligado (grava o cache) e depois pode fechar o Node.
-        Reabra pelo menu Iniciar. Análises/APIs ainda precisam de internet.
-      </div>
     </div>
     <div class="sf" id="sf-theme-section">
       <label class="sf-lbl" id="sf-theme-lbl">Cor</label>
@@ -601,32 +582,6 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
       </div>
     </div>
-    <div class="sf" id="sf-tok-usage">
-      <label class="sf-lbl" id="sf-usage-lbl">Uso de API · Sessão</label>
-      <div class="tok-sf-empty" id="sf-tok-empty">Nenhuma análise nesta sessão</div>
-      <div class="tok-sf-cost-card" id="sf-tok-costcard" style="display:none">
-        <div class="tok-sf-cost-val" id="sf-tok-cost">—</div>
-        <div class="tok-sf-cost-lbl">custo estimado</div>
-      </div>
-      <div class="tok-sf-rows" id="sf-tok-rows" style="display:none">
-        <div class="tok-sf-row">
-          <span class="tok-sf-rkey">Tokens</span>
-          <span class="tok-sf-rval" id="sf-tok-tokens">—</span>
-        </div>
-        <div class="tok-sf-row" id="sf-tok-cache-row" style="display:none">
-          <span class="tok-sf-rkey">Cache</span>
-          <span class="tok-sf-rval tok-sf-green" id="sf-tok-cacherow">—</span>
-        </div>
-        <div class="tok-sf-row" id="sf-tok-miss-row" style="display:none">
-          <span class="tok-sf-rkey">Último miss</span>
-          <span class="tok-sf-rval tok-sf-amber" id="sf-tok-missrow">—</span>
-        </div>
-        <div class="tok-sf-row">
-          <span class="tok-sf-rkey">Análises</span>
-          <span class="tok-sf-rval" id="sf-tok-runs">—</span>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -638,7 +593,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=65"></script>
+<script type="module" src="js/main.js?v=66"></script>
 
 
 <!-- Mobile sidebar backdrop -->
@@ -675,18 +630,14 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
     window.__pwaInstallEvt = e;
     try{
       var b = document.getElementById('btn-install-pwa');
-      var h = document.getElementById('sf-install-hint');
       if(b){ b.disabled = false; b.textContent = 'Instalar Meridian v2 como app'; }
-      if(h) h.innerHTML = 'Pronto para instalar. Clique no botão acima (ou use ⋯ → Aplicativos no Edge).';
     }catch(_){}
   });
   window.addEventListener('appinstalled', function(){
     window.__pwaInstallEvt = null;
     try{
       var b = document.getElementById('btn-install-pwa');
-      var h = document.getElementById('sf-install-hint');
       if(b){ b.disabled = true; b.textContent = 'Meridian v2 já instalado'; }
-      if(h) h.textContent = 'App instalado. Abra pelo menu Iniciar ou pelos aplicativos do Edge.';
     }catch(_){}
   });
 
@@ -757,18 +708,9 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       var standalone =
         window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       var b = document.getElementById('btn-install-pwa');
-      var h = document.getElementById('sf-install-hint');
-      if (standalone) {
-        if (b) {
-          b.disabled = true;
-          b.textContent = 'Rodando como app';
-        }
-        if (h)
-          h.innerHTML =
-            'Modo app. UI antiga? <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">limpar cache</a>.';
-      } else if (h && !window.__pwaInstallEvt) {
-        h.innerHTML =
-          'Após instalar: abra uma vez online para gravar o cache. <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">resetsw</a>';
+      if (standalone && b) {
+        b.disabled = true;
+        b.textContent = 'Rodando como app';
       }
     } catch (e) {
       console.warn('SW register failed', e);

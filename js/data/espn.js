@@ -246,9 +246,8 @@ async function loadEspnData(force){
   // Se a agenda continua vazia, NUNCA deixa travado em "Carregando…": mostra o erro real + tentar de novo
   if(!_schedule.length){
     const ch=document.getElementById('ex-chips');
-    if(ch)ch.innerHTML=`<span class="ex-auto-hint">Não foi possível carregar a agenda${_espnLastError?` (${esc(_espnLastError)})`:''} · <button class="chip chip-cta" onclick="loadSchedule(true)">↻ tentar de novo</button>${autoAiEnabled()?'':` <button class="chip chip-cta" onclick="fetchScheduleFromApi(false)">buscar via IA →</button>`}</span>`;
+    if(ch)ch.innerHTML=`<span class="ex-auto-hint">Não foi possível carregar a agenda${_espnLastError?` (${esc(_espnLastError)})`:''} · <button class="chip chip-cta" onclick="loadSchedule(true)">↻ tentar de novo</button> <button class="chip chip-cta" onclick="fetchScheduleFromApi(false)">buscar via IA →</button></span>`;
     if(typeof renderLibrary==='function'&&_currentView==='library')renderLibrary();
-    if(autoAiEnabled())fetchScheduleFromApi(false);
     return;
   }
   // Contexto do torneio p/ o AGENTE (análise) — separado do seletor de Estatísticas

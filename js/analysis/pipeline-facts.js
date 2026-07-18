@@ -177,12 +177,9 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
   // vem cifrado/opaco no web_search (usado só p/ citação), então guardamos o que é legível —
   // serve de corpus para o portão anti-alucinação cruzar nomes de jogadores antes de renderizar.
   const _evi=[];
-  // Filtragem dinâmica (opt-in): Sonnet + web_search_20260209 filtra as páginas antes de
-  // entrarem no contexto. Auto-cura: se o acesso não suportar (400), desliga e cai pro
-  // Haiku + web_search básico (caminho provado) sem quebrar a coleta.
-  let _useModel=_h('getDynSearch')()?'claude-sonnet-4-6':'claude-haiku-4-5-20251001';
-  let _useTool=_h('getDynSearch')()?'web_search_20260209':'web_search_20250305';
-  let _dynActive=_h('getDynSearch')();
+  // Fase 1 sempre no Haiku + web_search básico (caminho provado).
+  let _useModel='claude-haiku-4-5-20251001';
+  let _useTool='web_search_20250305';
   // Structured outputs na coleta: JSON garantido pela API (testado ao vivo com
   // Haiku 4.5 e Sonnet 4.6 + web_search). Auto-cura: 400 → desliga e repete.
   let _soP1=true;
@@ -190,17 +187,9 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
     if(signal.aborted)throw new Error('cancelled');
     const mkBody=()=>JSON.stringify({model:_useModel,max_tokens:3000,system:SP,messages:msgs,tools:[{type:_useTool,name:'web_search',max_uses:_maxUses}],...(_soP1?{output_config:{format:{type:'json_schema',schema:FACTS_SCHEMA}}}:{})});
     let res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
-    // Auto-cura em 400, do reparo mais barato para o mais destrutivo:
-    // 1º structured outputs (flag local, não muda modelo nem persiste nada);
-    // só se o 400 PERSISTIR desligamos a filtragem dinâmica (persistida + rebaixa Sonnet→Haiku).
-    // Ordem importa: um 400 causado pelo structured outputs não pode sacrificar a dynSearch por engano.
+    // Auto-cura em 400: desliga structured outputs (flag local) e repete no caminho provado.
     if(res.status===400&&_soP1){
       _soP1=false; // structured outputs não suportado neste acesso/combinação → caminho provado
-      res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
-    }
-    if(res.status===400&&_dynActive){
-      _h('setDynSearch')(false);_dynActive=false;_useModel='claude-haiku-4-5-20251001';_useTool='web_search_20250305';
-      try{_h('toast')('Filtragem dinâmica indisponível neste acesso — usando busca padrão.');}catch{}
       res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
     }
     _h('parseRateLimitHeaders')(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
@@ -235,7 +224,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       msgs.push({role:'assistant',content:data.content});
       msgs.push({role:'user',content:data.content.filter(b=>b.type==='tool_use').map(b=>({type:'tool_result',tool_use_id:b.id,content:''}))});
     }else if(data.stop_reason==='pause_turn'){
-      msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side (filtragem dinâmica)
+      msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side
     }else break;
   }
   return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_covOut};

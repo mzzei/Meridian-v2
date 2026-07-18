@@ -283,7 +283,7 @@ function getTournamentCtxString(){
 }
 function loadTournamentCtx(force){
   if(getAfKey()||getFdKey())return; // loadAfData/loadFdData já atualiza CTX_STORE — evita race condition
-  if(!autoAiEnabled()&&!force)return; // modo economia: não gasta créditos no automático (force = ação explícita)
+  if(!force)return; // modo economia: não gasta créditos no automático (force = ação explícita)
   const cache=_loadCtxCache();
   if(cache&&!force){const age=Date.now()-(cache.fetched_at||0);if(age<CTX_TTL)return;}
   fetchTournamentCtxFromApi();

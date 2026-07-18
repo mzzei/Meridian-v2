@@ -965,7 +965,7 @@ const STRINGS={
     saved_open:'Abrir',saved_empty:'Nenhum relatório salvo ainda.<br>As análises são salvas automaticamente.',
     sf_apikey:'API Key Anthropic',sf_worker:'Worker URL (Cloudflare)',sf_sources:'Fontes de Dados',
     sf_theme:'Cor',sf_theme_aurora:'Aurora',sf_theme_verde:'Verde',sf_theme_mono:'B&W',
-    sf_lang:'Idioma',sf_usage:'Uso de API · Sessão',sf_usage_empty:'Nenhuma análise nesta sessão',
+    sf_lang:'Idioma',
     sf_cost_lbl:'custo estimado',sf_tok:'Tokens',sf_cache:'Cache',sf_miss:'Último miss',sf_runs:'Análises',
     sf_entrada:'entrada',sf_saida:'saída',sf_economizou:'economizou',
     no_key_chat:'Configure sua <button onclick="openSettings()" class="inline-link">API Key</button> em Configurações para conversar com o agente.',
@@ -994,7 +994,7 @@ const STRINGS={
     saved_open:'Open',saved_empty:'No saved reports yet.<br>Analyses are saved automatically.',
     sf_apikey:'Anthropic API Key',sf_worker:'Worker URL (Cloudflare)',sf_sources:'Data Sources',
     sf_theme:'Color',sf_theme_aurora:'Aurora',sf_theme_verde:'Green',sf_theme_mono:'B&W',
-    sf_lang:'Language',sf_usage:'API Usage · Session',sf_usage_empty:'No analyses this session',
+    sf_lang:'Language',
     sf_cost_lbl:'estimated cost',sf_tok:'Tokens',sf_cache:'Cache',sf_miss:'Last miss',sf_runs:'Analyses',
     sf_entrada:'in',sf_saida:'out',sf_economizou:'saved',
     no_key_chat:'Set your <button onclick="openSettings()" class="inline-link">API Key</button> in Settings to chat with the agent.',
@@ -1064,8 +1064,6 @@ function applyLang(){
   document.querySelectorAll('.theme-btn[data-theme="verde"] span:last-child').forEach(el=>{el.textContent=t('sf_theme_verde');});
   document.querySelectorAll('.theme-btn[data-theme="mono"] span:last-child').forEach(el=>{el.textContent=t('sf_theme_mono');});
   const sfLangLbl=document.getElementById('sf-lang-lbl');if(sfLangLbl)sfLangLbl.textContent=t('sf_lang');
-  const sfUsageLbl=document.getElementById('sf-usage-lbl');if(sfUsageLbl)sfUsageLbl.textContent=t('sf_usage');
-  const sfEmpty=document.getElementById('sf-tok-empty');if(sfEmpty)sfEmpty.textContent=t('sf_usage_empty');
   const sfCostLbl=document.querySelector('.tok-sf-cost-lbl');if(sfCostLbl)sfCostLbl.textContent=t('sf_cost_lbl');
   // Filter buttons
   document.querySelectorAll('.lib-filter-btn[data-f]').forEach(btn=>{
@@ -1158,37 +1156,26 @@ function openSettings(){
   document.getElementById('sov').style.display='flex';
   _syncSettingsTheme(currentTheme);
   const w=document.getElementById('worker-url-input');if(w)w.value=getWorkerUrl();
-  const aa=document.getElementById('auto-ai-toggle');if(aa)aa.checked=autoAiEnabled();
-  const ds=document.getElementById('dynsearch-toggle');if(ds)ds.checked=getDynSearch();
   const pe=document.getElementById('persona-input');if(pe)pe.value=getUserPersona();
   document.querySelectorAll('.lang-btn[data-lang]').forEach(b=>b.classList.toggle('active',b.dataset.lang===currentLang));
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===currentTheme));
-  updateSettingsTokens();
   updateInstallButton();
 }
 
 /** PWA install (Edge/Chrome) — usa beforeinstallprompt capturado no index.html */
 function updateInstallButton(){
   const b=document.getElementById('btn-install-pwa');
-  const h=document.getElementById('sf-install-hint');
   if(!b)return;
   const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
   if(standalone){
     b.disabled=true;b.textContent='Rodando como app';
-    if(h)h.innerHTML='App instalado. Com o cache gravado, <b>não precisa do servidor Node</b> para abrir a interface (só internet para análises).';
     return;
   }
-  if(window.__pwaInstallEvt){
-    b.disabled=false;b.textContent='Instalar Meridian v2 como app';
-    if(h)h.innerHTML='Pronto para instalar. Depois de instalar, abra <b>1× com o servidor ligado</b> para gravar o cache offline.';
-  }else{
-    b.disabled=false;b.textContent='Como instalar no Edge';
-    if(h)h.innerHTML='Edge: <b>⋯ → Aplicativos → Instalar este site como um aplicativo</b> em <code>http://127.0.0.1:3457/</code>. Após instalar, abra 1× com o servidor no ar; depois o app do Edge roda <b>sem Node</b>.';
-  }
+  b.disabled=false;
+  b.textContent=window.__pwaInstallEvt?'Instalar Meridian v2 como app':'Como instalar no Edge';
 }
 async function installPwaApp(){
   const b=document.getElementById('btn-install-pwa');
-  const h=document.getElementById('sf-install-hint');
   const ev=window.__pwaInstallEvt;
   if(ev){
     try{
@@ -1197,20 +1184,16 @@ async function installPwaApp(){
       window.__pwaInstallEvt=null;
       if(choice&&choice.outcome==='accepted'){
         if(b){b.disabled=true;b.textContent='Instalado';}
-        if(h)h.textContent='App instalado. Abra pelo menu Iniciar.';
       }else{
-        if(h)h.textContent='Instalação cancelada. Você pode tentar de novo pelo menu ⋯ do Edge.';
+        try{toast('Instalação cancelada. Você pode tentar de novo pelo menu ⋯ do Edge.');}catch(_){}
         updateInstallButton();
       }
     }catch(e){
-      if(h)h.textContent='Falha ao abrir o instalador: '+(e&&e.message?e.message:e);
+      try{toast('Falha ao abrir o instalador: '+(e&&e.message?e.message:e));}catch(_){}
     }
     return;
   }
   // Sem beforeinstallprompt: orienta o menu nativo do Edge
-  if(h){
-    h.innerHTML='Prompt nativo ainda não disponível. No Edge: <b>⋯ → Aplicativos → Instalar este site como um aplicativo</b>. Confirme que a URL é <code>http://127.0.0.1:3457/</code> e que o servidor está rodando. Se o SW estiver quebrado: <a href="?resetsw=1" style="color:var(--honey,#e8b44a)">limpar e recarregar</a>.';
-  }
   try{alert('No Edge: menu ⋯ → Aplicativos → Instalar este site como um aplicativo.\n\nURL precisa ser http://127.0.0.1:3457/ com o servidor ligado.');}catch(_){}
 }
 
@@ -1360,38 +1343,6 @@ function setTheme(theme){
   _syncSettingsTheme(theme);
 }
 function applyStoredTheme(){setTheme(currentTheme);}
-function updateSettingsTokens(){
-  const tot=tokenState.sessionIn+tokenState.sessionOut;
-  const emptyEl=document.getElementById('sf-tok-empty');
-  const costCard=document.getElementById('sf-tok-costcard');
-  const rowsEl=document.getElementById('sf-tok-rows');
-  if(!emptyEl)return;
-  if(!tot){emptyEl.style.display='';costCard.style.display='none';rowsEl.style.display='none';return;}
-  emptyEl.style.display='none';costCard.style.display='';rowsEl.style.display='';
-  const haikuP=MODEL_PRICE['claude-haiku-4-5-20251001'];
-  const mainP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-4-6'];
-  const p1P=getDynSearch()?(MODEL_PRICE['claude-sonnet-4-6']):haikuP; // filtragem dinâmica roda no Sonnet
-  const p1Cost=(tokenState.sessionIn_p1*p1P.i+tokenState.sessionOut_p1*p1P.o)/1e6;
-  const p2In=tokenState.sessionIn-tokenState.sessionIn_p1,p2Out=tokenState.sessionOut-tokenState.sessionOut_p1;
-  const cost=p1Cost+(p2In*mainP.i+p2Out*mainP.o)/1e6;
-  document.getElementById('sf-tok-cost').textContent=_fmtCost(cost);
-  document.getElementById('sf-tok-tokens').textContent=`${_fmtTok(tokenState.sessionIn)} ${t('sf_entrada')} · ${_fmtTok(tokenState.sessionOut)} ${t('sf_saida')}`;
-  const cacheRowEl=document.getElementById('sf-tok-cache-row');
-  if(tokenState.sessionCacheRead>0){
-    cacheRowEl.style.display='';
-    let ct=_fmtTok(tokenState.sessionCacheRead)+' lidos';
-    if(tokenState.lastCacheHitPct>0)ct+=' · '+tokenState.lastCacheHitPct+'% hit';
-    if(tokenState.sessionCacheSaved>0.001)ct+=' · '+t('sf_economizou')+' '+_fmtCost(tokenState.sessionCacheSaved);
-    document.getElementById('sf-tok-cacherow').textContent=ct;
-  }else{cacheRowEl.style.display='none';}
-  const missRowEl=document.getElementById('sf-tok-miss-row');
-  if(tokenState.lastCacheMissReason){
-    missRowEl.style.display='';
-    document.getElementById('sf-tok-missrow').textContent=tokenState.lastCacheMissReason.replace(/_/g,' ');
-  }else{missRowEl.style.display='none';}
-  const n=tokenState.runs;
-  document.getElementById('sf-tok-runs').textContent=`${typeof t('runs_unit')==='function'?t('runs_unit')(n):t('runs_unit')} · ${MODEL_SHORT[currentModel]||currentModel}`;
-}
 function closeSettings(e){if(!e||e.target===document.getElementById('sov'))document.getElementById('sov').style.display='none';}
 
 // ─── Model / Effort ──────────────────────────────────────────────────────
@@ -1429,7 +1380,7 @@ function updateDockTokens(){
   // Phase 1 always uses Haiku regardless of selected model; price each phase separately
   const haikuP=MODEL_PRICE['claude-haiku-4-5-20251001'];
   const mainP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-4-6'];
-  const p1P=getDynSearch()?(MODEL_PRICE['claude-sonnet-4-6']):haikuP; // filtragem dinâmica roda no Sonnet
+  const p1P=haikuP; // Fase 1 roda sempre no Haiku
   const p1Cost=(tokenState.sessionIn_p1*p1P.i+tokenState.sessionOut_p1*p1P.o)/1e6;
   const p2In=tokenState.sessionIn-tokenState.sessionIn_p1;
   const p2Out=tokenState.sessionOut-tokenState.sessionOut_p1;
@@ -1689,7 +1640,6 @@ function updateTokenBar(){
     ce.textContent=(_hasMiss?'⚠':'⚡')+' '+_parts.join(' · ');
   }else{ce.textContent='';ce.title='';}
   document.getElementById('token-bar').style.display='block';
-  updateSettingsTokens();
 }
 
 // ─── Clear ───────────────────────────────────────────────────────────────
@@ -1850,14 +1800,6 @@ function closeSidebar(){
 /* library → js/ui/library.js */
 
 const KEY_STORE='brsa_api_key';
-// Modo economia (padrão): chamadas de IA automáticas desligadas; créditos só nas análises pedidas
-const AUTO_AI_STORE='brsa_auto_ai';
-function autoAiEnabled(){try{return localStorage.getItem(AUTO_AI_STORE)==='1';}catch{return false;}}
-function setAutoAi(on){try{localStorage.setItem(AUTO_AI_STORE,on?'1':'0');}catch{}if(on){loadTournamentCtx(true);}}
-// Filtragem dinâmica (experimental, opt-in): Fase 1 no Sonnet + web_search_20260209.
-const DYN_SEARCH_STORE='brsa_dynsearch';
-function getDynSearch(){try{return localStorage.getItem(DYN_SEARCH_STORE)==='1';}catch{return false;}}
-function setDynSearch(on){try{localStorage.setItem(DYN_SEARCH_STORE,on?'1':'0');}catch{}}
 let _keyDebounce=null;
 document.getElementById('api-key-input').addEventListener('input',function(){
   clearTimeout(_keyDebounce);
