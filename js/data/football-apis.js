@@ -13,6 +13,11 @@ function _parseFdHeaders(res){
 const _fdNeedProxy=location.protocol==='file:'||location.origin==='null';
 function _fdUrl(path,key){
   const sep=path.includes('?')?'&':'?';
+  // 1º: Worker próprio ({worker}/fd/*). Probe 07/2026: as respostas GET da FD NÃO
+  // trazem Access-Control-Allow-Origin em NENHUMA origem — browser direto sempre
+  // falha ("Failed to fetch"); o Worker é o caminho real, como na AF.
+  const w=typeof getWorkerUrl==='function'?getWorkerUrl():'';
+  if(w)return `${w.replace(/\/+$/,'')}/fd${path}${sep}token=${encodeURIComponent(key||'')}`;
   const direct=`${FD_BASE}${path}${sep}token=${key}`;
   return _fdNeedProxy?`https://corsproxy.io/?url=${encodeURIComponent(direct)}`:direct;
 }
@@ -106,7 +111,10 @@ async function loadFdData(){
   updateFdStatus('','verificando…');
   const[standings,matches]=await Promise.all([getFdStandings(),getFdMatches()]);
   if(!standings&&!matches){
-    const msg=_fdLastError==='Erro 403'?(compLabel(_activeCompId)+' indisponível neste plano FD (403)'):_fdLastError||'sem resposta';
+    // FD bloqueia CORS no browser (probe 07/2026) — sem Worker, "rede:" é esperado.
+    const noWorker=typeof getWorkerUrl==='function'&&!getWorkerUrl();
+    const corsHint=noWorker&&/^rede:/.test(_fdLastError||'')?' · CORS da FD bloqueia o navegador — configure Worker URL':'';
+    const msg=_fdLastError==='Erro 403'?(compLabel(_activeCompId)+' indisponível neste plano FD (403)'):(_fdLastError||'sem resposta')+corsHint;
     updateFdStatus('err',msg);return;
   }
   // Update tournament context from FD (authoritative source)

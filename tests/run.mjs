@@ -205,6 +205,10 @@ assert(indexSrc.includes('id="cov-help"'), 'coverage help hint in settings');
 // Shell 59: FPL + StatsBomb Open + health probe + worker /fpl
 const workerSrc = fs.readFileSync(path.join(ROOT, 'worker/worker.js'), 'utf8');
 assert(workerSrc.includes("'/fpl/'") && workerSrc.includes('fantasy.premierleague.com/api'), 'worker proxies FPL');
+// Shell 60: FD via Worker (probe 07/2026 — FD sem CORS em GET; browser direto sempre falha)
+assert(workerSrc.includes("'/fd/'") && workerSrc.includes('api.football-data.org/v4'), 'worker proxies football-data');
+assert(afSrc.includes('/fd${path}'), 'fd url worker-first');
+assert(afSrc.includes('CORS da FD') || afSrc.includes('configure Worker URL'), 'fd status CORS hint');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');

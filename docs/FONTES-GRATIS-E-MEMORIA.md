@@ -1,4 +1,16 @@
-# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 59)
+# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 60)
+
+## FD via Worker (shell 60 — achado de probe)
+
+- **Probe real 07/2026 (com chave de usuário):** as respostas GET do
+  football-data.org **não trazem `Access-Control-Allow-Origin` em nenhuma
+  origem** (o preflight OPTIONS até responde, mas o GET não) → browser direto
+  SEMPRE falha com "Failed to fetch". Não é chave errada.
+- Correção: rota `{worker}/fd/*` no Worker (chave via `?token=` do app ou
+  secret `FD_KEY`; repassa headers de rate limit). `_fdUrl` prefere o Worker,
+  como `_afUrl`. Status FD sem Worker agora explica o CORS.
+- Consequência honesta: **FD e AF exigem Worker URL** no navegador. A cascata A
+  sem Worker continua 100% ESPN (+ free registry).
 
 ## Novas fontes + health probe (shell 59)
 

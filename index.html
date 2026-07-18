@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=59">
+<link rel="stylesheet" href="css/app.css?v=60">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -499,7 +499,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
     <div class="sf">
       <label class="sf-lbl" for="worker-url-input">Worker URL (Cloudflare)</label>
       <input id="worker-url-input" type="text" placeholder="https://seu-worker.workers.dev" autocomplete="off" oninput="saveWorkerUrl(this.value)">
-      <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic <b>e API-Football</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede a API-Football de funcionar direto. Código e passo a passo em <code>worker/</code> no repositório.</div>
+      <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic, <b>API-Football, football-data.org e FPL</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede essas APIs de funcionar direto no navegador. Código e passo a passo em <code>worker/</code> no repositório.</div>
     </div>
     <details class="sf-adv">
       <summary>Informações avançadas (não interessantes)</summary>
@@ -538,7 +538,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
             <span class="ds-status" id="sbopen-status"></span>
           </div>
           <button type="button" class="lang-btn" id="btn-probe-sources" onclick="probeSourcesHealth()" style="width:100%;margin:.4rem 0 .6rem">Testar fontes agora</button>
-          <div class="sf-hint">Saúde das fontes grátis para a liga ativa — só informativo (nunca entra no raciocínio do agente). FPL e API-Football precisam de Worker URL para furar o bloqueio CORS do navegador; StatsBomb Open só ativa quando a análise cita uma temporada passada que existe no acervo aberto.</div>
+          <div class="sf-hint">Saúde das fontes grátis para a liga ativa — só informativo (nunca entra no raciocínio do agente). FPL, API-Football e football-data.org precisam de Worker URL para furar o bloqueio CORS do navegador; StatsBomb Open só ativa quando a análise cita uma temporada passada que existe no acervo aberto.</div>
 
           <div class="ds-row">
             <span class="ds-name">API-Football</span>
@@ -638,7 +638,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=59"></script>
+<script type="module" src="js/main.js?v=60"></script>
 
 
 <!-- Mobile sidebar backdrop -->

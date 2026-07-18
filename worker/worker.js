@@ -7,6 +7,10 @@
  *   2. API-Football→  {worker}/af/*        →  https://v3.football.api-sports.io/*
  *   3. FPL (EPL)   →  {worker}/fpl/*       →  https://fantasy.premierleague.com/api/*
  *                     (sem chave; a API oficial do Fantasy não manda CORS — só GET)
+ *   4. football-data.org → {worker}/fd/*   →  https://api.football-data.org/v4/*
+ *                     (probe 07/2026: as respostas GET da FD NÃO trazem
+ *                      Access-Control-Allow-Origin em nenhuma origem → browser
+ *                      direto sempre falha; o proxy é obrigatório)
  *
  * Por que existe: navegadores bloqueiam (CORS) chamadas diretas à API-Football; e manter a
  * chave da Anthropic no servidor (aqui) é mais seguro do que no navegador. O Worker adiciona
@@ -48,6 +52,29 @@ export default {
           status: r.status,
           headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
         });
+      }
+
+      // ── football-data.org: {worker}/fd/<path> ────────────────────────────
+      // FD não manda CORS nas respostas GET (nenhuma origem) — proxy obrigatório.
+      // Chave: FD_KEY do ambiente OU o ?token= que o app envia (removido da URL upstream).
+      if (url.pathname.startsWith('/fd/') || url.pathname === '/fd') {
+        if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: CORS });
+        const fdPath = url.pathname.replace(/^\/fd/, '') || '/';
+        const params = new URLSearchParams(url.search);
+        const key = env.FD_KEY || params.get('token') || '';
+        params.delete('token');
+        const qs = params.toString();
+        const upstream = 'https://api.football-data.org/v4' + fdPath + (qs ? '?' + qs : '');
+        const r = await fetch(upstream, { headers: { 'X-Auth-Token': key, 'Accept': 'application/json' } });
+        const body = await r.text();
+        const h = { ...CORS, 'Content-Type': 'application/json; charset=utf-8' };
+        // repassa os headers de rate limit que o app usa para throttle
+        const ra = r.headers.get('X-Requests-Available-Minute') || r.headers.get('X-RequestsAvailable');
+        const rc = r.headers.get('X-RequestCounter-Reset');
+        if (ra) h['X-RequestsAvailable'] = ra;
+        if (rc) h['X-RequestCounter-Reset'] = rc;
+        h['Access-Control-Expose-Headers'] = 'X-RequestsAvailable, X-RequestCounter-Reset';
+        return new Response(body, { status: r.status, headers: h });
       }
 
       // ── FPL (Fantasy Premier League): {worker}/fpl/<path> ────────────────
