@@ -292,9 +292,33 @@ async function afEnrichCoachLineup(query,fData){
     return body?'\n\n'+body:'';
   }catch{return '';}
 }
+// Resolve ID de time por nome (/teams?search) — endpoint SEM trava de temporada,
+// funciona no plano Free mesmo quando fixtures/standings da temporada atual são
+// bloqueados. Cache 7 dias (IDs de time não mudam).
+async function _afTeamIdByName(name){
+  if(!name)return null;
+  const slug=String(name).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').slice(0,40);
+  const d=await fetchAf(`/teams?search=${encodeURIComponent(name)}`,`meridian_af_team_${slug}`,7*24*3600*1000);
+  return d?.response?.[0]?.team?.id||null;
+}
+// Fallback do plano Free: sem fixtures da temporada atual, resolve os times da query
+// por busca de nome e pega SÓ os técnicos (sem lineup — exige fixture id).
+async function _afCoachOnlyFallback(query){
+  const empty={text:'',meta:{coaches:false,lineups:false,matched:false}};
+  let teams=[];
+  try{if(typeof parseMatchTeamsFromQuery==='function')teams=parseMatchTeamsFromQuery(query)||[];}catch{}
+  if(teams.length<2)return empty;
+  const[idH,idA]=await Promise.all([_afTeamIdByName(teams[0]),_afTeamIdByName(teams[1])]);
+  if(!idH&&!idA)return empty;
+  const[ch,ca]=await Promise.all([idH?getAfCoach(idH):null,idA?getAfCoach(idA):null]);
+  if(!ch&&!ca)return empty;
+  const body=_afFormatCoachLineup({home:teams[0],away:teams[1]},ch,ca,null);
+  return{text:body,meta:{coaches:!!(ch||ca),lineups:false,matched:true,home:teams[0],away:teams[1],viaTeamSearch:true}};
+}
 /**
  * Caminho mínimo free-tier: 1× fixtures (cache 15min) + 0–2 coaches (24h) + 0–1 lineup (só perto do jogo).
  * Usado quando a cascata A já veio da ESPN/FD — não gasta AF em standings.
+ * Plano Free sem temporada atual: cai no _afCoachOnlyFallback (técnico via /teams+/coachs).
  * @returns {{text:string, meta:{coaches:boolean,lineups:boolean,matched:boolean,home?:string,away?:string}}}
  */
 async function afEnrichCoachLineupMinimal(query){
@@ -302,7 +326,7 @@ async function afEnrichCoachLineupMinimal(query){
   try{
     if(!afReady())return empty; // chave local OU secret validada no Worker
     const fData=await getAfFixtures();
-    if(!fData?.response?.length)return empty;
+    if(!fData?.response?.length)return _afCoachOnlyFallback(query);
     const ids=_afMatchIds(query,fData);
     if(!ids)return {...empty,meta:{...empty.meta,matched:false}};
     const wantLu=_afLineupWorthFetch(ids);
@@ -383,6 +407,15 @@ async function loadAfData(){
   updateAfStatus('',key?'verificando…':'verificando via Worker (secret)…');
   const[standings,fixtures]=await Promise.all([getAfStandings(),getAfFixtures()]);
   if(!standings&&!fixtures){
+    // Plano Free da AF NÃO cobre a temporada atual (erro real 07/2026: "Free plans do
+    // not have access to this season, try from 2022 to 2024"). A chave AUTENTICOU —
+    // não é secret inválida. Tabela/jogos ficam com a ESPN; técnico segue via AF
+    // (endpoints /teams e /coachs não são presos à temporada).
+    if(/free plans do not have access|not have access to this season/i.test(_afLastError||'')){
+      _remoteOkSet('meridian_af_remote_ok',true); // chave OK — mantém camada B (técnico) viva
+      updateAfStatus('err','chave OK · plano Free da AF não cobre a temporada atual — tabela/jogos via ESPN; técnico ainda via AF');
+      loadEspnData(false);return;
+    }
     _remoteOkSet('meridian_af_remote_ok',false);
     // CORS é a causa nº1 de falha AF direta no browser — aponte o caminho (Worker).
     const corsHint=!hasWorker&&/^rede:/.test(_afLastError||'')?' · provável CORS — configure Worker URL (recomendado)':'';

@@ -221,6 +221,10 @@ assert(afSrc.includes('meridian_af_remote_ok') && afSrc.includes('meridian_fd_re
 assert(p1Src.includes('fdReady') && p1Src.includes('afReady'), 'phase1 gates use ready helpers');
 assert(afSrc.includes('if(!afReady())return empty'), 'af minimal enrich gated by afReady');
 assert(appSrc.includes('afSaved||getWorkerUrl()') && appSrc.includes('saved||getWorkerUrl()'), 'boot tests FD/AF when worker configured');
+// Shell 64: plano Free da AF sem temporada atual — chave OK ≠ secret inválida; técnico via /teams+/coachs
+assert(afSrc.includes('free plans do not have access'), 'AF plan-limit detected (not secret error)');
+assert(afSrc.includes('_afCoachOnlyFallback') && afSrc.includes('_afTeamIdByName'), 'AF coach fallback via team search');
+assert(afSrc.includes('return _afCoachOnlyFallback(query)'), 'minimal enrich falls back to coach-only');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');
