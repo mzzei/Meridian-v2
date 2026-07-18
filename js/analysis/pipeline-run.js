@@ -401,8 +401,9 @@ async function runAnalysis(){
     _h('showAgentBubble')(_h('t')('no_key_analyze'));
     return;
   }
-  const query=document.getElementById('match-input').value.trim();
+  let query=document.getElementById('match-input').value.trim();
   if(!query){document.getElementById('match-input').focus();return;}
+  const skipBubble=!!globalThis._skipNextUserBubble;globalThis._skipNextUserBubble=false;
 
   // Competição da ANÁLISE inferida da própria query (keyword de liga OU clube —
   // shell 74). Sem isso, "Flamengo x Palmeiras" com a UI em outra liga colava a
@@ -415,6 +416,42 @@ async function runAnalysis(){
     }
   }catch{}
 
+  // ═══ GATE DE CONTEXTO DA ANÁLISE (shell 75) ═══
+  // Mesmo princípio do chat (popup ANTES do modelo — handoff §7.2 / invariante 18),
+  // estendido à análise padrão: confronto sem âncora em jogo REAL (agenda-união +
+  // scoreboard ESPN) → popup de contexto (prévia × pós-jogo). A ambiguidade se
+  // resolve com o usuário ANTES do pipeline — nunca vira prosa na Fase 2.
+  const _confirmed=/\[Contexto confirmado:/i.test(query)||/^PARTIDA:/i.test(query);
+  if(!_confirmed){
+    try{
+      // prefixo de comando ("análise completa/padrão", "relatório…") atrapalha o parse
+      // de times (guarda anti-lixo) — remove antes de extrair o confronto
+      const _qTeams=query.replace(/^\s*(an[aá]lise\s+(completa|padr[aã]o)|relat[oó]rio\s+completo|pipeline\s+completo)[:\s—-]*/i,'');
+      const _teams=_h('parseMatchTeamsFromQuery')(_qTeams);
+      if(_teams.length===2){
+        const _anchor=await _h('findScheduledMatchForAnalysis')(_teams,state.activeCompId);
+        if(_anchor&&_anchor.line){
+          // ancora o card no jogo real — a Fase 2 não precisa supor nada
+          query+='\n[Jogo identificado na agenda: '+_anchor.line+']';
+        }else{
+          if(!skipBubble)_h('showUserBubble')(query);
+          _h('taReset')(document.getElementById('match-input'));
+          globalThis._chatThread.push({role:'user',content:query});
+          globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+          _h('openContextPromptPopup')({
+            question:'Não encontrei jogo agendado ou recente entre '+_teams[0]+' e '+_teams[1]+'. Qual é o contexto da análise?',
+            options:[
+              {id:'previa',label:'Prévia do próximo confronto oficial em '+compLabel(state.activeCompId)},
+              {id:'pos',label:'Jogo já disputado — análise pós-jogo com placar verificado'}
+            ]
+          },query);
+          globalThis._ctxResumeMode='analysis'; // popup reenvia para runAnalysis
+          return;
+        }
+      }
+    }catch{}
+  }
+
   state.abort=new AbortController();state.pendingQuery=query;
   if(typeof setRunning==='function')setRunning(true,state.abort,query);else state.running=true;
   document.getElementById('error-box').style.display='none';
@@ -422,7 +459,7 @@ async function runAnalysis(){
   const ks=document.getElementById('key-status');ks.textContent='Analisando…';ks.style.color='var(--muted)';
 
   _h('taReset')(document.getElementById('match-input'));
-  _h('showUserBubble')(query);
+  if(!skipBubble)_h('showUserBubble')(query); // reenvio pós-popup não duplica a bolha
   _h('startThinking')();
 
   const effort=globalThis.modelProfile(); // {label,budget,searches} — perfil por modelo

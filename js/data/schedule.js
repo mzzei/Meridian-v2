@@ -42,6 +42,37 @@ function _rebuildUnionSchedule(){
   try{localStorage.setItem(SCHED_STORE,JSON.stringify({fetched_at:Date.now(),jogos:all}));}catch{}
   return all;
 }
+/** Âncora de jogo REAL para a análise padrão (gate de contexto — shell 75).
+ * Procura o confronto na agenda-união (todas as ligas) e no scoreboard ESPN da
+ * competição. Retorna {src,line,comp_id} ou null (→ popup de contexto antes do LLM). */
+async function findScheduledMatchForAnalysis(teams,compId){
+  if(!Array.isArray(teams)||teams.length<2)return null;
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const t0=norm(teams[0]),t1=norm(teams[1]);
+  const hit=(x,y)=>x&&y&&(x.includes(y)||y.includes(x));
+  const pair=(a,b)=>{a=norm(a);b=norm(b);return (hit(a,t0)&&hit(b,t1))||(hit(a,t1)&&hit(b,t0));};
+  try{
+    const j=(_schedule||[]).find(x=>x&&pair(x.mandante,x.visitante));
+    if(j){
+      const _lbl=compLabel(j.comp_id||compId);
+      const _fase=j.fase&&j.fase!==_lbl?' · '+j.fase:''; // fase==liga → não duplicar
+      return{src:'agenda',comp_id:j.comp_id||compId,
+        line:`${j.mandante} x ${j.visitante} · ${_lbl}${_fase} · ${j.data_iso||''}${j.hora_brt?' '+j.hora_brt:''}`.trim()};
+    }
+  }catch{}
+  try{
+    const sb=await getEspnScoreboard(compId);
+    const ev=(sb&&sb.events||[]).find(e=>{
+      const c=e&&e.competitions&&e.competitions[0];const cs=(c&&c.competitors)||[];
+      if(cs.length<2)return false;
+      const n=i=>cs[i]&&cs[i].team&&(cs[i].team.displayName||cs[i].team.shortDisplayName||cs[i].team.name);
+      return pair(n(0),n(1));
+    });
+    if(ev)return{src:'espn',comp_id:compId,
+      line:`${ev.name||ev.shortName||(teams[0]+' x '+teams[1])} · ${compLabel(compId)} · ${(ev.date||'').slice(0,10)}`};
+  }catch{}
+  return null;
+}
 function _compLogo(id){
   const c=getComp(id);
   return c.logo?`<img class="lib-comp-logo" src="${c.logo}" alt="${esc(c.name)}" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span style="font-size:28px">🏆</span>';

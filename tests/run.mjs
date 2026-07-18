@@ -367,6 +367,17 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc.includes("_h('inferCompIdsFromText')(query)") && runSrc.includes('setAnalysisCompId(_inf[0])'), 'runAnalysis infers competition from query');
 }
 
+// Shell 75: gate de contexto da ANÁLISE — popup antes do pipeline quando sem âncora
+{
+  const schedSrc2 = fs.readFileSync(path.join(ROOT, 'js/data/schedule.js'), 'utf8');
+  assert(schedSrc2.includes('async function findScheduledMatchForAnalysis'), 'match anchor resolver in schedule.js');
+  assert(runSrc.includes('GATE DE CONTEXTO DA ANÁLISE') && runSrc.includes("findScheduledMatchForAnalysis"), 'runAnalysis has context gate');
+  assert(runSrc.includes('Contexto confirmado:') && runSrc.includes("_ctxResumeMode='analysis'"), 'gate skips when confirmed and routes popup back to analysis');
+  assert(runSrc.includes('Jogo identificado na agenda'), 'anchored match injected into query');
+  assert(appSrc.includes("_ctxResumeMode") && appSrc.includes("_dest==='analysis'&&typeof runAnalysis==='function'"), 'popup resubmits to runAnalysis when gate origin is analysis');
+  assert(runSrc.includes('if(!skipBubble)'), 'no duplicate user bubble on resubmit');
+}
+
 // --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

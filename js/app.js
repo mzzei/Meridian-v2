@@ -464,6 +464,7 @@ let _ctxPromptSelection=null;   // {type:'opt'|'other', label/text}
 let _agentMenuText='';          // texto alvo do menu de clique direito
 var _skipNextUserBubble=false;  // reenvio após popup (evita bolha duplicada)
 var _skipVagueGateOnce=false;   // após o usuário escolher no popup, não reabre o gate
+var _ctxResumeMode='chat';      // destino do reenvio pós-popup: 'chat' | 'analysis' (gate da análise, shell 75)
 let _lastCtxPromptPayload=null; // {question, options} para reabrir após Cancelar
 let _ctxResumeHintEl=null;      // bolha "definir contexto" no chat
 function getChatContext(){return _chatContext;}
@@ -802,7 +803,13 @@ function confirmContextPrompt(){
     if(ta){ta.value=reinforced;ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,220)+'px';}
     _skipNextUserBubble=true;
     _skipVagueGateOnce=true; // não reabre o popup de ambiguidade neste reenvio
-    setTimeout(()=>{try{if(typeof runChat==='function')runChat();}catch{}},60);
+    // Gate da ANÁLISE (shell 75): se o popup veio de runAnalysis, o reenvio volta
+    // para a análise padrão (card 7 abas) — não para o chat.
+    const _dest=_ctxResumeMode;_ctxResumeMode='chat';
+    setTimeout(()=>{try{
+      if(_dest==='analysis'&&typeof runAnalysis==='function')runAnalysis();
+      else if(typeof runChat==='function')runChat();
+    }catch{}},60);
   }else{
     try{toast('Contexto salvo');}catch{}
   }
