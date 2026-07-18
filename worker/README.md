@@ -50,4 +50,17 @@ Ver `../docs/backtester-design.md`.
 ## Segurança
 
 - Nenhuma chave no repositório — só Secrets Cloudflare  
-- CORS `*` por simplicidade; restrinja se publicar o Worker  
+- **Allowlist de Origin (shell 67):** browsers só passam se `Origin` estiver na lista  
+  - Default: `https://mzzei.github.io`, `http://localhost:3457`, `http://127.0.0.1:3457`  
+  - Ampliar: secret `ALLOWED_ORIGINS` = CSV (`https://outro.github.io,http://localhost:5173`)  
+  - `file://` (Origin `null`): só com secret `ALLOW_NULL_ORIGIN=1`  
+  - Pedidos **sem** Origin (curl, health ops) continuam OK  
+- Allowlist **não** bloqueia curl malicioso com a URL — protege abuso via site de terceiros no browser  
+- Health: `{"ok":true,"service":"meridian-v2-proxy","origin_gate":true}`  
+
+```bash
+# opcional — origens extras
+npx.cmd wrangler secret put ALLOWED_ORIGINS
+# valor exemplo: https://mzzei.github.io,http://localhost:3457
+```
+

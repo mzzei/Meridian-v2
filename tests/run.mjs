@@ -198,6 +198,8 @@ assert(p1Src.includes('_phase1AfLayerB') || p1Src.includes('afEnrichCoachLineupM
 assert(p1Src.includes('computeCoverageScore') || p1Src.includes('coverage'), 'phase1 coverage');
 const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 assert(indexSrc.includes('id="data-coverage"'), 'coverage badge in HTML');
+assert(indexSrc.includes('probeSourcesHealthFull') || indexSrc.includes('btn-probe-sources'), 'probe button wired');
+assert(indexSrc.includes('Opcional se secret') || indexSrc.includes('FD_KEY'), 'FD/AF settings hints documented');
 // Shell 58: cobertura pós-busca + hint de ajuda A/B/C
 assert(telSrc.includes('updateCoverageAfterSearch') && telSrc.includes('coverageLevelsFromRawFacts'), 'post-search coverage API');
 assert(factsSrc.includes('updateCoverageAfterSearch'), 'gatherFacts updates coverage post-search');
@@ -205,6 +207,9 @@ assert(indexSrc.includes('id="cov-help"'), 'coverage help hint in settings');
 // Shell 59: FPL + StatsBomb Open + health probe + worker /fpl
 const workerSrc = fs.readFileSync(path.join(ROOT, 'worker/worker.js'), 'utf8');
 assert(workerSrc.includes("'/fpl/'") && workerSrc.includes('fantasy.premierleague.com/api'), 'worker proxies FPL');
+assert(workerSrc.includes('resolveCors') || workerSrc.includes('origin_gate') || workerSrc.includes('ALLOWED_ORIGINS'), 'worker origin allowlist');
+assert(workerSrc.includes('mzzei.github.io') && workerSrc.includes('localhost:3457'), 'worker default origins Pages+local');
+assert(workerSrc.includes('origin_not_allowed') || workerSrc.includes('Origin não permitida'), 'worker 403 forbidden origin');
 // Shell 60: FD via Worker (probe 07/2026 — FD sem CORS em GET; browser direto sempre falha)
 assert(workerSrc.includes("'/fd/'") && workerSrc.includes('api.football-data.org/v4'), 'worker proxies football-data');
 assert(afSrc.includes('/fd${path}'), 'fd url worker-first');
@@ -235,6 +240,8 @@ assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fp
 assert(p1Src.includes('getFreeSourcesBundle(id, teams, query)'), 'phase1 passes teams+query to registry');
 const healthSrc = fs.readFileSync(path.join(ROOT, 'js/data/source-health.js'), 'utf8');
 assert(healthSrc.includes('probeSourcesHealth') && healthSrc.includes('NUNCA entra no prompt'), 'source-health probe (UI-only)');
+assert(healthSrc.includes('_shProbeWorkerKeyed') && healthSrc.includes('probeSourcesHealthFull'), 'health probes AF/FD on full button');
+assert(freeSrc.includes('element-summary') || freeSrc.includes('_fplElementSummaries'), 'FPL element-summary enrich');
 assert(mainSrc.includes("'js/data/source-health.js'"), 'source-health in CLASSIC');
 assert(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8').includes('source-health.js'), 'sw precaches source-health');
 assert(indexSrc.includes('id="btn-probe-sources"') && indexSrc.includes('id="fpl-status"') && indexSrc.includes('id="sbopen-status"'), 'health probe UI rows');

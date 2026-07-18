@@ -37,10 +37,60 @@ function _shSetStatus(elId, res) {
 }
 
 /**
- * Proba as fontes free (as chaveadas AF/FD têm status próprio via loadAfData/loadFdData).
+ * Probe leve AF/FD via Worker (não substitui loadAfData — só saúde no botão Testar).
+ * NUNCA mexe no prompt.
+ */
+async function _shProbeWorkerKeyed(kind) {
+  const worker = typeof getWorkerUrl === 'function' ? getWorkerUrl() : '';
+  if (!worker) return { id: kind, ok: null, ms: 0, note: 'precisa Worker URL' };
+  const t0 = Date.now();
+  const base = worker.replace(/\/+$/, '');
+  try {
+    if (kind === 'af') {
+      // /status da AF não conta na cota diária
+      const r = await fetch(base + '/af/status', { signal: AbortSignal.timeout(10000) });
+      const ms = Date.now() - t0;
+      if (!r.ok) return { id: 'af', ok: false, ms, note: 'HTTP ' + r.status };
+      const d = await r.json().catch(() => ({}));
+      const acc = d.response || d;
+      const cur = acc && (acc.requests || acc.account);
+      const used =
+        (acc && acc.requests && acc.requests.current) != null
+          ? acc.requests.current
+          : cur && cur.requests && cur.requests.current;
+      const lim =
+        (acc && acc.requests && acc.requests.limit_day) != null
+          ? acc.requests.limit_day
+          : 100;
+      if (used != null) {
+        return { id: 'af', ok: true, ms, note: 'Worker OK · ' + used + '/' + lim + ' req hoje' };
+      }
+      return { id: 'af', ok: true, ms, note: 'Worker OK · /status' };
+    }
+    if (kind === 'fd') {
+      const r = await fetch(base + '/fd/competitions', { signal: AbortSignal.timeout(10000) });
+      const ms = Date.now() - t0;
+      if (!r.ok) return { id: 'fd', ok: false, ms, note: 'HTTP ' + r.status };
+      const d = await r.json().catch(() => ({}));
+      const n = Array.isArray(d.competitions) ? d.competitions.length : d.count || 0;
+      return { id: 'fd', ok: n > 0, ms, note: n > 0 ? n + ' competições via Worker' : 'vazio/sem secret' };
+    }
+  } catch (e) {
+    return { id: kind, ok: false, ms: Date.now() - t0, note: 'erro: ' + ((e && e.message) || '?') };
+  }
+  return { id: kind, ok: null, ms: 0, note: '?' };
+}
+
+/**
+ * Proba free + AF/FD via Worker.
  * Resultado → settings rows + sessionStorage + globalThis._sourceHealth. Nada no prompt.
  */
-async function probeSourcesHealth() {
+/**
+ * @param {{includeKeyed?:boolean}} [opts] includeKeyed=true atualiza AF/FD (botão manual).
+ * Auto-probe periódico NÃO sobrescreve status rico do loadAfData/loadFdData.
+ */
+async function probeSourcesHealth(opts) {
+  const includeKeyed = !!(opts && opts.includeKeyed);
   const id = _shActiveComp();
   const worker = typeof getWorkerUrl === 'function' ? getWorkerUrl() : '';
   const btn = document.getElementById('btn-probe-sources');
@@ -80,8 +130,15 @@ async function probeSourcesHealth() {
       if (!Array.isArray(comps)) return '';
       return comps.length + ' temporadas no open-data';
     }),
+    includeKeyed ? _shProbeWorkerKeyed('af') : Promise.resolve(null),
+    includeKeyed ? _shProbeWorkerKeyed('fd') : Promise.resolve(null),
   ]);
-  const payload = { ts: Date.now(), compId: id, probes };
+  const payload = {
+    ts: Date.now(),
+    compId: id,
+    probes: probes.filter(Boolean),
+    includeKeyed,
+  };
   try {
     globalThis._sourceHealth = payload;
   } catch {}
@@ -94,11 +151,20 @@ async function probeSourcesHealth() {
   _shSetStatus('openliga-status', probes[3]);
   _shSetStatus('fpl-status', probes[4]);
   _shSetStatus('sbopen-status', probes[5]);
+  if (includeKeyed) {
+    if (probes[6]) _shSetStatus('af-status', probes[6]);
+    if (probes[7]) _shSetStatus('fd-status', probes[7]);
+  }
   if (btn) {
     btn.disabled = false;
     btn.textContent = 'Testar fontes agora';
   }
   return payload;
+}
+
+/** Clique do botão — inclui AF/FD via Worker. */
+function probeSourcesHealthFull() {
+  return probeSourcesHealth({ includeKeyed: true });
 }
 
 // Auto: load atrasado (não compete com o boot) + periódico. Cache TTL segura o custo.

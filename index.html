@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=66">
+<link rel="stylesheet" href="css/app.css?v=67">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -492,7 +492,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         </div>
         <div class="sf">
           <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
-          <div class="sf-hint" id="cov-help">O badge "Dados" (A/B/C) mostra a cobertura da coleta de cada análise: <b>A</b> campeonato (tabela/jogos) — fica alta com a ESPN, sem chave nenhuma; <b>B</b> time (técnico/escalação) — sobe com uma chave API-Football (grátis, 100 req/dia); <b>C</b> analítico (xG/métricas) — vem da busca web durante a análise, e o badge atualiza "pós-busca" quando ela encontra esses dados.</div>
+          <div class="sf-hint" id="cov-help">Badge <b>Dados A/B/C</b> (coleta de cada análise): <b>A</b> campeonato = ESPN grátis (+ football-data.org via Worker se secret/chave); <b>B</b> time = técnico via API-Football (Free não cobre temporada 2026 em fixtures — escalação confirmada só por busca); <b>C</b> analítico = web_search e, na EPL, FPL via Worker. O badge sobe "pós-busca" quando a Fase 1 acha xG/métricas. AF e FD <b>não funcionam no browser sem Worker</b> (CORS).</div>
 
           <div class="ds-row">
             <span class="ds-name">ESPN</span>
@@ -523,20 +523,22 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
             <span class="ds-name">StatsBomb Open (histórico)</span>
             <span class="ds-status" id="sbopen-status"></span>
           </div>
-          <button type="button" class="lang-btn" id="btn-probe-sources" onclick="probeSourcesHealth()" style="width:100%;margin:.4rem 0 .6rem">Testar fontes agora</button>
-          <div class="sf-hint">Saúde das fontes grátis para a liga ativa — só informativo (nunca entra no raciocínio do agente). FPL, API-Football e football-data.org precisam de Worker URL para furar o bloqueio CORS do navegador; StatsBomb Open só ativa quando a análise cita uma temporada passada que existe no acervo aberto.</div>
+          <button type="button" class="lang-btn" id="btn-probe-sources" onclick="probeSourcesHealthFull()" style="width:100%;margin:.4rem 0 .6rem">Testar fontes agora</button>
+          <div class="sf-hint">Saúde só informativa (nunca no prompt). Grátis = ESPN/TSDB/OF/Scorebat; FPL/AF/FD precisam de Worker. O botão também testa AF e FD via Worker. StatsBomb Open só com temporada passada na pergunta.</div>
 
           <div class="ds-row">
             <span class="ds-name">API-Football</span>
             <span class="ds-status" id="af-status"></span>
           </div>
-          <input id="af-key-input" type="password" placeholder="Chave API-Football" autocomplete="off">
+          <input id="af-key-input" type="password" placeholder="Opcional se secret AF_KEY no Worker" autocomplete="off">
+          <div class="sf-hint">Recomendado: secret <code>AF_KEY</code> no Worker (campo vazio). Free: técnico via /teams+/coachs; tabela/jogos da temporada atual ficam com a ESPN. Plano Free não entrega lineups 2026.</div>
 
           <div class="ds-row">
             <span class="ds-name">football-data.org</span>
             <span class="ds-status" id="fd-status"></span>
           </div>
-          <input id="fd-key-input" type="password" placeholder="Chave football-data.org" autocomplete="off">
+          <input id="fd-key-input" type="password" placeholder="Opcional se secret FD_KEY no Worker" autocomplete="off">
+          <div class="sf-hint">Fallback de tabela/jogos (BSA, PL, PD, CL…). <b>Sempre via Worker</b> — a API FD não manda CORS no browser. Preferir secret <code>FD_KEY</code> no Cloudflare.</div>
 
           <div class="ds-row">
             <span class="ds-name">StatsBomb</span>
@@ -593,7 +595,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=66"></script>
+<script type="module" src="js/main.js?v=67"></script>
 
 
 <!-- Mobile sidebar backdrop -->

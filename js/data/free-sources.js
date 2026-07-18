@@ -303,6 +303,62 @@ function _fplFormatContext(data, teams) {
   }
   return L.length > 1 ? L.join('\n') : '';
 }
+/**
+ * Enriquecimento leve: element-summary dos 2–3 top pontuadores de cada time do jogo.
+ * Só EPL + Worker; cache 6h; máx ~6 fetches (economiza).
+ */
+async function _fplElementSummaries(workerBase, elements, teamById, teams) {
+  const wanted = (teams || []).map(_fplNorm).filter(Boolean);
+  if (!wanted.length || !Array.isArray(elements)) return '';
+  const byTeam = {};
+  elements.forEach((p) => {
+    if (!p || !(p.minutes > 0)) return;
+    const tn = teamById[p.team] || '';
+    const n = _fplNorm(tn);
+    if (!wanted.some((w) => n.includes(w) || w.includes(n))) return;
+    (byTeam[tn] = byTeam[tn] || []).push(p);
+  });
+  const picks = [];
+  Object.keys(byTeam).forEach((tn) => {
+    byTeam[tn]
+      .sort((a, b) => (b.total_points || 0) - (a.total_points || 0))
+      .slice(0, 2)
+      .forEach((p) => picks.push(p));
+  });
+  if (!picks.length) return '';
+  const base = workerBase.replace(/\/+$/, '');
+  const lines = [];
+  // sequencial leve (Worker free); cada summary cacheado
+  for (const p of picks.slice(0, 6)) {
+    try {
+      const sum = await _freeJson(
+        base + '/fpl/element-summary/' + p.id + '/',
+        'meridian_fpl_el_' + p.id + '_v1',
+        FPL_TTL
+      );
+      const hist = Array.isArray(sum && sum.history) ? sum.history : [];
+      const last = hist.slice(-3);
+      if (!last.length) continue;
+      const bits = last.map((h) => {
+        const g = h.goals_scored || 0;
+        const a = h.assists || 0;
+        const pts = h.total_points || 0;
+        const opp = h.was_home ? 'H' : 'A';
+        return `GW${h.round || '?'}:${pts}pts ${g}g${a}a ${opp}`;
+      });
+      lines.push(
+        (p.web_name || '?') +
+          ' (' +
+          (teamById[p.team] || '?') +
+          ') últimos GWs: ' +
+          bits.join(' · ')
+      );
+    } catch {}
+  }
+  if (!lines.length) return '';
+  return 'Forma recente (FPL element-summary): ' + lines.join('; ');
+}
+
 async function getFplContext(compId, teams) {
   const id = _freeCompId(compId);
   if (id !== 'epl') return '';
@@ -313,7 +369,18 @@ async function getFplContext(compId, teams) {
     'meridian_fpl_bootstrap_v1',
     FPL_TTL
   );
-  return _fplFormatContext(data, teams);
+  let text = _fplFormatContext(data, teams);
+  if (!text || !data) return text;
+  // só enriquece quando há times do jogo (evita 6 fetches em toda análise genérica)
+  if (teams && teams.length >= 2) {
+    const teamById = {};
+    (data.teams || []).forEach((t) => {
+      if (t && t.id != null) teamById[t.id] = t.name || t.short_name || '?';
+    });
+    const extra = await _fplElementSummaries(w, data.elements, teamById, teams);
+    if (extra) text = text + '\n' + extra;
+  }
+  return text;
 }
 
 // ─── StatsBomb Open — SÓ modo histórico (não live) ───────────────────────────
