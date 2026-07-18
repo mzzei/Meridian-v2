@@ -197,7 +197,7 @@ assert(afSrc.includes('_afLineupWorthFetch'), 'AF lineup only near kickoff');
 assert(p1Src.includes('_phase1AfLayerB') || p1Src.includes('afEnrichCoachLineupMinimal'), 'phase1 AF layer B');
 assert(p1Src.includes('computeCoverageScore') || p1Src.includes('coverage'), 'phase1 coverage');
 const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-assert(indexSrc.includes('id="data-coverage"'), 'coverage badge in HTML');
+assert(!indexSrc.includes('id="data-coverage"'), 'coverage badge removed from HTML (shell 68)');
 assert(indexSrc.includes('probeSourcesHealthFull') || indexSrc.includes('btn-probe-sources'), 'probe button wired');
 assert(indexSrc.includes('Opcional se secret') || indexSrc.includes('FD_KEY'), 'FD/AF settings hints documented');
 // Shell 58: cobertura pós-busca + hint de ajuda A/B/C

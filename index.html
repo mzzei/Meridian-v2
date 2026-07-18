@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=67">
+<link rel="stylesheet" href="css/app.css?v=68">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -201,7 +201,6 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 
     <!-- Input dock -->
     <div class="i-dock">
-      <div id="data-coverage" class="data-coverage" style="display:none" aria-live="polite" title="Cobertura de dados da última coleta estruturada"></div>
       <div id="error-box" class="err-box" style="display:none"><span id="error-msg"></span></div>
       <input type="file" id="attach-input" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,.pdf,.txt,.md,.markdown,.csv" multiple style="display:none" onchange="onAttachInput(this)">
       <div class="attach-chips" id="attach-chips"></div>
@@ -492,7 +491,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         </div>
         <div class="sf">
           <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
-          <div class="sf-hint" id="cov-help">Badge <b>Dados A/B/C</b> (coleta de cada análise): <b>A</b> campeonato = ESPN grátis (+ football-data.org via Worker se secret/chave); <b>B</b> time = técnico via API-Football (Free não cobre temporada 2026 em fixtures — escalação confirmada só por busca); <b>C</b> analítico = web_search e, na EPL, FPL via Worker. O badge sobe "pós-busca" quando a Fase 1 acha xG/métricas. AF e FD <b>não funcionam no browser sem Worker</b> (CORS).</div>
+          <div class="sf-hint" id="cov-help">Cobertura da coleta (A/B/C): <b>A</b> campeonato = ESPN grátis (+ football-data.org via Worker se secret/chave); <b>B</b> time = técnico via API-Football (Free não cobre temporada 2026 em fixtures — escalação confirmada só por busca); <b>C</b> analítico = web_search e, na EPL, FPL via Worker. AF e FD <b>não funcionam no browser sem Worker</b> (CORS).</div>
 
           <div class="ds-row">
             <span class="ds-name">ESPN</span>
@@ -595,7 +594,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=67"></script>
+<script type="module" src="js/main.js?v=68"></script>
 
 
 <!-- Mobile sidebar backdrop -->
