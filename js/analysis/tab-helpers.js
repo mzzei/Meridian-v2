@@ -14,7 +14,8 @@ function emptyTabMessage(featKey, coletaOk, labels) {
   return _abaVaziaMsg(featKey, coletaOk, labels.pre, labels.fail, labels.empty);
 }
 
-/** Registry canônico das 7 abas (ordem = PDF / v1). */
+/** Registry canônico das 7 abas (ordem = PDF / v1). MESMAS 7 abas nos dois modos
+ * (invariante 14); no pós-jogo só os RÓTULOS re-semantizam — a estrutura não muda. */
 const ANALYSIS_TAB_ORDER = [
   { id:'resumo', label:'Resumo' },
   { id:'tatica', label:'Tática' },
@@ -24,11 +25,21 @@ const ANALYSIS_TAB_ORDER = [
   { id:'escalacao', label:'Escalação' },
   { id:'avancado', label:'Dados Avançados' }
 ];
+const ANALYSIS_TAB_LABELS_POS = {
+  resumo:'Resumo do Jogo',
+  tatica:'Leitura Tática',
+  individual:'Números do Jogo',
+  cartoes:'Disciplina',
+  escanteios:'Escanteios',            // nunca sai (invariante)
+  escalacao:'Escalações Utilizadas',
+  avancado:'Pós-Jogo & Mercados'
+};
 
-function renderAnalysisTabShell(id, tabsHtml){
+function renderAnalysisTabShell(id, tabsHtml, mode){
   // tabsHtml: { resumo, tatica, individual, cartoes, escanteios, escalacao, avancado }
+  const _lbl = (t)=>(mode==='pos_jogo'&&ANALYSIS_TAB_LABELS_POS[t.id])||t.label;
   const buttons = ANALYSIS_TAB_ORDER.map((t,i)=>
-    `<button class="a-tab${i===0?' active':''}" data-tab="${t.id}" onclick="showTab(${id},'${t.id}')">${t.label}</button>`
+    `<button class="a-tab${i===0?' active':''}" data-tab="${t.id}" onclick="showTab(${id},'${t.id}')">${_lbl(t)}</button>`
   ).join('');
   const panels = ANALYSIS_TAB_ORDER.map((t,i)=>
     `<div id="at-${t.id}-${id}" class="a-tc"${i===0?'':' style="display:none"'}>
@@ -64,6 +75,7 @@ expose({
   _abaVaziaMsg,
   emptyTabMessage,
   ANALYSIS_TAB_ORDER,
+  ANALYSIS_TAB_LABELS_POS,
   renderAnalysisTabShell,
   featureEmptyHtml,
 });
@@ -71,6 +83,7 @@ export {
   _abaVaziaMsg,
   emptyTabMessage,
   ANALYSIS_TAB_ORDER,
+  ANALYSIS_TAB_LABELS_POS,
   renderAnalysisTabShell,
   featureEmptyHtml,
 };

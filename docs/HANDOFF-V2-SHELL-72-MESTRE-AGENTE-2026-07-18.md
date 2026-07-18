@@ -177,15 +177,19 @@ runAnalysis
 
 **Importante (shell 70–72):** trocar Haiku/Sonnet/Opus muda **buscas na coleta** + **capacidade da Fase 2**, não “thinking budget”. Thinking na Fase 2 está **desligado** (ver §7.3).
 
-**7 abas obrigatórias** (AGENTS.md / render):
+**7 abas obrigatórias** (AGENTS.md / render) — MESMAS nos dois modos do card (shell 76); no pós-jogo só os RÓTULOS re-semantizam (`ANALYSIS_TAB_LABELS_POS` em tab-helpers.js):
 
-1. Resumo  
-2. Tática  
-3. Desempenho  
-4. Cartões & Faltas  
-5. **Escanteios** (nunca omitir)  
-6. Escalação (mapa de campo)  
-7. Dados Avançados  
+| # | Prévia | Pós-jogo |
+|---|--------|----------|
+| 1 | Resumo | Resumo do Jogo |
+| 2 | Tática | Leitura Tática |
+| 3 | Desempenho | Números do Jogo |
+| 4 | Cartões & Faltas | Disciplina |
+| 5 | **Escanteios** (nunca omitir) | **Escanteios** (nunca omitir) |
+| 6 | Escalação (mapa de campo) | Escalações Utilizadas |
+| 7 | Dados Avançados | Pós-Jogo & Mercados (retrospecto dos tickets) |
+
+Modo vem de `parsed.contexto_analise` ('previa'|'pos_jogo'; normalize tolera variantes, default previa) — a Fase 2 preenche a partir de `[Contexto confirmado: …]` / `[MODO PÓS-JOGO]`. Selo `PRÉVIA ·` / `PÓS-JOGO ·` no `.a-subtitle`. Pós-jogo: `runAnalysis` roda `fetchVerifiedMatchFacts` ANTES da Fase 2 (placar sacro verificado no card; sem bloco → sem placar afirmado, vira lacuna).
 
 Arquivos: `pipeline-run.js`, `pipeline-facts.js`, `prompts.js`, `render.js`, `normalize.js`, `phase1-context.js`.
 
@@ -471,6 +475,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **73** | UI dock: botão Analisar/Enviar largo — `.i-tok-mini` `flex:0 1 auto` (encolhe ao conteúdo) e `.i-analyze` `flex:1 1 14rem`; botão preenche a linha e alinha a borda direita com o `#match-input` (validado: btnRight === inputRight) |
 | **74** | Card SEMPRE entrega: (a) `runAnalysis` infere a competição da PRÓPRIA query (`inferCompIdsFromText` ganhou camada de CLUBES — "Flamengo x Palmeiras" → brsa mesmo com a UI em outra liga; antes colava tabela da liga errada e a Fase 2 travava pedindo esclarecimento → modo simplificado); (b) regra "ENTREGA OBRIGATÓRIA" nos DOIS prompts F2: ambiguidade vira PRÉVIA com suposições em lacunas/incerteza dentro do JSON — pergunta em prosa é proibida no modo análise |
 | **75** | **GATE DE CONTEXTO DA ANÁLISE** (pedido do usuário: pergunta de contexto é POPUP, nunca texto corrido) — estende o princípio popup-first do chat (§7.2/inv.18) à análise padrão: `findScheduledMatchForAnalysis(teams, compId)` (schedule.js) procura o confronto na agenda-união + scoreboard ESPN; **achou** → injeta `[Jogo identificado na agenda: …]` na query e segue direto; **não achou** → `openContextPromptPopup` (prévia × pós-jogo × Outro) ANTES de qualquer chamada LLM (0 tokens gastos), e a escolha reenvia para `runAnalysis` via `_ctxResumeMode='analysis'` com `[Contexto confirmado: …]` (que pula o gate). Bolha não duplica no reenvio (`_skipNextUserBubble` agora vale na análise). Prefixo "análise completa/padrão" é limpo antes do parse de times (a guarda anti-lixo do parse descartava o par). Validado e2e no preview: popup abre com 0 calls; escolha → F1 recebe o contexto confirmado; par real da agenda (Botafogo x Santos) passa direto |
+| **76** | **MODO PÓS-JOGO no card padrão** — mesma estética/7 abas, rótulos re-semantizados (`ANALYSIS_TAB_LABELS_POS`), selo PRÉVIA/PÓS-JOGO no subtítulo, campo `contexto_analise` no schema F2 (2 prompts) + regra "MODO PÓS-JOGO" (placar SÓ do bloco PLACARES VERIFICADOS; tickets viram retrospecto), `fetchVerifiedMatchFacts` antes da Fase 2 quando `[Contexto confirmado: …pós-jogo/já disputado]`; normalize default previa (cards antigos intactos). Validado no preview: os dois cards renderizam com 7 abas e selos corretos |
 
 ---
 

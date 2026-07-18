@@ -256,6 +256,9 @@ function renderResults(d,opts){
 
   // ── Full card ──
   const titleHtml=(d.partida||'Análise').replace(/×/g,'<span class="wc-gold">×</span>');
+  // Modo do card (shell 76): MESMO shell/estética; pós-jogo só re-rotula abas + selo.
+  const _mode=d.contexto_analise==='pos_jogo'?'pos_jogo':'previa';
+  const _modeBadge=_mode==='pos_jogo'?'PÓS-JOGO':'PRÉVIA';
   const shell=renderAnalysisTabShell(id,{
     resumo:tabResumo,
     tatica:tabTatica,
@@ -264,7 +267,7 @@ function renderResults(d,opts){
     escanteios:tabEscanteios,
     escalacao:tabEscalacao,
     avancado:tabAvancado
-  });
+  },_mode);
   const el=document.createElement('div');
   el.innerHTML=`<div class="a-card" id="acard-${id}">
     <div class="a-hdr">
@@ -279,7 +282,7 @@ function renderResults(d,opts){
       </div>
     </div>
     <div class="a-status">Análise concluída com sucesso</div>
-    <div class="a-subtitle">${esc(d.fase||d.comp_label||compLabel(d.comp_id||_activeCompId))}</div>
+    <div class="a-subtitle">${_modeBadge} · ${esc(d.fase||d.comp_label||compLabel(d.comp_id||_activeCompId))}</div>
     <div class="a-title">${titleHtml}</div>
     <div class="a-tabs">
       <div class="a-tab-pill"></div>

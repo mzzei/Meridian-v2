@@ -506,11 +506,23 @@ async function runAnalysis(){
       _thkP1Toks+=lv.inTokens+lv.outTokens;
     }
 
+    // ── Modo PÓS-JOGO (shell 76): placar sacro VERIFICADO antes da Fase 2 ──
+    // Escolha "jogo já disputado" no gate → o card abre com placar do verificador
+    // (fetchVerifiedMatchFacts, mesmo do chat) — nunca placar inferido pelo modelo.
+    const _posJogo=/\[Contexto confirmado:[^\]]*(p[oó]s[\s-]?jogo|j[aá]\s+disputado)/i.test(query);
+    let _scoreBlock='';
+    if(_posJogo){
+      _h('updateThinkingToks')({status:'Verificando placar oficial…',phase:1});
+      _scoreBlock=await fetchVerifiedMatchFacts(query,apiKey,state.abort.signal,'').catch(()=>'');
+    }
+
     // ── Fase 2: modelo escolhido analisa (sem ferramentas se fatos OK) ────
     _h('updateThinkingToks')({status:'Raciocinando…',phase:2});
     const useEnriched=!!rawFacts;
     const ctx=useEnriched?_h('getTournamentCtxString')():'';
-    const finalQuery=useEnriched?buildEnrichedQuery(query,rawFacts,ctx):query;
+    const finalQuery=(useEnriched?buildEnrichedQuery(query,rawFacts,ctx):query)
+      +(_scoreBlock?'\n\n'+_scoreBlock:'')
+      +(_posJogo?'\n[MODO PÓS-JOGO: o jogo já foi disputado — preencha contexto_analise="pos_jogo" e siga a regra de pós-jogo do prompt.]':'');
     const sysText=useEnriched?_h('getSystemPromptPhase2')():_h('getSystemPrompt')();
     const memCtx=await _h('fetchMemoryContext')();
     // Teto generoso: o JSON estruturado cheio passa de 6k tokens e truncava (→ fallback).

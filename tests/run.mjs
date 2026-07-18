@@ -378,6 +378,24 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc.includes('if(!skipBubble)'), 'no duplicate user bubble on resubmit');
 }
 
+// Shell 76: modo pós-jogo — mesmo card, abas re-semantizadas + placar verificado
+{
+  const tabsSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/tab-helpers.js'), 'utf8');
+  assert(tabsSrc.includes('ANALYSIS_TAB_LABELS_POS') && tabsSrc.includes("escanteios:'Escanteios'"), 'pos-jogo tab labels (Escanteios never leaves)');
+  assert(tabsSrc.includes('renderAnalysisTabShell(id, tabsHtml, mode)'), 'tab shell accepts mode');
+  const renderSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  assert(renderSrc2.includes("contexto_analise==='pos_jogo'") && renderSrc2.includes('PÓS-JOGO') && renderSrc2.includes('PRÉVIA'), 'render mode badge');
+  const promptsSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert((promptsSrc2.match(/"contexto_analise":"previa\|pos_jogo"/g) || []).length === 2, 'contexto_analise in both F2 schemas');
+  assert((promptsSrc2.match(/MODO PÓS-JOGO/g) || []).length >= 2, 'pos-jogo rule in both F2 prompts');
+  assert(runSrc.includes('_posJogo') && runSrc.includes('fetchVerifiedMatchFacts(query,apiKey,state.abort.signal') , 'verified score before Fase 2 in pos-jogo');
+  // normalize: default previa + tolera variantes
+  const covP = N.attachAnalysisDerived({ partida: 'A x B' }, null);
+  assert(covP.contexto_analise === 'previa', 'normalize defaults to previa');
+  const covPos = N.attachAnalysisDerived({ partida: 'A x B', contexto_analise: 'Pós-Jogo' }, null);
+  assert(covPos.contexto_analise === 'pos_jogo', 'normalize tolerates pós-jogo variants');
+}
+
 // --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

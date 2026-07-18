@@ -151,6 +151,17 @@ function normalizeAnalysisPayload(d) {
  */
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
+  // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
+  // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).
+  try {
+    const _ctxA = String(parsed.contexto_analise || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    parsed.contexto_analise = /pos/.test(_ctxA) ? 'pos_jogo' : 'previa';
+  } catch {
+    parsed.contexto_analise = 'previa';
+  }
   try {
     if (rawFacts) {
       const objArr = (a) =>
