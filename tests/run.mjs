@@ -158,6 +158,10 @@ const mainSrc = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
 
 assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline-facts');
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
+// Shell 69: thinking devolvido à API precisa da signature (senão 400 no tool_use → modo simplificado)
+assert(runSrc.includes("signature_delta"), 'streamOnce captures signature_delta');
+assert(runSrc.includes("signature:curSig"), 'thinking block re-sent with signature');
+assert(runSrc.includes("redacted_thinking"), 'redacted_thinking preserved');
 assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
 assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
 // Multi-fonte grátis + FactsMemory (v54 — code-review ultra fixes)

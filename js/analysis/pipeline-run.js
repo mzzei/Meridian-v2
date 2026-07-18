@@ -591,7 +591,7 @@ async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||_h('getA
   _h('parseRateLimitHeaders')(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
   const reader=res.body.getReader(),decoder=new TextDecoder();
   let buf='',inTokens=0,outTokens=0,thinkingChars=0,cacheCreated=0,cacheRead=0,msgId=null,msgDiag=undefined;
-  let allBlocks=[],currentBlock=null,curText='',curThink='',curToolInput='',stopReason=null;
+  let allBlocks=[],currentBlock=null,curText='',curThink='',curSig='',curToolInput='',stopReason=null;
   try{
     outer:while(true){
       const{done,value}=await reader.read();if(done)break;
@@ -612,19 +612,24 @@ async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||_h('getA
           case 'content_block_start':
             currentBlock={type:e.content_block.type,index:e.index};
             if(e.content_block.type==='tool_use'){currentBlock.id=e.content_block.id;currentBlock.name=e.content_block.name;curToolInput='';}
-            else if(e.content_block.type==='thinking')curThink='';
+            else if(e.content_block.type==='thinking'){curThink='';curSig='';}
+            else if(e.content_block.type==='redacted_thinking')currentBlock.data=e.content_block.data;
             else curText='';
             break;
           case 'content_block_delta':
             if(!currentBlock)break;
             const d=e.delta;
             if(d.type==='thinking_delta'){curThink+=d.thinking;thinkingChars+=d.thinking.length;onUpdate({inTokens,outTokens,thinkingTokens:Math.floor(thinkingChars/4),status:'Raciocinando…'});}
+            else if(d.type==='signature_delta')curSig+=d.signature||'';
             else if(d.type==='text_delta'){curText+=d.text;onUpdate({inTokens,outTokens:Math.max(outTokens,Math.floor(curText.length/3)),thinkingTokens:Math.floor(thinkingChars/4),status:'Analisando…'});}
             else if(d.type==='input_json_delta')curToolInput+=d.partial_json;
             break;
           case 'content_block_stop':
             if(!currentBlock)break;
-            if(currentBlock.type==='thinking')allBlocks.push({type:'thinking',thinking:curThink});
+            // signature é OBRIGATÓRIA ao repassar thinking em turno com tool_use —
+            // sem ela a API devolve 400 e a análise caía no modo simplificado.
+            if(currentBlock.type==='thinking')allBlocks.push({type:'thinking',thinking:curThink,signature:curSig});
+            else if(currentBlock.type==='redacted_thinking')allBlocks.push({type:'redacted_thinking',data:currentBlock.data});
             else if(currentBlock.type==='text'&&curText)allBlocks.push({type:'text',text:curText});
             else if(currentBlock.type==='tool_use'){let inp={};try{inp=JSON.parse(curToolInput);}catch{}allBlocks.push({type:'tool_use',id:currentBlock.id,name:currentBlock.name,input:inp});}
             currentBlock=null;break;
