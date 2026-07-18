@@ -469,6 +469,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **71** | `budget:0` em todos os perfis — thinking na Fase 2 quebrava JSON das 7 abas |
 | **72** | Default **Sonnet 5** (`claude-sonnet-5`); `_noThinkModel` + `thinking: disabled` explícito |
 | **73** | UI dock: botão Analisar/Enviar largo — `.i-tok-mini` `flex:0 1 auto` (encolhe ao conteúdo) e `.i-analyze` `flex:1 1 14rem`; botão preenche a linha e alinha a borda direita com o `#match-input` (validado: btnRight === inputRight) |
+| **74** | Card SEMPRE entrega: (a) `runAnalysis` infere a competição da PRÓPRIA query (`inferCompIdsFromText` ganhou camada de CLUBES — "Flamengo x Palmeiras" → brsa mesmo com a UI em outra liga; antes colava tabela da liga errada e a Fase 2 travava pedindo esclarecimento → modo simplificado); (b) regra "ENTREGA OBRIGATÓRIA" nos DOIS prompts F2: ambiguidade vira PRÉVIA com suposições em lacunas/incerteza dentro do JSON — pergunta em prosa é proibida no modo análise |
 
 ---
 
@@ -500,6 +501,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 24. Fase 1 / portões / verify continuam em Haiku (barato), independente do modelo da Fase 2.  
 25. Default modelo: `claude-sonnet-5`.  
 26. Sonnet 5: se thinking off, enviar `{type:'disabled'}` — omitir liga adaptive thinking.  
+27. `runAnalysis` infere a competição da query (clube OU keyword) antes da coleta — não confiar só na liga ativa da UI (shell 74).  
+28. Fase 2 nunca pergunta em prosa: ambiguidade = prévia com suposições declaradas no JSON ("ENTREGA OBRIGATÓRIA" nos prompts).  
 
 ---
 

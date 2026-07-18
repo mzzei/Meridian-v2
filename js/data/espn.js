@@ -587,6 +587,14 @@ function inferCompIdsFromText(q){
     const keys=[c.name,c.short,c.labelDefault].filter(Boolean).map(s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
     if(keys.some(k=>k&&t.includes(k)))add(id);
   });
+  // Sem palavra de competi\u00e7\u00e3o: infere pela CAMADA DE CLUBES ("Flamengo x Palmeiras"
+  // deve cair no Brasileir\u00e3o mesmo com a UI em outra liga \u2014 shell 74). Liga nacional
+  // primeiro (Libertadores/UCL s\u00f3 por keyword acima, clubes s\u00e3o amb\u00edguos).
+  if(!hits.length){
+    if(/\b(flamengo|palmeiras|corinthians|sao\s*paulo|santos|vasco|fluminense|botafogo|gremio|internacional|cruzeiro|atletico[\s-]?mg|athletico|bahia|fortaleza|bragantino|mirassol|vitoria|juventude|sport\s*recife|ceara|cuiaba|goias)\b/.test(t))add('brsa');
+    if(/\b(arsenal|chelsea|liverpool|man(chester)?\s*(city|united)|tottenham|spurs|newcastle|aston\s*villa|everton|west\s*ham|brighton|fulham|brentford|wolves|bournemouth|nottingham|crystal\s*palace|leicester|leeds)\b/.test(t))add('epl');
+    if(/\b(real\s*madrid|barcelona|atletico\s*(de\s*)?madrid|sevilla|betis|villarreal|athletic\s*(club|bilbao)|valencia|girona|real\s*sociedad|celta|osasuna|mallorca|getafe|espanyol)\b/.test(t))add('laliga');
+  }
   return hits;
 }
 

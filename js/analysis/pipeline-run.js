@@ -404,6 +404,17 @@ async function runAnalysis(){
   const query=document.getElementById('match-input').value.trim();
   if(!query){document.getElementById('match-input').focus();return;}
 
+  // Competição da ANÁLISE inferida da própria query (keyword de liga OU clube —
+  // shell 74). Sem isso, "Flamengo x Palmeiras" com a UI em outra liga colava a
+  // tabela errada no contexto e a Fase 2 travava pedindo esclarecimento.
+  try{
+    const _inf=_h('inferCompIdsFromText')(query);
+    if(_inf&&_inf.length&&_inf[0]!==state.activeCompId&&typeof setAnalysisCompId==='function'){
+      setAnalysisCompId(_inf[0]);
+      _h('toast')('Competição da análise: '+compLabel(_inf[0]));
+    }
+  }catch{}
+
   state.abort=new AbortController();state.pendingQuery=query;
   if(typeof setRunning==='function')setRunning(true,state.abort,query);else state.running=true;
   document.getElementById('error-box').style.display='none';

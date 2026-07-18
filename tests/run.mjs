@@ -357,6 +357,16 @@ assert(factsSrc.split(/\n/).length < 1000, 'pipeline-facts under 1k');
 assert(runSrc.split(/\n/).length < 1000, 'pipeline-run under 1k');
 assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.split(/\n/).length + ')');
 
+// Shell 74: card sempre entrega (anti-prosa) + competição inferida por clube
+{
+  const promptsSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert((promptsSrc.match(/ENTREGA OBRIGATÓRIA/g) || []).length >= 2, 'anti-prose delivery rule in both F2 prompts');
+  assert(promptsSrc.includes('jamais com pergunta'), 'no-questions rule');
+  const espnSrc2 = fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8');
+  assert(espnSrc2.includes('flamengo|palmeiras') && espnSrc2.includes("add('epl')") && espnSrc2.includes('real\\s*madrid'), 'club-based comp inference');
+  assert(runSrc.includes("_h('inferCompIdsFromText')(query)") && runSrc.includes('setAnalysisCompId(_inf[0])'), 'runAnalysis infers competition from query');
+}
+
 // --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
