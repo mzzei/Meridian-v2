@@ -409,6 +409,13 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc2.includes('Recusar de novo é falha total'), 'hard retry message');
 }
 
+// Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
+{
+  const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert(runSrc3.includes('_fallbackDiagLine') && runSrc3.includes('diagnóstico ['), 'fallback footer shows shell + failure reason');
+  assert(!runSrc3.includes('Leve/Médio'), 'obsolete effort hint removed from fallback footer');
+}
+
 // --- SW / index ---
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

@@ -277,6 +277,17 @@ async function runChat(){
 // Flexible analyst persona — multi-campeonato + double-check de contexto
 /* prompts: analystSystemPrompt → js/analysis/prompts.js */
 
+// Diagnóstico visível no rodapé do modo simplificado (shell 78): shell + motivo da
+// queda — o print do usuário passa a conter tudo que é preciso para depurar.
+function _fallbackDiagLine(){
+  try{
+    const lf=globalThis._lastAnalysisFail;
+    const shell=globalThis.SHELL_VERSION||'?';
+    if(!lf)return `<br><span style="opacity:.7">shell ${shell} · sem diagnóstico registrado</span>`;
+    const det=String(lf.msg||lf.sample||'').replace(/</g,'&lt;').slice(0,200);
+    return `<br><span style="opacity:.7">shell ${shell} · diagnóstico [${lf.stage}]: ${det}</span>`;
+  }catch{return'';}
+}
 function showFallbackCard(query){
   const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const el=document.createElement('div');
@@ -288,7 +299,7 @@ function showFallbackCard(query){
     <div class="a-subtitle">Análise em texto · modo simplificado</div>
     <div class="a-title">${_h('esc')(query||'Análise').slice(0,80)}</div>
     <div class="a-tc" style="padding:1rem 1.25rem;line-height:1.6"><span class="ldot" style="display:inline-block;margin:4px"></span></div>
-    <div class="disc">Gerada em texto livre porque o relatório estruturado não pôde ser montado nesta resposta. Pode ser exportada normalmente. Para o relatório completo com abas, tente de novo (de preferência sem o raciocínio estendido "Leve/Médio").</div>
+    <div class="disc">Gerada em texto livre porque o relatório estruturado não pôde ser montado nesta resposta. Pode ser exportada normalmente; para o relatório de 7 abas, tente de novo.${_fallbackDiagLine()}</div>
   </div>`;
   const card=el.firstElementChild;
   card.dataset.hid='fb'+Date.now().toString(36);
