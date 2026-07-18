@@ -37,6 +37,7 @@ const CLASSIC = [
   'js/data/free-sources.js',
   'js/data/facts-memory.js',
   'js/data/phase1-context.js',
+  'js/data/source-health.js',
   'js/data/schedule.js',
   'js/data/live.js',
   'js/ui/featured.js',

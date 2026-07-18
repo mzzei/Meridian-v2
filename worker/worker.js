@@ -1,10 +1,12 @@
 /**
  * Meridian — Cloudflare Worker (proxy CORS)
  * ------------------------------------------
- * Um único Worker que faz proxy de DUAS APIs que o navegador não consegue chamar direto:
+ * Um único Worker que faz proxy das APIs que o navegador não consegue chamar direto:
  *
  *   1. Anthropic   →  {worker}/v1/*        →  https://api.anthropic.com/v1/*
  *   2. API-Football→  {worker}/af/*        →  https://v3.football.api-sports.io/*
+ *   3. FPL (EPL)   →  {worker}/fpl/*       →  https://fantasy.premierleague.com/api/*
+ *                     (sem chave; a API oficial do Fantasy não manda CORS — só GET)
  *
  * Por que existe: navegadores bloqueiam (CORS) chamadas diretas à API-Football; e manter a
  * chave da Anthropic no servidor (aqui) é mais seguro do que no navegador. O Worker adiciona
@@ -45,6 +47,21 @@ export default {
         return new Response(body, {
           status: r.status,
           headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      }
+
+      // ── FPL (Fantasy Premier League): {worker}/fpl/<path> ────────────────
+      // API pública sem chave, mas SEM CORS — só funciona via proxy. Somente GET
+      // e somente sob /api/ do fantasy.premierleague.com (nada além disso).
+      if (url.pathname.startsWith('/fpl/') || url.pathname === '/fpl') {
+        if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: CORS });
+        const fplPath = url.pathname.replace(/^\/fpl/, '') || '/';
+        const upstream = 'https://fantasy.premierleague.com/api' + fplPath + url.search;
+        const r = await fetch(upstream, { headers: { 'Accept': 'application/json', 'User-Agent': 'meridian-proxy' } });
+        const body = await r.text();
+        return new Response(body, {
+          status: r.status,
+          headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=900' },
         });
       }
 

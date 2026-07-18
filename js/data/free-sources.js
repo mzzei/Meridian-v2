@@ -1,10 +1,12 @@
 /* js/data/free-sources.js — fontes estruturadas GRÁTIS (registry)
  *
- * Providers independentes da cascata paga AF→FD→ESPN:
+ * Providers independentes da cascata paga FD→ESPN→AF:
  *   1) TheSportsDB (getTsdbContext em espn.js) — multi-liga
  *   2) OpenFootball (GitHub football.json) — calendário/placares
  *   3) Scorebat Free — highlights recentes (filtro estrito por liga)
  *   4) OpenLigaDB — só se COMPETITIONS.openliga estiver mapeado (senão no-op)
+ *   5) FPL (Fantasy Premier League) — só EPL + Worker (sem CORS direto); métricas C
+ *   6) StatsBomb Open — só modo HISTÓRICO (query nomeia temporada que existe no open-data)
  *
  * Padrão: fetch → parse → texto → orçamento/dedupe → join.
  */
@@ -12,6 +14,9 @@ const FREE_SRC_TTL = 20 * 60 * 1000;
 const OF_BASE = 'https://raw.githubusercontent.com/openfootball/football.json/master';
 const SCOREBAT_URL = 'https://www.scorebat.com/video-api/v1/';
 const OPENLIGA_BASE = 'https://api.openligadb.de';
+const FPL_TTL = 6 * 60 * 60 * 1000; // bootstrap-static é pesado e muda devagar
+const SB_OPEN_BASE = 'https://raw.githubusercontent.com/statsbomb/open-data/master/data';
+const SB_OPEN_TTL = 7 * 24 * 60 * 60 * 1000; // open-data é estático
 /** teto de chars por fonte / total free (input tokens) */
 const FREE_CAP_EACH = 3800;
 const FREE_CAP_TOTAL = 9000;
@@ -242,6 +247,145 @@ async function getOpenLigaContext(compId) {
   return L.join('\n');
 }
 
+// ─── FPL (Fantasy Premier League) — métricas de jogador da EPL (camada C) ────
+// API oficial sem chave, mas SEM CORS: só funciona via Worker ({worker}/fpl/*).
+// bootstrap-static traz gols, assists, xG/xA, forma, minutos e lesões/dúvidas.
+function _fplNorm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+/** Formata bootstrap-static (puro/testável). teams = ['Arsenal','Chelsea'] opcional. */
+function _fplFormatContext(data, teams) {
+  if (!data || !Array.isArray(data.elements) || !Array.isArray(data.teams)) return '';
+  const teamById = {};
+  data.teams.forEach((t) => {
+    if (t && t.id != null) teamById[t.id] = t.name || t.short_name || '?';
+  });
+  const wanted = (teams || []).map(_fplNorm).filter(Boolean);
+  const matchTeam = (name) => {
+    if (!wanted.length) return true;
+    const n = _fplNorm(name);
+    return wanted.some((w) => n.includes(w) || w.includes(n));
+  };
+  const els = data.elements.filter(
+    (p) => p && (p.minutes || 0) > 0 && matchTeam(teamById[p.team] || '')
+  );
+  if (!els.length) return '';
+  const byTeam = {};
+  els.forEach((p) => {
+    const tn = teamById[p.team] || '?';
+    (byTeam[tn] = byTeam[tn] || []).push(p);
+  });
+  const L = ['=== MÉTRICAS DE JOGADOR (FPL oficial · Premier League) ==='];
+  const teamNames = Object.keys(byTeam);
+  // com times do jogo: até 6 jogadores por time; sem times: só líderes da liga
+  const capPerTeam = wanted.length ? 6 : 0;
+  if (capPerTeam) {
+    teamNames.forEach((tn) => {
+      const top = byTeam[tn]
+        .sort((a, b) => (b.total_points || 0) - (a.total_points || 0))
+        .slice(0, capPerTeam)
+        .map(
+          (p) =>
+            `${p.web_name} — ${p.goals_scored || 0}g ${p.assists || 0}a · xG ${p.expected_goals || '0'} xA ${p.expected_assists || '0'} · forma ${p.form || '0'} · ${p.minutes || 0}min`
+        );
+      if (top.length) L.push(tn + ': ' + top.join('; '));
+    });
+    const flagged = els.filter((p) => ['i', 'd', 's'].includes(p.status) && (p.news || '').trim());
+    if (flagged.length) {
+      L.push('Lesões/dúvidas (FPL): ' + flagged.slice(0, 8).map((p) => `${p.web_name} (${teamById[p.team] || '?'}): ${p.news}`).join(' · '));
+    }
+  } else {
+    const leaders = els
+      .sort((a, b) => (b.total_points || 0) - (a.total_points || 0))
+      .slice(0, 8)
+      .map((p) => `${p.web_name} (${teamById[p.team] || '?'}) — ${p.goals_scored || 0}g ${p.assists || 0}a · xG ${p.expected_goals || '0'}`);
+    L.push('Líderes da liga: ' + leaders.join('; '));
+  }
+  return L.length > 1 ? L.join('\n') : '';
+}
+async function getFplContext(compId, teams) {
+  const id = _freeCompId(compId);
+  if (id !== 'epl') return '';
+  const w = typeof getWorkerUrl === 'function' ? getWorkerUrl() : '';
+  if (!w) return ''; // sem Worker não há CORS — silent, nunca lacuna no prompt
+  const data = await _freeJson(
+    w.replace(/\/+$/, '') + '/fpl/bootstrap-static/',
+    'meridian_fpl_bootstrap_v1',
+    FPL_TTL
+  );
+  return _fplFormatContext(data, teams);
+}
+
+// ─── StatsBomb Open — SÓ modo histórico (não live) ───────────────────────────
+// Ativa apenas quando a query nomeia um ano/temporada que EXISTE no open-data da
+// competição (ex.: "La Liga 2015"). Nunca entra em análise de temporada atual.
+const _SB_OPEN_COMP = { laliga: 'La Liga', epl: 'Premier League', ucl: 'Champions League' };
+/** Anos de 4 dígitos citados na query (puro/testável). */
+function _sbOpenYearsFromQuery(q) {
+  const out = [];
+  const re = /\b(19[6-9]\d|20[0-3]\d)\b/g;
+  let m;
+  while ((m = re.exec(String(q || ''))) !== null) out.push(m[1]);
+  return [...new Set(out)];
+}
+/** Casa anos citados contra season_name do open-data (puro/testável). */
+function _sbOpenPickSeason(seasons, years) {
+  if (!Array.isArray(seasons) || !years || !years.length) return null;
+  for (const y of years) {
+    const hit = seasons.find((s) => String((s && s.season_name) || '').includes(y));
+    if (hit) return hit;
+  }
+  return null;
+}
+async function getStatsbombOpenContext(compId, query) {
+  const id = _freeCompId(compId);
+  const compName = _SB_OPEN_COMP[id];
+  if (!compName) return '';
+  const years = _sbOpenYearsFromQuery(query);
+  if (!years.length) return ''; // sem temporada citada → não é modo histórico
+  const comps = await _freeJson(
+    SB_OPEN_BASE + '/competitions.json',
+    'meridian_sbopen_comps_v1',
+    SB_OPEN_TTL
+  );
+  if (!Array.isArray(comps)) return '';
+  const seasons = comps.filter((c) => c && c.competition_name === compName);
+  const season = _sbOpenPickSeason(seasons, years);
+  if (!season) return ''; // temporada citada não existe no open-data → silent
+  const matches = await _freeJson(
+    SB_OPEN_BASE + '/matches/' + season.competition_id + '/' + season.season_id + '.json',
+    'meridian_sbopen_m_' + season.competition_id + '_' + season.season_id,
+    SB_OPEN_TTL
+  );
+  if (!Array.isArray(matches) || !matches.length) return '';
+  let teams = [];
+  try {
+    if (typeof parseMatchTeamsFromQuery === 'function') teams = parseMatchTeamsFromQuery(query) || [];
+  } catch {}
+  const norm = _fplNorm;
+  const wanted = teams.map(norm);
+  const involves = (m) => {
+    if (!wanted.length) return true;
+    const h = norm(m.home_team && m.home_team.home_team_name);
+    const a = norm(m.away_team && m.away_team.away_team_name);
+    return wanted.some((w) => (h && (h.includes(w) || w.includes(h))) || (a && (a.includes(w) || w.includes(a))));
+  };
+  const rows = matches
+    .filter((m) => m && m.home_score != null && involves(m))
+    .sort((a, b) => String(a.match_date || '').localeCompare(String(b.match_date || '')))
+    .slice(-18)
+    .map(
+      (m) =>
+        `${m.match_date || '?'} · ${m.home_team.home_team_name} ${m.home_score}x${m.away_score} ${m.away_team.away_team_name}` +
+        (m.competition_stage && m.competition_stage.name && m.competition_stage.name !== 'Regular Season' ? ` (${m.competition_stage.name})` : '')
+    );
+  if (!rows.length) return '';
+  return [
+    `=== HISTÓRICO (StatsBomb Open · ${compName} ${season.season_name}) — dados de TEMPORADA PASSADA; NUNCA use como estado atual de elenco/tabela ===`,
+    ...rows,
+  ].join('\n');
+}
+
 /**
  * Registry de fontes independentes (paralelo) — anti-fantasma.
  * Retorna { text, active[], silent[] }:
@@ -249,7 +393,7 @@ async function getOpenLigaContext(compId) {
  *   silent = tentados e vazios (NÃO vão pro prompt; só telemetria)
  * TSDB vive em espn.js.
  */
-async function getFreeSourcesBundle(compId) {
+async function getFreeSourcesBundle(compId, teams, query) {
   const id = _freeCompId(compId);
   const providers = [
     {
@@ -260,6 +404,8 @@ async function getFreeSourcesBundle(compId) {
     { id: 'openfootball', run: () => getOpenFootballContext(id) },
     { id: 'scorebat', run: () => getScorebatContext(id) },
     { id: 'openliga', run: () => getOpenLigaContext(id) },
+    { id: 'fpl', run: () => getFplContext(id, teams) },
+    { id: 'statsbomb', run: () => getStatsbombOpenContext(id, query) },
   ];
   const settled = await Promise.all(
     providers.map(async (p) => {

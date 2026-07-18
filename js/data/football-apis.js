@@ -354,7 +354,12 @@ async function loadAfData(){
   const key=getAfKey();if(!key){updateAfStatus('','não configurado');return;}
   updateAfStatus('','verificando…');
   const[standings,fixtures]=await Promise.all([getAfStandings(),getAfFixtures()]);
-  if(!standings&&!fixtures){updateAfStatus('err',(_afLastError||'sem resposta')+' — usando ESPN');loadEspnData(false);return;}
+  if(!standings&&!fixtures){
+    // CORS é a causa nº1 de falha AF direta no browser — aponte o caminho (Worker).
+    const noWorker=typeof getWorkerUrl==='function'&&!getWorkerUrl();
+    const corsHint=noWorker&&/^rede:/.test(_afLastError||'')?' · provável CORS — configure Worker URL (recomendado)':'';
+    updateAfStatus('err',(_afLastError||'sem resposta')+corsHint+' — usando ESPN');loadEspnData(false);return;
+  }
   const ctx={fase_atual:'',standings:{},results:[]};
   if(standings?.response?.[0]?.league?.standings){
     standings.response[0].league.standings.forEach(group=>{

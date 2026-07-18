@@ -202,6 +202,18 @@ assert(indexSrc.includes('id="data-coverage"'), 'coverage badge in HTML');
 assert(telSrc.includes('updateCoverageAfterSearch') && telSrc.includes('coverageLevelsFromRawFacts'), 'post-search coverage API');
 assert(factsSrc.includes('updateCoverageAfterSearch'), 'gatherFacts updates coverage post-search');
 assert(indexSrc.includes('id="cov-help"'), 'coverage help hint in settings');
+// Shell 59: FPL + StatsBomb Open + health probe + worker /fpl
+const workerSrc = fs.readFileSync(path.join(ROOT, 'worker/worker.js'), 'utf8');
+assert(workerSrc.includes("'/fpl/'") && workerSrc.includes('fantasy.premierleague.com/api'), 'worker proxies FPL');
+assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
+assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
+assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');
+assert(p1Src.includes('getFreeSourcesBundle(id, teams, query)'), 'phase1 passes teams+query to registry');
+const healthSrc = fs.readFileSync(path.join(ROOT, 'js/data/source-health.js'), 'utf8');
+assert(healthSrc.includes('probeSourcesHealth') && healthSrc.includes('NUNCA entra no prompt'), 'source-health probe (UI-only)');
+assert(mainSrc.includes("'js/data/source-health.js'"), 'source-health in CLASSIC');
+assert(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8').includes('source-health.js'), 'sw precaches source-health');
+assert(indexSrc.includes('id="btn-probe-sources"') && indexSrc.includes('id="fpl-status"') && indexSrc.includes('id="sbopen-status"'), 'health probe UI rows');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -407,6 +419,30 @@ for (const rel of [
     'post-search never downgrades'
   );
   assert(sandbox.updateCoverageAfterSearch(null) === null, 'post-search null-safe');
+
+  // Shell 59: helpers puros FPL + StatsBomb Open (free-sources classic no VM)
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/free-sources.js'), 'utf8'), sandbox);
+  const fplTxt = sandbox._fplFormatContext(
+    {
+      teams: [{ id: 1, name: 'Arsenal' }, { id: 2, name: 'Chelsea' }],
+      elements: [
+        { web_name: 'Saka', team: 1, minutes: 900, goals_scored: 7, assists: 4, expected_goals: '6.1', expected_assists: '3.2', form: '7.5', total_points: 80, status: 'a', news: '' },
+        { web_name: 'Palmer', team: 2, minutes: 800, goals_scored: 6, assists: 5, expected_goals: '5.0', expected_assists: '4.0', form: '6.9', total_points: 75, status: 'd', news: 'Knock - 75% chance' },
+        { web_name: 'Zero', team: 1, minutes: 0, goals_scored: 0 },
+      ],
+    },
+    ['Arsenal', 'Chelsea']
+  );
+  assert(fplTxt.includes('MÉTRICAS DE JOGADOR') && fplTxt.includes('Saka') && fplTxt.includes('xG 6.1'), 'FPL format players');
+  assert(fplTxt.includes('Lesões/dúvidas') && fplTxt.includes('Palmer'), 'FPL flags injuries');
+  assert(!fplTxt.includes('Zero'), 'FPL skips 0-minute players');
+  assert(sandbox.detectSourceBenefits(fplTxt).includes('métricas de jogador'), 'FPL benefit detected');
+  const yrs = sandbox._sbOpenYearsFromQuery('análise histórica La Liga 2015 Barcelona x Real Madrid');
+  assert(yrs.includes('2015'), 'sb-open years from query');
+  const season = sandbox._sbOpenPickSeason([{ season_name: '2014/2015' }, { season_name: '2015/2016' }], yrs);
+  assert(season && season.season_name === '2014/2015', 'sb-open picks matching season');
+  assert(sandbox._sbOpenPickSeason([{ season_name: '2004/2005' }], ['2026']) === null, 'sb-open null when season absent');
+  assert(sandbox._sbOpenYearsFromQuery('Flamengo x Palmeiras hoje').length === 0, 'sb-open inert without year');
   assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
   assert(typeof sandbox.parseMatchTeamsFromQuery === 'function', 'parseMatchTeamsFromQuery');
   const teams = sandbox.parseMatchTeamsFromQuery(

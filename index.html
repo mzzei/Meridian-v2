@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=58">
+<link rel="stylesheet" href="css/app.css?v=59">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -514,6 +514,33 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           </div>
 
           <div class="ds-row">
+            <span class="ds-name">TheSportsDB</span>
+            <span class="ds-status" id="tsdb-status"></span>
+          </div>
+          <div class="ds-row">
+            <span class="ds-name">OpenFootball</span>
+            <span class="ds-status" id="of-status"></span>
+          </div>
+          <div class="ds-row">
+            <span class="ds-name">Scorebat</span>
+            <span class="ds-status" id="scorebat-status"></span>
+          </div>
+          <div class="ds-row">
+            <span class="ds-name">OpenLigaDB</span>
+            <span class="ds-status" id="openliga-status"></span>
+          </div>
+          <div class="ds-row">
+            <span class="ds-name">FPL (Premier League)</span>
+            <span class="ds-status" id="fpl-status"></span>
+          </div>
+          <div class="ds-row">
+            <span class="ds-name">StatsBomb Open (histórico)</span>
+            <span class="ds-status" id="sbopen-status"></span>
+          </div>
+          <button type="button" class="lang-btn" id="btn-probe-sources" onclick="probeSourcesHealth()" style="width:100%;margin:.4rem 0 .6rem">Testar fontes agora</button>
+          <div class="sf-hint">Saúde das fontes grátis para a liga ativa — só informativo (nunca entra no raciocínio do agente). FPL e API-Football precisam de Worker URL para furar o bloqueio CORS do navegador; StatsBomb Open só ativa quando a análise cita uma temporada passada que existe no acervo aberto.</div>
+
+          <div class="ds-row">
             <span class="ds-name">API-Football</span>
             <span class="ds-status" id="af-status"></span>
           </div>
@@ -611,7 +638,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=58"></script>
+<script type="module" src="js/main.js?v=59"></script>
 
 
 <!-- Mobile sidebar backdrop -->

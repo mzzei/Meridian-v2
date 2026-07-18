@@ -1,4 +1,24 @@
-# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 58)
+# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 59)
+
+## Novas fontes + health probe (shell 59)
+
+- **FPL (Fantasy Premier League)** — só EPL, só com Worker URL (`{worker}/fpl/*`;
+  a API oficial não manda CORS). `getFplContext(compId, teams)`: métricas de
+  jogador (gols/assists/xG/xA/forma/minutos) + lesões/dúvidas com news. Sobe a
+  camada **C** da cobertura para EPL sem gastar web_search. Cache 6h.
+- **StatsBomb Open (histórico)** — `getStatsbombOpenContext(compId, query)`: só
+  ativa quando a query cita um ano/temporada que EXISTE no open-data da liga
+  (La Liga / Premier League / Champions). Bloco marcado como TEMPORADA PASSADA;
+  nunca vira estado atual. Cache 7 dias. brsa/libertadores: sem cobertura → silent.
+- **Health probe** (`js/data/source-health.js`) — testa as fontes free da liga
+  ativa (getters reais com cache), pinta os status nos settings (`tsdb-status`,
+  `of-status`, `scorebat-status`, `openliga-status`, `fpl-status`, `sbopen-status`),
+  botão "Testar fontes agora", auto no load + a cada 30 min. INVARIANTE: saúde
+  é UI/telemetria (`_sourceHealth` + sessionStorage) — **nunca** entra no prompt.
+- **AF status** agora aponta o Worker quando a falha é CORS ("provável CORS —
+  configure Worker URL"). Worker ganhou rota `/fpl/*` (ver `worker/README.md`).
+- Registry: `getFreeSourcesBundle(compId, teams, query)` (teams p/ FPL, query
+  p/ StatsBomb histórico).
 
 ## Cobertura A/B/C (shell 57)
 

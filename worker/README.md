@@ -4,10 +4,11 @@ Worker serverless que resolve:
 
 1. **API-Football no browser** (CORS) → `{worker}/af/*`  
 2. **Chave Anthropic no servidor** → `{worker}/v1/*` injeta secret  
+3. **FPL (Fantasy Premier League)** (CORS) → `{worker}/fpl/*` — sem chave, só GET; métricas de jogador da EPL (gols, assists, xG, lesões)
 
 Usado pelo **Meridian v2** (e pode ser o mesmo Worker da v1 se as secrets forem as mesmas — cuidado para não misturar deploys sem querer).
 
-Rotas: `/af/*` → API-Football · `/v1/*` → Anthropic · `/` health.
+Rotas: `/af/*` → API-Football · `/fpl/*` → FPL · `/v1/*` → Anthropic · `/` health.
 
 ---
 

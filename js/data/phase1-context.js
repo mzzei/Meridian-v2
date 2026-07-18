@@ -97,7 +97,7 @@ async function collectPhase1Context(compId, query) {
 
   const freeP =
     typeof getFreeSourcesBundle === 'function'
-      ? getFreeSourcesBundle(id).catch(() => ({ text: '', active: [], silent: [] }))
+      ? getFreeSourcesBundle(id, teams, query).catch(() => ({ text: '', active: [], silent: [] }))
       : Promise.resolve({ text: '', active: [], silent: [] });
 
   // AF layer B em paralelo com free (depois da cascade A sequencial — precisa saber source)

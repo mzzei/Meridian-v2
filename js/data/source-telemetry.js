@@ -15,6 +15,8 @@ const SOURCE_META = {
   openfootball: { label: 'OpenFootball', role: 'calendário/placares' },
   scorebat: { label: 'Scorebat', role: 'highlights recentes' },
   openliga: { label: 'OpenLigaDB', role: 'tabela DE' },
+  fpl: { label: 'FPL oficial', role: 'métricas de jogador EPL' },
+  statsbomb: { label: 'StatsBomb Open', role: 'histórico (temporada passada)' },
   memory: { label: 'Memória local', role: 'fatos já coletados nesta app' },
 };
 
@@ -34,6 +36,8 @@ function detectSourceBenefits(text) {
   if (/MEMÓRIA LOCAL|t[eé]cnico/i.test(t) && /MEMÓRIA/i.test(t)) b.push('técnico/forma cache');
   if (/TÉCNICOS ATUAIS|API-Football · confirmado/i.test(t)) b.push('técnico API');
   if (/ESCALAÇÕES CONFIRMADAS/i.test(t)) b.push('escalação API');
+  if (/MÉTRICAS DE JOGADOR|xG \d|expected goals/i.test(t)) b.push('métricas de jogador');
+  if (/HISTÓRICO \(StatsBomb/i.test(t)) b.push('histórico de temporada passada');
   if (!b.length && t.trim().length > 40) b.push('contexto estruturado');
   return b;
 }
@@ -100,7 +104,10 @@ function computeCoverageScore(opts) {
 
   let cLevel = 'low';
   let cDetail = 'xG e métricas de jogador: priorize web_search (Sofascore/FBref)';
-  if (/xg|expected goals|finaliza[cç]|rating/.test(blob)) {
+  if (
+    benefits.has('métricas de jogador') ||
+    /xg|expected goals|finaliza[cç]|rating/.test(blob)
+  ) {
     cLevel = 'medium';
     cDetail = 'há sinais analíticos no contexto; complete com busca se incompleto';
   }
