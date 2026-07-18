@@ -5,8 +5,8 @@
 **Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
 
 1. Localize e leia o handoff **mestre do agente** (prioridade máxima):
-   - `docs/HANDOFF-V2-SHELL-70-MESTRE-AGENTE-2026-07-18.md` (ou o `*MESTRE*` com **maior shell** se existir um mais novo).
-   - Canônico: dual-mode análise×chat, MODEL_PROFILES, stream signature, pipeline, fontes, Worker, invariantes — **não pular**.
+   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (ou o `*MESTRE*` com **maior shell** se existir um mais novo).
+   - Canônico: dual-mode, Sonnet 5, budget 0, `_noThinkModel`, signature stream, pipeline, fontes, Worker — **não pular**.
 2. Se a tarefa for pontual de uma sessão antiga, complemente com `docs/HANDOFF-V2-SHELL-*.md` do shell relevante (65 Worker, 67 allowlist, etc.).
 3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
 4. Só então atenda o pedido do usuário.

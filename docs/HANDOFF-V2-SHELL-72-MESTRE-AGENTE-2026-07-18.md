@@ -1,12 +1,13 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 70) — HISTÓRICO
-
-> **SUPERSEDED:** use **`docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md`**  
-> (shell 71: budget 0 na Fase 2; shell 72: Sonnet 5 + thinking disabled explícito).
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 72)
 
 **Data:** 2026-07-18  
-**SHELL_VERSION na época:** `70` · **HEAD:** `a900abe`
+**Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
+**SHELL_VERSION:** `72` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** `d2fd1db` (shell 72) · `89b0b1c` (71) · `a900abe` (70) · `d120fca` (69)
 
-Documento **histórico**. Trabalho atual → mestre **72**.
+Este é o **handoff detalhado e canônico** para contextualizar qualquer agente (Claude, Grok, etc.) sobre **tudo o que é crucial no desenvolvimento do Meridian v2**, em especial o **agente de análise**. Não economizar páginas: se faltar detalhe operacional, o próximo dev regride.
+
+**Supersede** os mestres 68 e 70 (mantidos como histórico; use **este** arquivo).
 
 **Documentos satélites (ler se precisar de mais profundidade de sessão):**
 
@@ -161,18 +162,18 @@ Testes: `tests/run.mjs` — casos `match → analysis`, `opinião → chat`, `fo
 ```
 runAnalysis
   ├─ validação de chave Anthropic (browser; Worker só repassa se configurado)
-  ├─ effort = modelProfile()   // shell 70: budget + searches vêm do MODELO, não de seletor
+  ├─ effort = modelProfile()   // shell 70–72: searches vêm do MODELO; budget thinking = 0
   ├─ collectPhase1Context  (dados estruturados — ver Parte III)
   ├─ gatherFacts(..., maxSearches = effort.searches)  // Fase 1: SEMPRE Haiku + web_search
   ├─ updateCoverageAfterSearch (B/C sobem se a busca trouxe técnico/xG; só sobe, nunca rebaixa)
   ├─ fillDataGaps          (stats de jogador / ranking faltantes; Haiku)
   ├─ verifyLineupNames     (anti-alucinação de elenco; Haiku)
-  ├─ Fase 2                (modelo escolhido + thinking budget do perfil; streamOnce)
+  ├─ Fase 2                (modelo escolhido; thinking OFF; streamOnce; JSON via prompt-contrato)
   ├─ verifyAnalysis        (crítico Haiku barato)
   └─ normalize + render 7 abas + save history
 ```
 
-**Importante (shell 70):** trocar Haiku/Sonnet/Opus muda a **profundidade real** da análise padrão (buscas + thinking), não só o preço.
+**Importante (shell 70–72):** trocar Haiku/Sonnet/Opus muda **buscas na coleta** + **capacidade da Fase 2**, não “thinking budget”. Thinking na Fase 2 está **desligado** (ver §7.3).
 
 **7 abas obrigatórias** (AGENTS.md / render):
 
@@ -211,54 +212,72 @@ Funções críticas de ambiguidade (pipeline-facts / espn):
 
 Se vago: **popup primeiro**, modelo depois.
 
-## 7.3 Perfil de análise por modelo (shell 70) — CRUCIAL
+## 7.3 Perfil de análise por modelo (shell 70–72) — CRUCIAL
 
-**Removido:** seletor de “Esforço” (Padrão/Leve/Médio/Alto/Máximo), `EFFORT_LEVELS`, `EFFORT_SEARCHES`, `currentEffort`, `setEffort` / `pickEffort`, popup `#effort-pop`.
+**Removido (shell 70):** seletor de “Esforço”, `EFFORT_LEVELS`, `EFFORT_SEARCHES`, `currentEffort`, `setEffort` / `pickEffort`, popup `#effort-pop`.
 
-**Adicionado:** `MODEL_PROFILES` + `modelProfile()` em `js/app.js`:
+**Adicionado:** `MODEL_PROFILES` + `modelProfile()` em `js/app.js`.
 
-| Modelo | Label UI | Thinking budget (Fase 2 análise) | Buscas Fase 1 (`gatherFacts`) |
-|--------|----------|----------------------------------|-------------------------------|
-| `claude-haiku-4-5-20251001` | Rápido | **0** (sem thinking) | **1** |
-| `claude-sonnet-4-6` | Padrão (default) | **5000** | **2** |
-| `claude-opus-4-8` | Profundo | **16000** | **3** |
+### Estado ATUAL (shell 72) — copiar isto, não o 70
+
+| Modelo ID | Label UI | Thinking budget Fase 2 | Buscas Fase 1 | Default |
+|-----------|----------|------------------------|---------------|---------|
+| `claude-haiku-4-5-20251001` | Rápido | **0** | **1** | |
+| `claude-sonnet-5` | Padrão | **0** | **2** | **sim** (`currentModel`) |
+| `claude-opus-4-8` | Profundo | **0** | **3** | |
 
 ```js
+// shell 72 — budget:0 em TODOS (shell 71). NÃO reativar budget>0 sem resolver JSON vs thinking.
 var MODEL_PROFILES = {
   'claude-haiku-4-5-20251001': { label: 'Rápido', budget: 0, searches: 1 },
-  'claude-sonnet-4-6':         { label: 'Padrão', budget: 5000, searches: 2 },
-  'claude-opus-4-8':           { label: 'Profundo', budget: 16000, searches: 3 }
+  'claude-sonnet-5':           { label: 'Padrão', budget: 0, searches: 2 },
+  'claude-opus-4-8':           { label: 'Profundo', budget: 0, searches: 3 }
 };
 function modelProfile() {
-  return MODEL_PROFILES[currentModel] || MODEL_PROFILES['claude-sonnet-4-6'];
+  return MODEL_PROFILES[currentModel] || MODEL_PROFILES['claude-sonnet-5'];
 }
+// currentModel default = 'claude-sonnet-5'
+// MODEL_CTX sonnet-5 / opus: 1000000; haiku: 200000
+// MODEL_PRICE sonnet-5: i:3 o:15 crs:2.70 (mesma faixa do 4.6)
 ```
 
 **Onde usa:**
 
-- `runAnalysis`: `const effort = globalThis.modelProfile()` → `gatherFacts(..., effort.searches)` e thinking da Fase 2 com `effort.budget`.
-- UI labels do seletor de modelo descrevem buscas + raciocínio (ex.: “2 buscas · raciocínio ~5k”).
-- **Chat:** `_chatThink = false` sempre — profundidade por modelo é **só** da análise padrão.
-- Fase 1 / fillDataGaps / verify* continuam em **Haiku**, independente do modelo da Fase 2.
+- `runAnalysis`: `effort = modelProfile()` → `gatherFacts(..., effort.searches)`; Fase 2 **sem** thinking budget.
+- UI: labels falam em “N buscas na coleta”, **não** “raciocínio ~5k” (claims removidos no 71).
+- **Chat:** thinking estendido off; Sonnet 5 recebe `thinking: { type: 'disabled' }` explícito.
+- Fase 1 / fillDataGaps / verify* = **Haiku**, independente do seletor.
 
-**Não regredir:** reintroduzir seletor de esforço separado que ignore o perfil do modelo; ou ligar thinking no chat “porque Opus”.
+### Shell 71 — por que budget voltou a 0 (REGRESSÃO do 70)
 
-## 7.4 Stream thinking + signature (shell 69) — CRUCIAL para Fase 2
+- Shell 70 ligou `budget: 5000` no Sonnet e `16000` no Opus.
+- Fase 2 usa **JSON via prompt-contrato** (não structured outputs — schema das 7 abas excede limite de gramática da API).
+- Com **thinking ligado**, o modelo respondia em **PROSA** → parse JSON falhava → **toda** análise padrão caía no **modo simplificado** (`conversationalFallback`).
+- **Decisão:** `budget: 0` em todos os perfis. Diferenciação real = **searches 1/2/3** + capacidade Haiku/Sonnet/Opus na leitura tática.
+- Teste: `assert` proíbe `budget > 0` dentro de `MODEL_PROFILES`.
 
-**Bug:** ao retomar a conversa da API após `tool_use` / `pause_turn`, a Anthropic exige o campo **`signature`** em cada bloco `thinking` reenviado. O `streamOnce` **não guardava** `signature_delta` → próximo request **400** → app caía em **modo simplificado / conversationalFallback** (análise com raciocínio “quebrava” silenciosamente).
+**Não regredir:** reativar `budget > 0` na Fase 2 **sem** structured outputs / schema compatível com thinking; reintroduzir seletor de esforço; ligar thinking no chat “porque Opus”.
 
-**Fix em `streamOnce` (`pipeline-run.js`):**
+### Shell 72 — Sonnet 5 + adaptive thinking
 
-- Estado: `curSig` além de `curThink`
-- `content_block_start` tipo `thinking` → zera think+sig  
-- tipo `redacted_thinking` → guarda `data` e reenvia inteiro  
-- `content_block_delta` tipo `signature_delta` → `curSig += d.signature`  
-- Ao fechar bloco thinking:  
-  `allBlocks.push({ type: 'thinking', thinking: curThink, signature: curSig })`
+- Default e perfil “Padrão”: **`claude-sonnet-5`** (não mais `claude-sonnet-4-6`).
+- **Crítico:** Sonnet 5 liga **adaptive thinking** se o campo `thinking` for **OMITIDO** (no 4.6, omitir = off).
+- Helper `_noThinkModel(id)` → true para Sonnet 5 (e futuros que se comportem assim).
+- Bodies que usam `currentModel` e precisam de JSON/chat limpo enviam:
+  `thinking: { type: 'disabled' }`
+  em: **chat**, **Fase 2**, **retry Fase 2**, **conversationalFallback**.
+- Haiku / modelos antigos: **omitir** o campo (enviar `disabled` pode 400 em modelos que não aceitam).
+- Co-authored na época: Claude Fable 5 / Opus em commits de pipeline.
 
-**Não regredir:** stream de thinking sem preservar signature; strip de signature ao montar `messages` de retomada.
+## 7.4 Stream thinking + signature (shell 69) — ainda válido se thinking voltar
 
-Relacionado (shell ~68 Worker): `/v1` no Worker **remove Origin/Referer** no repasse à Anthropic (Origin no request fazia a API exigir `anthropic-dangerous-direct-browser-access` e quebrava a Fase 2 via proxy).
+**Bug original:** ao retomar após `tool_use`, a API exige **`signature`** em blocos `thinking`. Sem capturar `signature_delta` → 400 → modo simplificado.
+
+**Fix em `streamOnce`:** `curSig`, `signature_delta`, reenvio `{ type:'thinking', thinking, signature }`, `redacted_thinking` íntegro.
+
+Mesmo com thinking **desligado** na Fase 2 (71+), o código de signature **permanece** — necessário se thinking for reativado com cuidado, ou se algum path ainda emitir thinking.
+
+Relacionado (shell 68 Worker): `/v1` **remove Origin/Referer** no repasse à Anthropic.
 
 ## 8. Grounding e regras de verdade (ambos os modos; mais rígidas na análise)
 
@@ -281,7 +300,9 @@ Definidas em `pipeline-facts.js` (`GROUNDING_RULE`, `SOURCE_RULE`) e prompts:
 6. Alterar intent.js → atualizar testes em `tests/run.mjs`.  
 7. Não reintroduzir seletor de esforço desacoplado do modelo (shell 70).  
 8. Não ligar thinking estendido no chat “para igualar Opus”.  
-9. Não stripar `signature` dos blocos thinking no stream (shell 69).
+9. Não stripar `signature` dos blocos thinking no stream (shell 69).  
+10. Não reativar `budget > 0` na Fase 2 sem resolver conflito JSON vs prosa (shell 71).  
+11. Em Sonnet 5+, se thinking deve ficar off: enviar `thinking: {type:'disabled'}` — **não omitir** (shell 72).
 
 ---
 
@@ -441,8 +462,10 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **66** | Remove auto-IA, dynsearch, uso API settings, hints PWA; Fase 1 fixa Haiku |
 | **67** | Origin allowlist Worker; health AF/FD no botão; FPL element-summary |
 | **68** | Remove badge Dados A/B/C do dock; fix Worker strip Origin/Referer no `/v1` |
-| **69** | `streamOnce` preserva `signature` / `redacted_thinking` — Fase 2 com raciocínio não cai mais no modo simplificado |
-| **70** | `MODEL_PROFILES`: profundidade (buscas+thinking) por modelo; seletor de esforço removido; chat thinking sempre off |
+| **69** | `streamOnce` preserva `signature` / `redacted_thinking` |
+| **70** | `MODEL_PROFILES`; seletor de esforço removido; chat thinking off; (tentou budget>0 — revertido no 71) |
+| **71** | `budget:0` em todos os perfis — thinking na Fase 2 quebrava JSON das 7 abas |
+| **72** | Default **Sonnet 5** (`claude-sonnet-5`); `_noThinkModel` + `thinking: disabled` explícito |
 
 ---
 
@@ -469,9 +492,11 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 19. Origin allowlist no Worker (browser).  
 20. Fim de sessão: handoff + commit + push (`AGENTS.md`).  
 21. Worker `/v1` não repassa Origin/Referer para Anthropic.  
-22. Thinking no stream: **sempre** reenviar `signature` com o bloco thinking.  
-23. Profundidade da análise padrão = `modelProfile()` (modelo); chat sem thinking estendido.  
+22. Thinking no stream: **sempre** reenviar `signature` com o bloco thinking (se thinking existir).  
+23. Profundidade da análise padrão = `modelProfile().searches` + capacidade do modelo; **budget thinking = 0**.  
 24. Fase 1 / portões / verify continuam em Haiku (barato), independente do modelo da Fase 2.  
+25. Default modelo: `claude-sonnet-5`.  
+26. Sonnet 5: se thinking off, enviar `{type:'disabled'}` — omitir liga adaptive thinking.  
 
 ---
 
@@ -492,7 +517,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | `js/data/facts-memory.js` | cache fatos / skip tópicos |
 | `js/data/source-telemetry.js` | repertoire, coverage interna |
 | `js/data/source-health.js` | probe UI |
-| `js/app.js` | UI, keys, **MODEL_PROFILES** / `modelProfile()`, worker URL |
+| `js/app.js` | UI, keys, **MODEL_PROFILES** / `modelProfile()`, default Sonnet 5 |
+| `js/analysis/pipeline-run.js` | runAnalysis/runChat, `_noThinkModel`, streamOnce signature |
 | `worker/worker.js` | proxy CORS + origin gate; strip Origin/Referer no `/v1` |
 
 ---
@@ -501,31 +527,32 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **70** em version/sw/index  
+- [ ] `git pull` · `SHELL_VERSION` **72** em version/sw/index  
 - [ ] Ler **este** handoff mestre (+ 65/67 se for mexer em Worker)  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `service: meridian-v2-proxy`, `origin_gate: true`  
-- [ ] Análise: `Flamengo x Palmeiras` → 7 abas  
+- [ ] Análise: `Flamengo x Palmeiras` → 7 abas (JSON, não prosa)  
 - [ ] Chat: `como foi o jogo de hoje?` → popup, não inventa times  
 - [ ] Anexos → chat  
-- [ ] Sem seletor de “Esforço” na UI; só seletor de modelo  
-- [ ] Sonnet/Opus com thinking: Fase 2 não deve cair em modo simplificado por 400 de signature  
+- [ ] Sem seletor de “Esforço”; modelos Haiku / **Sonnet 5** / Opus  
+- [ ] `MODEL_PROFILES.*.budget === 0`  
+- [ ] Sonnet 5: bodies com `thinking: {type:'disabled'}` onde aplicável  
 
 ## Prompt pronto
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 70).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 72).
 
 Leia OBRIGATORIAMENTE:
-docs/HANDOFF-V2-SHELL-70-MESTRE-AGENTE-2026-07-18.md
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
 
 Se for mexer em Worker/secrets, leia também HANDOFF 65 e 67.
-Se for multi-fonte/memória, o 57 ainda ajuda.
 
 Regras:
 - Dual-mode: intent.js decide analysis vs chat; não misturar 7 abas com bolha.
-- Profundidade da análise = MODEL_PROFILES (modelo); chat sem thinking.
-- streamOnce: signature dos thinking blocks obrigatória ao retomar.
+- MODEL_PROFILES: budget 0; searches 1/2/3; default claude-sonnet-5.
+- Não ligar thinking na Fase 2 sem resolver JSON das 7 abas.
+- Sonnet 5: thinking disabled explícito (omitir = adaptive on).
 - v1 e meridian-proxy intocáveis.
 - Fim de sessão: handoff + commit + push.
 - node tests/run.mjs antes de push.
@@ -536,12 +563,13 @@ Quero: [OBJETIVO]
 ## Próximos passos ainda abertos (produto)
 
 1. UI troca de senha avançada.  
-2. Confirmar Pages com `?v=70` após deploy.  
+2. Confirmar Pages com `?v=72` após deploy.  
 3. Regenerar secrets AF/FD se zelo.  
 4. Rate-limit Worker (além de Origin).  
-5. (Opcional) reintroduzir badge A/B/C se o usuário pedir de volta.
+5. (Opcional) reintroduzir badge A/B/C se o usuário pedir.  
+6. (Opcional) thinking na Fase 2 **só** se houver structured outputs / schema compatível.
 
 ---
 
-**Fim do handoff mestre (shell 70).**  
-Qualquer sessão futura que “não saiba” análise vs chat, perfil por modelo, signature de thinking, grounding, Free AF, Worker ou anti-fantasma **não leu este arquivo**.
+**Fim do handoff mestre (shell 72).**  
+Qualquer sessão futura que “não saiba” análise vs chat, Sonnet 5, budget 0, signature, grounding, Free AF, Worker ou anti-fantasma **não leu este arquivo**.
