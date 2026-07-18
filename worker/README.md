@@ -7,7 +7,7 @@ Worker serverless que resolve:
 3. **FPL (Fantasy Premier League)** (CORS) → `{worker}/fpl/*` — sem chave, só GET; métricas de jogador da EPL (gols, assists, xG, lesões)  
 4. **football-data.org no browser** (CORS) → `{worker}/fd/*` — probe 07/2026: as respostas GET da FD não trazem `Access-Control-Allow-Origin` em nenhuma origem; proxy obrigatório. Secret opcional `FD_KEY` (senão usa o `?token=` do app)
 
-Usado pelo **Meridian v2** (e pode ser o mesmo Worker da v1 se as secrets forem as mesmas — cuidado para não misturar deploys sem querer).
+Usado pelo **Meridian v2**. **Worker PRÓPRIO do v2** (`meridian-v2-proxy` no wrangler.toml) — o Worker do Meridian v1 / Copa 2026 (`meridian-proxy`) é outro deploy e NÃO deve ser misturado nem sobrescrito.
 
 Rotas: `/af/*` → API-Football · `/fd/*` → football-data.org · `/fpl/*` → FPL · `/v1/*` → Anthropic · `/` health.
 

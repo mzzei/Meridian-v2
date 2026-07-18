@@ -1,4 +1,6 @@
-name = "meridian-proxy"
+# IMPORTANTE: nome PRÓPRIO do v2 — NUNCA "meridian-proxy" (que é o Worker do
+# Meridian v1 / Copa 2026). Deploy deste toml não toca o v1.
+name = "meridian-v2-proxy"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
