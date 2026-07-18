@@ -215,6 +215,12 @@ assert(afSrc.includes('req hoje'), 'AF quota display');
 // Shell 62: x-api-key sempre que existir (fallback p/ Worker sem secret ANTHROPIC_KEY)
 assert(appSrc.includes("if(apiKey)h['x-api-key']=apiKey"), 'x-api-key always sent when present');
 assert(workerSrc.includes("request.headers.get('x-api-key')"), 'worker accepts client anthropic key fallback');
+// Shell 63: modo secret-no-Worker — sem chave local, tenta via Worker; gates usam afReady/fdReady
+assert(afSrc.includes('function afReady') && afSrc.includes('function fdReady'), 'afReady/fdReady helpers');
+assert(afSrc.includes('meridian_af_remote_ok') && afSrc.includes('meridian_fd_remote_ok'), 'remote-ok flags');
+assert(p1Src.includes('fdReady') && p1Src.includes('afReady'), 'phase1 gates use ready helpers');
+assert(afSrc.includes('if(!afReady())return empty'), 'af minimal enrich gated by afReady');
+assert(appSrc.includes('afSaved||getWorkerUrl()') && appSrc.includes('saved||getWorkerUrl()'), 'boot tests FD/AF when worker configured');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');

@@ -1968,7 +1968,8 @@ function _isSoftwareRenderer(){
   // API-Football
   const afInp=document.getElementById('af-key-input');
   const afSaved=localStorage.getItem(AF_KEY_STORE)||'';
-  if(afSaved){afInp.value=afSaved;setTimeout(loadAfData,200);}else{updateAfStatus('','não configurado');}
+  // com Worker configurado, testa mesmo sem chave local (secret AF_KEY pode existir lá)
+  if(afSaved||getWorkerUrl()){if(afSaved)afInp.value=afSaved;setTimeout(loadAfData,200);}else{updateAfStatus('','não configurado');}
   let _afDeb=null;
   afInp.addEventListener('input',function(){
     clearTimeout(_afDeb);
@@ -1984,7 +1985,8 @@ function _isSoftwareRenderer(){
   // football-data.org
   const fdInp=document.getElementById('fd-key-input');
   const saved=localStorage.getItem(FD_KEY_STORE)||'';
-  if(saved){fdInp.value=saved;setTimeout(loadFdData,200);}else{updateFdStatus('','não configurado');}
+  // idem FD: Worker pode ter a secret FD_KEY
+  if(saved||getWorkerUrl()){if(saved)fdInp.value=saved;setTimeout(loadFdData,200);}else{updateFdStatus('','não configurado');}
   let _fdDeb=null;
   fdInp.addEventListener('input',function(){
     clearTimeout(_fdDeb);

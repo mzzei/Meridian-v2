@@ -3,6 +3,14 @@
 let _fdRateLeft=Infinity,_fdRateReset=0; // throttle state (X-RequestsAvailable / X-RequestCounter-Reset)
 let _fdLastError='';
 function getFdKey(){try{return localStorage.getItem(FD_KEY_STORE)||'';}catch{return'';}}
+// ── Modo secret-no-Worker: chave FORA do browser. Com Worker URL configurada, o app
+// tenta FD/AF mesmo sem chave local (o Worker injeta a secret). O flag *_remote_ok
+// lembra se a última tentativa remota funcionou — evita gastar chamadas de análise
+// quando o Worker existe mas a secret não (ex.: worker só de Anthropic). ──
+function _remoteOkGet(k){try{return localStorage.getItem(k)==='1';}catch{return false;}}
+function _remoteOkSet(k,v){try{if(v)localStorage.setItem(k,'1');else localStorage.removeItem(k);}catch{}}
+function fdReady(){return !!getFdKey()||(!!(typeof getWorkerUrl==='function'&&getWorkerUrl())&&_remoteOkGet('meridian_fd_remote_ok'));}
+function afReady(){return !!getAfKey()||(!!(typeof getWorkerUrl==='function'&&getWorkerUrl())&&_remoteOkGet('meridian_af_remote_ok'));}
 function _parseFdHeaders(res){
   const left=parseInt(res.headers.get('X-RequestsAvailable')||'',10);
   const reset=parseInt(res.headers.get('X-RequestCounter-Reset')||'',10);
@@ -23,7 +31,9 @@ function _fdUrl(path,key){
 }
 async function fetchFd(path,cacheKey,ttl=FD_TTL){
   try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c&&(Date.now()-c.ts)<ttl)return c.data;}catch{}
-  const key=getFdKey();if(!key)return null;
+  const key=getFdKey();
+  // sem chave local: só prossegue se houver Worker (que pode ter a secret FD_KEY)
+  if(!key&&!(typeof getWorkerUrl==='function'&&getWorkerUrl()))return null;
   if(_fdRateLeft<=0&&_fdRateReset>Date.now()){
     const ms=_fdRateReset-Date.now()+300;
     updateFdStatus('','aguardando rate limit…');
@@ -107,16 +117,20 @@ function updateFdStatus(state,msg){
   el.textContent=msg||'';
 }
 async function loadFdData(){
-  const key=getFdKey();if(!key){updateFdStatus('','não configurado');return;}
-  updateFdStatus('','verificando…');
+  const key=getFdKey();
+  const hasWorker=typeof getWorkerUrl==='function'&&!!getWorkerUrl();
+  if(!key&&!hasWorker){updateFdStatus('','não configurado');return;}
+  updateFdStatus('',key?'verificando…':'verificando via Worker (secret)…');
   const[standings,matches]=await Promise.all([getFdStandings(),getFdMatches()]);
   if(!standings&&!matches){
+    _remoteOkSet('meridian_fd_remote_ok',false);
     // FD bloqueia CORS no browser (probe 07/2026) — sem Worker, "rede:" é esperado.
-    const noWorker=typeof getWorkerUrl==='function'&&!getWorkerUrl();
-    const corsHint=noWorker&&/^rede:/.test(_fdLastError||'')?' · CORS da FD bloqueia o navegador — configure Worker URL':'';
-    const msg=_fdLastError==='Erro 403'?(compLabel(_activeCompId)+' indisponível neste plano FD (403)'):(_fdLastError||'sem resposta')+corsHint;
+    const corsHint=!hasWorker&&/^rede:/.test(_fdLastError||'')?' · CORS da FD bloqueia o navegador — configure Worker URL':'';
+    const secretHint=!key&&hasWorker?' · sem chave no app e secret FD_KEY ausente/ inválida no Worker':'';
+    const msg=_fdLastError==='Erro 403'?(compLabel(_activeCompId)+' indisponível neste plano FD (403)'):(_fdLastError||'sem resposta')+corsHint+secretHint;
     updateFdStatus('err',msg);return;
   }
+  _remoteOkSet('meridian_fd_remote_ok',true);
   // Update tournament context from FD (authoritative source)
   if(standings||matches){
     const ctx={fase_atual:'',standings:{},results:[]};
@@ -177,7 +191,9 @@ function _afThrottled(fn){
 }
 async function fetchAf(path,cacheKey,ttl=AF_TTL){
   try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c&&(Date.now()-c.ts)<ttl)return c.data;}catch{}
-  const key=getAfKey();if(!key)return null;
+  const key=getAfKey();
+  // sem chave local: só prossegue se houver Worker (que pode ter a secret AF_KEY)
+  if(!key&&!(typeof getWorkerUrl==='function'&&getWorkerUrl()))return null;
   try{
     const res=await _afThrottled(()=>fetch(_afUrl(path,key))); // no custom headers — simple GET, no preflight
     if(!res.ok){_afLastError=`Erro ${res.status}`;return null;}
@@ -284,7 +300,7 @@ async function afEnrichCoachLineup(query,fData){
 async function afEnrichCoachLineupMinimal(query){
   const empty={text:'',meta:{coaches:false,lineups:false,matched:false}};
   try{
-    if(typeof getAfKey!=='function'||!getAfKey())return empty;
+    if(!afReady())return empty; // chave local OU secret validada no Worker
     const fData=await getAfFixtures();
     if(!fData?.response?.length)return empty;
     const ids=_afMatchIds(query,fData);
@@ -361,15 +377,19 @@ function afFixturesToSchedule(fData,compId){
   }).filter(j=>j.mandante&&j.visitante);
 }
 async function loadAfData(){
-  const key=getAfKey();if(!key){updateAfStatus('','não configurado');return;}
-  updateAfStatus('','verificando…');
+  const key=getAfKey();
+  const hasWorker=typeof getWorkerUrl==='function'&&!!getWorkerUrl();
+  if(!key&&!hasWorker){updateAfStatus('','não configurado');return;}
+  updateAfStatus('',key?'verificando…':'verificando via Worker (secret)…');
   const[standings,fixtures]=await Promise.all([getAfStandings(),getAfFixtures()]);
   if(!standings&&!fixtures){
+    _remoteOkSet('meridian_af_remote_ok',false);
     // CORS é a causa nº1 de falha AF direta no browser — aponte o caminho (Worker).
-    const noWorker=typeof getWorkerUrl==='function'&&!getWorkerUrl();
-    const corsHint=noWorker&&/^rede:/.test(_afLastError||'')?' · provável CORS — configure Worker URL (recomendado)':'';
-    updateAfStatus('err',(_afLastError||'sem resposta')+corsHint+' — usando ESPN');loadEspnData(false);return;
+    const corsHint=!hasWorker&&/^rede:/.test(_afLastError||'')?' · provável CORS — configure Worker URL (recomendado)':'';
+    const secretHint=!key&&hasWorker?' · sem chave no app e secret AF_KEY ausente/inválida no Worker':'';
+    updateAfStatus('err',(_afLastError||'sem resposta')+corsHint+secretHint+' — usando ESPN');loadEspnData(false);return;
   }
+  _remoteOkSet('meridian_af_remote_ok',true);
   const ctx={fase_atual:'',standings:{},results:[]};
   if(standings?.response?.[0]?.league?.standings){
     standings.response[0].league.standings.forEach(group=>{

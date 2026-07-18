@@ -17,9 +17,9 @@ async function _phase1CascadeLayerA(query) {
   let source = '';
   let fixturesForEnrich = null;
 
-  // 1) football-data.org free (chave) — limpo, free forever
+  // 1) football-data.org free (chave local OU secret no Worker) — limpo, free forever
   try {
-    if (typeof getFdKey === 'function' && getFdKey()) {
+    if (typeof fdReady === 'function' ? fdReady() : typeof getFdKey === 'function' && getFdKey()) {
       const [standings, matches] = await Promise.all([getFdStandings(), getFdMatches()]);
       fdCtx = formatFdContext(standings, matches);
       if (fdCtx) source = 'fd';
@@ -40,7 +40,7 @@ async function _phase1CascadeLayerA(query) {
 
   // 3) AF full só como último recurso da camada A (quando não há A)
   try {
-    if (!fdCtx && typeof getAfKey === 'function' && getAfKey()) {
+    if (!fdCtx && (typeof afReady === 'function' ? afReady() : typeof getAfKey === 'function' && getAfKey())) {
       const [standings, fixtures] = await Promise.all([getAfStandings(), getAfFixtures()]);
       fixturesForEnrich = fixtures;
       fdCtx = formatAfContext(standings, fixtures);
@@ -70,7 +70,8 @@ async function _phase1CascadeLayerA(query) {
  * Só se há chave AF e a cascata A NÃO foi AF full (já enriqueceu).
  */
 async function _phase1AfLayerB(query, cascadeSource) {
-  if (typeof getAfKey !== 'function' || !getAfKey()) {
+  const _ok = typeof afReady === 'function' ? afReady() : typeof getAfKey === 'function' && getAfKey();
+  if (!_ok) {
     return { text: '', meta: { coaches: false, lineups: false, matched: false } };
   }
   // se cascata já foi AF, enrich já entrou em formatAfContext path
