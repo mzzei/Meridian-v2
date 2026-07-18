@@ -1,15 +1,17 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 72)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 79)
 
-**Data:** 2026-07-18 (atualizado no shell 73)  
+**Data:** 2026-07-18 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `73` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** shell 73 (botão Analisar largo) · `d2fd1db` (72) · `89b0b1c` (71) · `a900abe` (70)
+**SHELL_VERSION:** `79` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** `944a3f4` (shell 79) · `73b2852` (78) · `b96f72a` (77) · … · `d2fd1db` (72)
 
-**Regra de manutenção (pedido do usuário, shell 73):** este handoff mestre é atualizado **a cada implementação** (não só no fim da sessão) — timeline + invariantes no mesmo push da mudança.
+**Nome do arquivo:** histórico (`…SHELL-72-MESTRE…`); conteúdo **atualizado até shell 79**. Não criar cópia 79-MESTRE sem mover o ponteiro em `AGENTS.md`.
 
-Este é o **handoff detalhado e canônico** para contextualizar qualquer agente (Claude, Grok, etc.) sobre **tudo o que é crucial no desenvolvimento do Meridian v2**, em especial o **agente de análise**. Não economizar páginas: se faltar detalhe operacional, o próximo dev regride.
+**Regra de manutenção:** atualizar este mestre **a cada implementação** (timeline + invariantes no mesmo push). Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
-**Supersede** os mestres 68 e 70 (mantidos como histórico; use **este** arquivo).
+Este é o **handoff detalhado e canônico** do agente Meridian v2. Não economizar páginas no que for crucial.
+
+**Supersede** mestres 68 e 70 (históricos).
 
 **Documentos satélites (ler se precisar de mais profundidade de sessão):**
 
@@ -284,6 +286,86 @@ function modelProfile() {
 Mesmo com thinking **desligado** na Fase 2 (71+), o código de signature **permanece** — necessário se thinking for reativado com cuidado, ou se algum path ainda emitir thinking.
 
 Relacionado (shell 68 Worker): `/v1` **remove Origin/Referer** no repasse à Anthropic.
+
+## 7.5 Prefill JSON, resgate e bug MODEL_PRICE (shells 77–79) — CRUCIAL
+
+### Problema de produto (print real do usuário)
+
+Análise **padrão** (ex. Internacional × Cruzeiro, prévia) caía em:
+
+- **Prosa** do Sonnet 5 (“jogo não aconteceu…”) em vez do JSON das 7 abas, **ou**
+- **Modo simplificado** (card de texto) mesmo quando o modelo **já tinha** devolvido JSON válido.
+
+Rodapé diagnóstico (shell 78) passou a mostrar: `shell N · diagnóstico [parse|error]: …` — essencial para achar a causa.
+
+### Shell 77 — prefill `{`
+
+Caminho enriquecido F2 (sem tools, thinking off):
+
+```js
+messages.push({ role: 'assistant', content: '{' });
+// finalText = '{' + text da API
+```
+
+Obriga a API a **continuar um objeto JSON**. Prompts: “PRÉVIA É O CASO NORMAL”.  
+`globalThis._lastAnalysisFail = { stage: 'parse'|'error', model, sample/msg }`.
+
+**NÃO** usar prefill com tools nem com thinking ligado.
+
+### Shell 78 — rodapé do modo simplificado
+
+`_fallbackDiagLine()` no card fallback: shell + estágio + amostra/msg. Remove texto obsoleto “Leve/Médio”.
+
+### Shell 79 — dois fixes (print + validação e2e)
+
+**(1) Sonnet 5 rejeita prefill**
+
+Erro real da API:  
+`This model does not support assistant message prefill. The conversation must end with a user message.`
+
+Código:
+
+```js
+function _prefillOk(m){ return !/claude-sonnet-5/.test(m||''); }  // Haiku/Opus: true
+// F2: só preenche '{' se _prefillOk(currentModel)
+// Auto-cura: se e2.message contém /prefill/i → pop do assistant '{' e repete sem prefill
+// RESGATE FINAL: se ainda sem parse E modelo sem prefill → Haiku 4.5 COM prefill monta o card
+//   (7 abas Haiku > modo simplificado)
+```
+
+Validado: Sonnet prosa 2× → resgate Haiku → card 7 abas PRÉVIA.
+
+**(2) Bug latente `MODEL_PRICE` (derrubava TODA análise)**
+
+- `const MODEL_PRICE` em script **classic** → **não** vira `window.MODEL_PRICE`.
+- ESM `pipeline-run` fazia `globalThis.MODEL_PRICE[currentModel]` na contabilidade **pós-Fase 2**, **antes** do `parseAnalysisJson`.
+- `TypeError` → catch → modo simplificado **mesmo com JSON perfeito**.
+
+Fix:
+
+```js
+// app.js — DEVE ser var (ou expose), nunca const/let para ponte classic→ESM
+var MODEL_PRICE = { ... };
+// pipeline-run:
+const _mainP = (globalThis.MODEL_PRICE||{})[model] || (globalThis.MODEL_PRICE||{})['claude-sonnet-5'] || {crs:0};
+```
+
+**Invariante 31:** globais classic lidos pelo ESM = `var` / `function` / `expose()`. Testar `typeof globalThis.X`.
+
+### Pedidos do usuário ainda PENDENTES (Claude propôs; **não** estão no código em 944a3f4)
+
+Do diálogo no print (limite de uso do Claude pode ter interrompido):
+
+1. **Proibir monólogo de autocorreção** no texto final do modelo  
+   (ex.: *“…não, esse é o clássico gaúcho”* embutido na resposta).  
+   → Ajustar `analystSystemPrompt` / prompts F2: versão final **sem** monólogo de raciocínio no card.
+
+2. **Resgate não pode rebaixar qualidade**  
+   Hoje o resgate usa **Haiku 4.5**. Usuário: não quer análise inferior.  
+   Proposta do Claude: resgate com **Opus 4.8** (aceita prefill e é tier ≥ Sonnet).  
+   → **Ainda NÃO implementado** — `rescueBody.model` continua `'claude-haiku-4-5-20251001'`.
+
+Próxima sessão de código: implementar (1) e (2) se o usuário confirmar.
 
 ## 8. Grounding e regras de verdade (ambos os modos; mais rígidas na análise)
 
