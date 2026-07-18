@@ -209,6 +209,9 @@ assert(workerSrc.includes("'/fpl/'") && workerSrc.includes('fantasy.premierleagu
 assert(workerSrc.includes("'/fd/'") && workerSrc.includes('api.football-data.org/v4'), 'worker proxies football-data');
 assert(afSrc.includes('/fd${path}'), 'fd url worker-first');
 assert(afSrc.includes('CORS da FD') || afSrc.includes('configure Worker URL'), 'fd status CORS hint');
+// Shell 61: /status da AF (não conta na cota) — consumo do plano no status
+assert(afSrc.includes('getAfStatus') && afSrc.includes("'/status'"), 'AF status endpoint (quota-free)');
+assert(afSrc.includes('req hoje'), 'AF quota display');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');

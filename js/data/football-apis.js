@@ -187,6 +187,8 @@ async function fetchAf(path,cacheKey,ttl=AF_TTL){
     return data;
   }catch(e){_afLastError=`rede: ${e?.message||'timeout'}`;return null;}
 }
+// /status NÃO conta na cota diária (docs oficiais) — barato p/ validar chave e ler consumo.
+async function getAfStatus(){return fetchAf('/status','meridian_af_status_v1',5*60*1000);}
 async function getAfStandings(){const id=_activeCompId;return fetchAf(`/standings?league=${afLeague(id)}&season=${afSeason(id)}`,'meridian_af_st_'+id);}
 async function getAfFixtures(){
   const from=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
@@ -405,4 +407,13 @@ async function loadAfData(){
   const schedN=(fixtures?.response||[]).filter(f=>f.fixture.status.short==='NS').length;
   const parts=[];if(standings)parts.push('classificação');if(liveN)parts.push(`${liveN} ao vivo`);if(schedN)parts.push(`${schedN} agendados`);
   updateAfStatus('ok',parts.join(' · ')||'ok');
+  // Consumo do plano via /status (não conta na cota diária) — vital no free 100/dia.
+  try{
+    const st=await getAfStatus();
+    const acc=st?.response;
+    if(acc&&acc.requests&&acc.requests.limit_day!=null){
+      const plan=acc.subscription&&acc.subscription.plan?acc.subscription.plan+' · ':'';
+      updateAfStatus('ok',(parts.join(' · ')||'ok')+` · ${plan}${acc.requests.current??'?'}/${acc.requests.limit_day} req hoje`);
+    }
+  }catch{}
 }
