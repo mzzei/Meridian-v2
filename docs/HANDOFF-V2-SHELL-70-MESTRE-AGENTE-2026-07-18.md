@@ -1,13 +1,13 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 68) — HISTÓRICO
-
-> **SUPERSEDED:** use **`docs/HANDOFF-V2-SHELL-70-MESTRE-AGENTE-2026-07-18.md`** (shell 70: + signature thinking, MODEL_PROFILES, sem seletor de esforço).
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 70)
 
 **Data:** 2026-07-18  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION na época:** `68`  
-**HEAD na época:** shell 68 (`93e486e` / docs `3f2dd72`)
+**SHELL_VERSION:** `70` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** `a900abe` (shell 70) · antecessores relevantes: `d120fca` (69), `93e486e`/`3f2dd72` (68)
 
-Documento **histórico** (snapshot shell 68). Para trabalho atual, o canônico é o mestre **70**.
+Este é o **handoff detalhado e canônico** para contextualizar qualquer agente (Claude, Grok, etc.) sobre **tudo o que é crucial no desenvolvimento do Meridian v2**, em especial o **agente de análise**. Não economizar páginas: se faltar detalhe operacional, o próximo dev regride.
+
+**Supersede** `HANDOFF-V2-SHELL-68-MESTRE-AGENTE-2026-07-18.md` (mantido como histórico; use **este** arquivo).
 
 **Documentos satélites (ler se precisar de mais profundidade de sessão):**
 
@@ -162,15 +162,18 @@ Testes: `tests/run.mjs` — casos `match → analysis`, `opinião → chat`, `fo
 ```
 runAnalysis
   ├─ validação de chave Anthropic (browser; Worker só repassa se configurado)
+  ├─ effort = modelProfile()   // shell 70: budget + searches vêm do MODELO, não de seletor
   ├─ collectPhase1Context  (dados estruturados — ver Parte III)
-  ├─ gatherFacts           (Fase 1: Haiku + web_search → rawFacts JSON)
+  ├─ gatherFacts(..., maxSearches = effort.searches)  // Fase 1: SEMPRE Haiku + web_search
   ├─ updateCoverageAfterSearch (B/C sobem se a busca trouxe técnico/xG; só sobe, nunca rebaixa)
-  ├─ fillDataGaps          (stats de jogador / ranking faltantes)
-  ├─ verifyLineupNames     (anti-alucinação de elenco)
-  ├─ Fase 2                (modelo + thinking budget por esforço; stream)
+  ├─ fillDataGaps          (stats de jogador / ranking faltantes; Haiku)
+  ├─ verifyLineupNames     (anti-alucinação de elenco; Haiku)
+  ├─ Fase 2                (modelo escolhido + thinking budget do perfil; streamOnce)
   ├─ verifyAnalysis        (crítico Haiku barato)
   └─ normalize + render 7 abas + save history
 ```
+
+**Importante (shell 70):** trocar Haiku/Sonnet/Opus muda a **profundidade real** da análise padrão (buscas + thinking), não só o preço.
 
 **7 abas obrigatórias** (AGENTS.md / render):
 
@@ -197,6 +200,7 @@ runChat
   │     → ZERO suposição de partida; ZERO monólogo de tool no chat
   │
   ├─ stream chat com tools (web_search, dados ESPN multi-liga, etc.)
+  ├─ thinking estendido: SEMPRE OFF no chat (shell 70 — UX; sem monólogo na bolha)
   ├─ regras anti-ruído: não vazar thinking/web_search plans na bolha
   └─ card flexível / texto (NÃO as 7 abas)
 ```
@@ -207,6 +211,55 @@ Funções críticas de ambiguidade (pipeline-facts / espn):
 - `isVagueMatchQuery(q)` — “opinião sobre o jogo de hoje” sem times?  
 
 Se vago: **popup primeiro**, modelo depois.
+
+## 7.3 Perfil de análise por modelo (shell 70) — CRUCIAL
+
+**Removido:** seletor de “Esforço” (Padrão/Leve/Médio/Alto/Máximo), `EFFORT_LEVELS`, `EFFORT_SEARCHES`, `currentEffort`, `setEffort` / `pickEffort`, popup `#effort-pop`.
+
+**Adicionado:** `MODEL_PROFILES` + `modelProfile()` em `js/app.js`:
+
+| Modelo | Label UI | Thinking budget (Fase 2 análise) | Buscas Fase 1 (`gatherFacts`) |
+|--------|----------|----------------------------------|-------------------------------|
+| `claude-haiku-4-5-20251001` | Rápido | **0** (sem thinking) | **1** |
+| `claude-sonnet-4-6` | Padrão (default) | **5000** | **2** |
+| `claude-opus-4-8` | Profundo | **16000** | **3** |
+
+```js
+var MODEL_PROFILES = {
+  'claude-haiku-4-5-20251001': { label: 'Rápido', budget: 0, searches: 1 },
+  'claude-sonnet-4-6':         { label: 'Padrão', budget: 5000, searches: 2 },
+  'claude-opus-4-8':           { label: 'Profundo', budget: 16000, searches: 3 }
+};
+function modelProfile() {
+  return MODEL_PROFILES[currentModel] || MODEL_PROFILES['claude-sonnet-4-6'];
+}
+```
+
+**Onde usa:**
+
+- `runAnalysis`: `const effort = globalThis.modelProfile()` → `gatherFacts(..., effort.searches)` e thinking da Fase 2 com `effort.budget`.
+- UI labels do seletor de modelo descrevem buscas + raciocínio (ex.: “2 buscas · raciocínio ~5k”).
+- **Chat:** `_chatThink = false` sempre — profundidade por modelo é **só** da análise padrão.
+- Fase 1 / fillDataGaps / verify* continuam em **Haiku**, independente do modelo da Fase 2.
+
+**Não regredir:** reintroduzir seletor de esforço separado que ignore o perfil do modelo; ou ligar thinking no chat “porque Opus”.
+
+## 7.4 Stream thinking + signature (shell 69) — CRUCIAL para Fase 2
+
+**Bug:** ao retomar a conversa da API após `tool_use` / `pause_turn`, a Anthropic exige o campo **`signature`** em cada bloco `thinking` reenviado. O `streamOnce` **não guardava** `signature_delta` → próximo request **400** → app caía em **modo simplificado / conversationalFallback** (análise com raciocínio “quebrava” silenciosamente).
+
+**Fix em `streamOnce` (`pipeline-run.js`):**
+
+- Estado: `curSig` além de `curThink`
+- `content_block_start` tipo `thinking` → zera think+sig  
+- tipo `redacted_thinking` → guarda `data` e reenvia inteiro  
+- `content_block_delta` tipo `signature_delta` → `curSig += d.signature`  
+- Ao fechar bloco thinking:  
+  `allBlocks.push({ type: 'thinking', thinking: curThink, signature: curSig })`
+
+**Não regredir:** stream de thinking sem preservar signature; strip de signature ao montar `messages` de retomada.
+
+Relacionado (shell ~68 Worker): `/v1` no Worker **remove Origin/Referer** no repasse à Anthropic (Origin no request fazia a API exigir `anthropic-dangerous-direct-browser-access` e quebrava a Fase 2 via proxy).
 
 ## 8. Grounding e regras de verdade (ambos os modos; mais rígidas na análise)
 
@@ -226,7 +279,10 @@ Definidas em `pipeline-facts.js` (`GROUNDING_RULE`, `SOURCE_RULE`) e prompts:
 3. Não omitir aba Escanteios no `runAnalysis`.  
 4. Não supor “o jogo de hoje” no chat sem popup/âncora.  
 5. Não rotear anexos para análise padrão.  
-6. Alterar intent.js → atualizar testes em `tests/run.mjs`.
+6. Alterar intent.js → atualizar testes em `tests/run.mjs`.  
+7. Não reintroduzir seletor de esforço desacoplado do modelo (shell 70).  
+8. Não ligar thinking estendido no chat “para igualar Opus”.  
+9. Não stripar `signature` dos blocos thinking no stream (shell 69).
 
 ---
 
@@ -386,6 +442,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **66** | Remove auto-IA, dynsearch, uso API settings, hints PWA; Fase 1 fixa Haiku |
 | **67** | Origin allowlist Worker; health AF/FD no botão; FPL element-summary |
 | **68** | Remove badge Dados A/B/C do dock; fix Worker strip Origin/Referer no `/v1` |
+| **69** | `streamOnce` preserva `signature` / `redacted_thinking` — Fase 2 com raciocínio não cai mais no modo simplificado |
+| **70** | `MODEL_PROFILES`: profundidade (buscas+thinking) por modelo; seletor de esforço removido; chat thinking sempre off |
 
 ---
 
@@ -412,6 +470,9 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 19. Origin allowlist no Worker (browser).  
 20. Fim de sessão: handoff + commit + push (`AGENTS.md`).  
 21. Worker `/v1` não repassa Origin/Referer para Anthropic.  
+22. Thinking no stream: **sempre** reenviar `signature` com o bloco thinking.  
+23. Profundidade da análise padrão = `modelProfile()` (modelo); chat sem thinking estendido.  
+24. Fase 1 / portões / verify continuam em Haiku (barato), independente do modelo da Fase 2.  
 
 ---
 
@@ -432,8 +493,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | `js/data/facts-memory.js` | cache fatos / skip tópicos |
 | `js/data/source-telemetry.js` | repertoire, coverage interna |
 | `js/data/source-health.js` | probe UI |
-| `js/app.js` | UI, keys, thinking, worker URL |
-| `worker/worker.js` | proxy CORS + origin gate |
+| `js/app.js` | UI, keys, **MODEL_PROFILES** / `modelProfile()`, worker URL |
+| `worker/worker.js` | proxy CORS + origin gate; strip Origin/Referer no `/v1` |
 
 ---
 
@@ -441,27 +502,31 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` 68 em version/sw/index  
+- [ ] `git pull` · `SHELL_VERSION` **70** em version/sw/index  
 - [ ] Ler **este** handoff mestre (+ 65/67 se for mexer em Worker)  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `service: meridian-v2-proxy`, `origin_gate: true`  
 - [ ] Análise: `Flamengo x Palmeiras` → 7 abas  
 - [ ] Chat: `como foi o jogo de hoje?` → popup, não inventa times  
 - [ ] Anexos → chat  
+- [ ] Sem seletor de “Esforço” na UI; só seletor de modelo  
+- [ ] Sonnet/Opus com thinking: Fase 2 não deve cair em modo simplificado por 400 de signature  
 
 ## Prompt pronto
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 68).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 70).
 
 Leia OBRIGATORIAMENTE:
-docs/HANDOFF-V2-SHELL-68-MESTRE-AGENTE-2026-07-18.md
+docs/HANDOFF-V2-SHELL-70-MESTRE-AGENTE-2026-07-18.md
 
 Se for mexer em Worker/secrets, leia também HANDOFF 65 e 67.
 Se for multi-fonte/memória, o 57 ainda ajuda.
 
 Regras:
 - Dual-mode: intent.js decide analysis vs chat; não misturar 7 abas com bolha.
+- Profundidade da análise = MODEL_PROFILES (modelo); chat sem thinking.
+- streamOnce: signature dos thinking blocks obrigatória ao retomar.
 - v1 e meridian-proxy intocáveis.
 - Fim de sessão: handoff + commit + push.
 - node tests/run.mjs antes de push.
@@ -472,12 +537,12 @@ Quero: [OBJETIVO]
 ## Próximos passos ainda abertos (produto)
 
 1. UI troca de senha avançada.  
-2. Confirmar Pages com `?v=68` após deploy.  
+2. Confirmar Pages com `?v=70` após deploy.  
 3. Regenerar secrets AF/FD se zelo.  
 4. Rate-limit Worker (além de Origin).  
 5. (Opcional) reintroduzir badge A/B/C se o usuário pedir de volta.
 
 ---
 
-**Fim do handoff mestre.**  
-Qualquer sessão futura que “não saiba” análise vs chat, grounding, Free AF, Worker ou anti-fantasma **não leu este arquivo**.
+**Fim do handoff mestre (shell 70).**  
+Qualquer sessão futura que “não saiba” análise vs chat, perfil por modelo, signature de thinking, grounding, Free AF, Worker ou anti-fantasma **não leu este arquivo**.
