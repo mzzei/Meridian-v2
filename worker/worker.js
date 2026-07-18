@@ -84,7 +84,7 @@ export default {
         if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: CORS });
         const fplPath = url.pathname.replace(/^\/fpl/, '') || '/';
         const upstream = 'https://fantasy.premierleague.com/api' + fplPath + url.search;
-        const r = await fetch(upstream, { headers: { 'Accept': 'application/json', 'User-Agent': 'meridian-proxy' } });
+        const r = await fetch(upstream, { headers: { 'Accept': 'application/json', 'User-Agent': 'meridian-v2-proxy' } });
         const body = await r.text();
         return new Response(body, {
           status: r.status,
@@ -119,7 +119,7 @@ export default {
 
       // ── Health check ──────────────────────────────────────────────────────
       if (url.pathname === '/' || url.pathname === '/health') {
-        return new Response(JSON.stringify({ ok: true, service: 'meridian-proxy' }),
+        return new Response(JSON.stringify({ ok: true, service: 'meridian-v2-proxy' }),
           { headers: { ...CORS, 'Content-Type': 'application/json' } });
       }
 
