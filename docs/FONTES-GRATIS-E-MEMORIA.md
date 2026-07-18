@@ -1,4 +1,4 @@
-# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 57)
+# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 58)
 
 ## Cobertura A/B/C (shell 57)
 
@@ -11,6 +11,17 @@
 - Badge no dock: `#data-coverage` (pills A/B/C).
 - Bloco no prompt: `=== COBERTURA DE DADOS ===` orienta onde gastar busca.
 - `globalThis._phase1Coverage`.
+
+## Cobertura pós-busca (shell 58)
+
+- `updateCoverageAfterSearch(rawFacts)` (source-telemetry) roda no fim do
+  `gatherFacts`, depois do web_search: se os rawFacts trazem xG/métricas de
+  jogador, **C sobe**; se trazem técnico dos dois times e/ou onze provável,
+  **B sobe**. Nunca rebaixa (os blocos estruturados continuam valendo).
+- Atualiza `_phase1Coverage`, o badge `#data-coverage` e o sessionStorage
+  (`coverage.postSearch: true`); `summaryHuman` vira "Cobertura (pós-busca): …".
+- Ajuda nos settings: hint `#cov-help` explica A grátis (ESPN) / B precisa AF /
+  C vem da busca.
 
 ## AF free mínimo (shell 57)
 
@@ -50,16 +61,19 @@
 ```
 collectPhase1Context(compId, query)
   ├─ parallel: free registry (TSDB, OF, Scorebat, OpenLiga?)
-  ├─ cascade: AF → FD → ESPN
-  ├─ apiText = join(cascade, free)  → factsMemIngestStructured(apiText)
+  ├─ cascade A: FD → ESPN → AF full (só se A ainda vazia)
+  ├─ layer B: afEnrichCoachLineupMinimal (se AF key e cascade ≠ af)
+  ├─ apiText = join(cascade, free, afB)  → factsMemIngestStructured(apiText)
   ├─ memoryText = factsMemBuildKnownBlock(compId, teamsFromQuery)
-  └─ fdCtx = join(apiText, memoryText)  // orçamento total
+  ├─ agentLine (REPERTOIRE) + coverage A/B/C (covBlock)
+  └─ fdCtx = join(agentLine, covBlock, apiText, memoryText)  // orçamento total
 
 gatherFacts
   ├─ ctx = collectPhase1Context(...)
   ├─ topics = phase1FilterTopics(..., teams)  // skip seguro
   └─ LLM + web_search
-       └─ factsMemIngestRawFacts(rawFacts)  // por nome de time
+       ├─ factsMemIngestRawFacts(rawFacts)      // por nome de time
+       └─ updateCoverageAfterSearch(rawFacts)   // C/B sobem pós-busca (shell 58)
 ```
 
 ## Catálogo (`competitions.js`)

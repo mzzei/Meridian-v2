@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=52">
+<link rel="stylesheet" href="css/app.css?v=58">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -506,6 +506,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
       <div class="sf-adv-body">
         <div class="sf">
           <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
+          <div class="sf-hint" id="cov-help">O badge "Dados" (A/B/C) mostra a cobertura da coleta de cada análise: <b>A</b> campeonato (tabela/jogos) — fica alta com a ESPN, sem chave nenhuma; <b>B</b> time (técnico/escalação) — sobe com uma chave API-Football (grátis, 100 req/dia); <b>C</b> analítico (xG/métricas) — vem da busca web durante a análise, e o badge atualiza "pós-busca" quando ela encontra esses dados.</div>
 
           <div class="ds-row">
             <span class="ds-name">ESPN</span>
@@ -610,7 +611,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=52"></script>
+<script type="module" src="js/main.js?v=58"></script>
 
 
 <!-- Mobile sidebar backdrop -->

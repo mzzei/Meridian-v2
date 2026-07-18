@@ -102,6 +102,7 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   const _teams=Array.isArray(_ctx.teams)?_ctx.teams:[];
   const _activeIds=(_ctx.sources&&Array.isArray(_ctx.sources.active))?_ctx.sources.active.map(a=>a.id||a.label).filter(Boolean):[];
   const _cov=_ctx.coverage||null;
+  let _covOut=_cov; // pode ser substituída pela cobertura pós-busca
   // jogadores_chave é uma LISTA DE OBJETOS estruturados (um por jogador citado) com o
   // conjunto fundamental de stats da competição — assim os mercados de jogador ficam cobertos
   // já na coleta e o portão de completude consegue checar campo a campo depois.
@@ -221,8 +222,14 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
         try{Object.defineProperty(rawFacts,'_evidence',{value:((hasFd?fdCtx:'')+'\n'+_evi.join('\n')).toLowerCase(),enumerable:false,configurable:true});}catch(_){}
         // Grava fatos básicos na memória local → próximas análises skipam web_search repetido.
         try{_h('factsMemIngestRawFacts')(_compId,rawFacts);}catch{}
+        // Cobertura pós-busca: o que a busca trouxe (xG/métricas → C; técnico/onze → B)
+        // sobe o score (nunca rebaixa) e re-pinta o badge — a UI mostra a cobertura REAL.
+        try{
+          const cov2=_h('updateCoverageAfterSearch')(rawFacts);
+          if(cov2){_covOut=cov2;if(cov2.summaryHuman&&onUpdate)onUpdate({status:cov2.summaryHuman,phase:1,inTokens:accIn,outTokens:accOut});}
+        }catch{}
       }
-      return{rawFacts,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_cov};
+      return{rawFacts,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_covOut};
     }
     if(data.stop_reason==='tool_use'){
       msgs.push({role:'assistant',content:data.content});
@@ -231,7 +238,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side (filtragem dinâmica)
     }else break;
   }
-  return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_cov};
+  return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_covOut};
 }
 // Fecha chaves/colchetes pendentes e aspas abertas → recupera JSON cortado no max_tokens.
 function repairJson(s){

@@ -198,6 +198,10 @@ assert(p1Src.includes('_phase1AfLayerB') || p1Src.includes('afEnrichCoachLineupM
 assert(p1Src.includes('computeCoverageScore') || p1Src.includes('coverage'), 'phase1 coverage');
 const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 assert(indexSrc.includes('id="data-coverage"'), 'coverage badge in HTML');
+// Shell 58: cobertura pós-busca + hint de ajuda A/B/C
+assert(telSrc.includes('updateCoverageAfterSearch') && telSrc.includes('coverageLevelsFromRawFacts'), 'post-search coverage API');
+assert(factsSrc.includes('updateCoverageAfterSearch'), 'gatherFacts updates coverage post-search');
+assert(indexSrc.includes('id="cov-help"'), 'coverage help hint in settings');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -382,6 +386,27 @@ for (const rel of [
   assert(cov.C.level === 'low', 'coverage C low without xG');
   assert(cov.summaryHuman.includes('Cobertura:'), 'coverage summary');
   assert(cov.agentBlock.includes('COBERTURA DE DADOS'), 'coverage agent block');
+
+  // pós-busca: rawFacts com xG/métricas sobem C; nunca rebaixa
+  sandbox._phase1Coverage = cov; // A alta/média · B média+ · C baixa (da coleta)
+  const cov2 = sandbox.updateCoverageAfterSearch({
+    mandante: {
+      nome: 'Flamengo',
+      tecnico: 'Filipe Luís',
+      xg_marcado: 1.6,
+      jogadores_chave: [{ nome: 'P', gols: 5, rating_medio: 7.2 }],
+    },
+    visitante: { nome: 'Palmeiras', tecnico: 'Abel', xg_sofrido: 1.1 },
+  });
+  assert(cov2 && cov2.postSearch === true, 'post-search coverage marked');
+  assert(cov2.C.level !== 'low', 'coverage C rises after search');
+  assert(cov2.summaryHuman.includes('pós-busca'), 'post-search summary label');
+  const cov3 = sandbox.updateCoverageAfterSearch({ mandante: { nome: 'A' }, visitante: { nome: 'B' } });
+  assert(
+    cov3.C.level === cov2.C.level && cov3.B.level === cov2.B.level && cov3.A.level === cov2.A.level,
+    'post-search never downgrades'
+  );
+  assert(sandbox.updateCoverageAfterSearch(null) === null, 'post-search null-safe');
   assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
   assert(typeof sandbox.parseMatchTeamsFromQuery === 'function', 'parseMatchTeamsFromQuery');
   const teams = sandbox.parseMatchTeamsFromQuery(

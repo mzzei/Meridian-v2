@@ -152,6 +152,95 @@ function buildCoverageAgentBlock(cov) {
   ].join('\n');
 }
 
+/** Níveis B/C observáveis nos rawFacts (produto da Fase 1 já com web_search). */
+function coverageLevelsFromRawFacts(rawFacts) {
+  const teams = [rawFacts && rawFacts.mandante, rawFacts && rawFacts.visitante].filter(Boolean);
+  if (!teams.length) return { B: 'low', C: 'low' };
+  const hasVal = (v) => v !== null && v !== undefined && v !== '';
+  const teamXg = (t) => hasVal(t.xg_marcado) || hasVal(t.xg_sofrido);
+  const hasXg = teams.some(teamXg);
+  const bothXg = teams.length === 2 && teams.every(teamXg);
+  const hasPlayerStats = teams.some((t) =>
+    (Array.isArray(t.jogadores_chave) ? t.jogadores_chave : []).some(
+      (p) =>
+        p &&
+        typeof p === 'object' &&
+        (hasVal(p.rating_medio) || hasVal(p.gols) || hasVal(p.finalizacoes_por_jogo))
+    )
+  );
+  let C = 'low';
+  if (bothXg && hasPlayerStats) C = 'high';
+  else if (hasXg || hasPlayerStats) C = 'medium';
+
+  const coaches =
+    teams.length === 2 && teams.every((t) => hasVal(t.tecnico) && String(t.tecnico).trim());
+  const lineup = teams.some(
+    (t) =>
+      (Array.isArray(t.onze_provavel) &&
+        t.onze_provavel.filter((p) => (typeof p === 'string' ? p.trim() : p && hasVal(p.nome)))
+          .length >= 7) ||
+      (hasVal(t.escalacao_provavel) && String(t.escalacao_provavel).trim().length > 20)
+  );
+  let B = 'low';
+  if (coaches && lineup) B = 'high';
+  else if (coaches || lineup) B = 'medium';
+  return { B, C };
+}
+
+/**
+ * Score pós-web_search: a busca da Fase 1 pode cobrir o que a coleta estruturada
+ * não tinha (xG/métricas → C; técnico/escalação → B). Só SOBE nível, nunca rebaixa
+ * (os blocos estruturados continuam valendo) — e re-pinta badge + telemetria para
+ * a UI mostrar a cobertura REAL da análise, não só a da coleta.
+ */
+function updateCoverageAfterSearch(rawFacts) {
+  if (!rawFacts || typeof rawFacts !== 'object') return null;
+  let prev = null;
+  try {
+    prev = globalThis._phase1Coverage || null;
+  } catch {}
+  const base = prev && prev.A ? prev : computeCoverageScore({});
+  const post = coverageLevelsFromRawFacts(rawFacts);
+  const lift = (cur, next) => (_COV_SCORE[next] > _COV_SCORE[cur] ? next : cur);
+  const bLevel = lift(base.B.level, post.B);
+  const cLevel = lift(base.C.level, post.C);
+  const cov = {
+    A: { ...base.A },
+    B: { ...base.B, level: bLevel },
+    C: { ...base.C, level: cLevel },
+    afMeta: base.afMeta || {},
+    postSearch: true,
+  };
+  if (bLevel !== base.B.level) cov.B.detail = 'técnico/escalação obtidos na busca web desta análise';
+  if (cLevel !== base.C.level) cov.C.detail = 'xG/métricas obtidos na busca web desta análise';
+  const avg = (_COV_SCORE[cov.A.level] + _COV_SCORE[bLevel] + _COV_SCORE[cLevel]) / 3;
+  cov.overall = avg >= 2.5 ? 'alta' : avg >= 1.7 ? 'média' : 'baixa';
+  cov.summaryHuman =
+    'Cobertura (pós-busca): A ' +
+    _COV_PT[cov.A.level] +
+    ' · B ' +
+    _COV_PT[bLevel] +
+    ' · C ' +
+    _COV_PT[cLevel];
+  cov.agentBlock = buildCoverageAgentBlock(cov);
+  try {
+    globalThis._phase1Coverage = cov;
+    if (globalThis._phase1Telemetry) globalThis._phase1Telemetry.coverage = cov;
+  } catch {}
+  try {
+    renderCoverageBadge(cov);
+  } catch {}
+  try {
+    const raw = sessionStorage.getItem('meridian_phase1_sources_v1');
+    if (raw) {
+      const j = JSON.parse(raw);
+      j.coverage = { overall: cov.overall, A: cov.A.level, B: bLevel, C: cLevel, postSearch: true };
+      sessionStorage.setItem('meridian_phase1_sources_v1', JSON.stringify(j));
+    }
+  } catch {}
+  return cov;
+}
+
 /** Pinta badge de cobertura no dock (anti-fantasma visual). */
 function renderCoverageBadge(coverage) {
   const el = document.getElementById('data-coverage');
