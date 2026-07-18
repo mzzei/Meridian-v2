@@ -135,14 +135,16 @@ async function runChat(){
     }
     // Chat: thinking estendido SEMPRE desligado (segurança UX — raciocínio/tool
     // monologue não pode vazar na bolha). Profundidade por modelo é só da análise padrão.
-    const _chatThink=false;const _chatEffort={budget:0};
     const _chatBase=(atts.length||liveData||scoreFacts)?4500:3200;
     const _searchUses=scoreFacts?2:(hasAnchor?4:2);
-    const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase+(_chatThink?_chatEffort.budget:0),
+    const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase,
       system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
       messages:reqMessages,stream:true,
       tools:[{type:'web_search_20250305',name:'web_search',max_uses:_searchUses}]};
-    if(_chatThink){_chatBody.thinking={type:'enabled',budget_tokens:_chatEffort.budget};_chatBody.temperature=1;}
+    // Sonnet 5 liga adaptive thinking quando `thinking` é OMITIDO (mudança vs 4.6,
+    // que rodava sem thinking) → desligar explicitamente; Opus 4.8 aceita disabled.
+    // Haiku (modelo antigo): omitir = sem thinking, não enviar o campo.
+    if(_noThinkModel(globalThis.currentModel))_chatBody.thinking={type:'disabled'};
     if(_h('getWorkerUrl')())_chatBody.diagnostics={previous_message_id:_lastChatId};
     const res=await fetch(_h('getApiBase')()+'/v1/messages',{
       method:'POST',
@@ -203,7 +205,7 @@ async function runChat(){
             if(j.message?.usage){
               globalThis.tokenState.lastIn=j.message.usage.input_tokens||0;globalThis.tokenState.sessionIn+=globalThis.tokenState.lastIn;
               const _chatCR=j.message.usage.cache_read_input_tokens||0;
-              if(_chatCR>0){globalThis.tokenState.sessionCacheRead+=_chatCR;const _cP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-4-6'];globalThis.tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
+              if(_chatCR>0){globalThis.tokenState.sessionCacheRead+=_chatCR;const _cP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-5'];globalThis.tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
             }
             if(j.message?.id)_lastChatId=j.message.id;
             if(j.message?.diagnostics?.cache_miss_reason)console.debug('[cache-diag chat] miss:',j.message.diagnostics.cache_miss_reason.type);
@@ -295,6 +297,10 @@ function showFallbackCard(query){
   _h('scrollChat')();
   return card.querySelector('.a-tc');
 }
+// Modelos que ligam adaptive thinking quando `thinking` é OMITIDO (Sonnet 5+):
+// nesses, enviar {type:'disabled'} explícito. Modelos antigos (Haiku 4.5): omitir
+// já significa sem thinking — não enviar o campo (evita 400 em modelos que não o aceitam).
+function _noThinkModel(m){return /claude-sonnet-5/.test(m||'');}
 async function conversationalFallback(query,apiKey,reqHeaders,signal){
   const ctx=getTournamentCtxString?_h('getTournamentCtxString')():'';
   const bubble=showFallbackCard(query);
@@ -304,6 +310,7 @@ async function conversationalFallback(query,apiKey,reqHeaders,signal){
     body:JSON.stringify({model:globalThis.currentModel,max_tokens:3500,
       system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
       messages:[{role:'user',content:`DATA: ${_h('currentDateFull')()}${ctx?`\n\nContexto do torneio:\n${ctx}`:''}\n\n${query}\n\n(Formato desta resposta: TEXTO CORRIDO analítico, sem JSON — este é o modo simplificado.)`}],
+      ...(_noThinkModel(globalThis.currentModel)?{thinking:{type:'disabled'}}:{}),
       stream:true}),
     signal
   });
@@ -461,10 +468,12 @@ async function runAnalysis(){
     // Teto generoso: o JSON estruturado cheio passa de 6k tokens e truncava (→ fallback).
     // Cobra-se pelo uso real, não pelo teto, então elevar não aumenta custo. Soma-se o
     // budget de raciocínio porque thinking consome desse mesmo teto.
-    const baseBody={model:globalThis.currentModel,max_tokens:9000+(effort.budget>0?effort.budget:0),system:[{type:'text',text:sysText,cache_control:{type:'ephemeral'}}]};
+    const baseBody={model:globalThis.currentModel,max_tokens:9000,system:[{type:'text',text:sysText,cache_control:{type:'ephemeral'}}]};
     if(_h('getWorkerUrl')())baseBody.diagnostics={previous_message_id:_lastAnalysisId};
     if(!useEnriched)baseBody.tools=[{type:'web_search_20250305',name:'web_search',max_uses:4}];
-    if(effort.budget>0){baseBody.thinking={type:'enabled',budget_tokens:effort.budget};baseBody.temperature=1;}
+    // Fase 2 SEM thinking em todos os modelos (JSON via prompt-contrato; thinking → prosa,
+    // shell 71). Sonnet 5 liga adaptive quando o campo é omitido → disabled explícito.
+    if(_noThinkModel(globalThis.currentModel))baseBody.thinking={type:'disabled'};
     // NOTA (07/2026): structured outputs (output_config.format) foi testado ao vivo
     // para a Fase 2 e o schema completo da análise EXCEDE o limite de gramática da
     // API ("compiled grammar is too large") em todos os modelos. Fase 2 permanece
@@ -512,7 +521,7 @@ async function runAnalysis(){
     }
 
     if(_newAnalysisId)_lastAnalysisId=_newAnalysisId;
-    const _mainP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-4-6'];
+    const _mainP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-5'];
     globalThis.tokenState.sessionCacheSaved+=(lastCacheRead*(_mainP.crs||0))/1e6;
     globalThis.tokenState.lastIn=lastIn;globalThis.tokenState.lastOut=lastOut;globalThis.tokenState.sessionIn+=lastIn;globalThis.tokenState.sessionOut+=lastOut;globalThis.tokenState.runs++;
     globalThis.tokenState.lastCacheCreated=lastCacheCreated;globalThis.tokenState.lastCacheRead=lastCacheRead;globalThis.tokenState.sessionCacheRead+=lastCacheRead;
@@ -533,6 +542,9 @@ async function runAnalysis(){
       ];
       const retryBody={...baseBody,messages:retryMessages};
       delete retryBody.tools;delete retryBody.thinking;delete retryBody.temperature;
+      // Re-desliga thinking após o delete: no Sonnet 5, OMITIR o campo = adaptive ON,
+      // o que reintroduziria prosa exatamente no retry que existe para evitá-la.
+      if(_noThinkModel(globalThis.currentModel))retryBody.thinking={type:'disabled'};
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
       if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson(retryR.text);}

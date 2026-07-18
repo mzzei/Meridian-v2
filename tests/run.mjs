@@ -166,6 +166,13 @@ assert(runSrc.includes('globalThis.modelProfile()'), 'pipeline-run uses modelPro
 // Fase 2 responder em prosa em vez de JSON (schema via prompt-contrato, não structured
 // outputs) e toda análise caía no modo simplificado. NÃO reintroduzir budget>0 aqui.
 assert(!/budget:\s*[1-9]\d*/.test(appSrc.match(/var MODEL_PROFILES[\s\S]*?\n\};/)?.[0] || ''), 'no model profile has thinking budget > 0');
+// Shell 72: Sonnet 4.6 → Sonnet 5. CRÍTICO: Sonnet 5 liga adaptive thinking quando o
+// campo `thinking` é OMITIDO (no 4.6 omitir = sem thinking) → todo body com currentModel
+// precisa de {type:'disabled'} explícito, senão a Fase 2 volta a cair no modo simplificado.
+assert(appSrc.includes("'claude-sonnet-5'") && !appSrc.includes('claude-sonnet-4-6'), 'sonnet-5 replaces sonnet-4-6 in app.js');
+assert(!runSrc.includes('claude-sonnet-4-6'), 'sonnet-5 replaces sonnet-4-6 in pipeline-run');
+assert(runSrc.includes('function _noThinkModel'), 'no-think helper exists');
+assert((runSrc.match(/_noThinkModel\(globalThis\.currentModel\)/g) || []).length >= 4, 'thinking disabled on all 4 currentModel bodies (chat, fase 2, retry, fallback)');
 // Shell 69: thinking devolvido à API precisa da signature (senão 400 no tool_use → modo simplificado)
 assert(runSrc.includes("signature_delta"), 'streamOnce captures signature_delta');
 assert(runSrc.includes("signature:curSig"), 'thinking block re-sent with signature');

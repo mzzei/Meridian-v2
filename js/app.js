@@ -1,6 +1,6 @@
 // ─── Constants ───────────────────────────────────────────────────────────
-const MODEL_CTX   = {'claude-haiku-4-5-20251001':200000,'claude-sonnet-4-6':200000,'claude-opus-4-8':200000};
-const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-4-6':'Sonnet 4.6','claude-opus-4-8':'Opus 4.8'};
+const MODEL_CTX   = {'claude-haiku-4-5-20251001':200000,'claude-sonnet-5':1000000,'claude-opus-4-8':1000000};
+const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-5':'Sonnet 5','claude-opus-4-8':'Opus 4.8'};
 // Perfil de análise POR MODELO (roteamento por código, sem seletor de esforço):
 // trocar de modelo muda a coleta (mais buscas na Fase 1) e a capacidade real que
 // analisa (Haiku→Sonnet→Opus), não só o preço. budget:0 em TODOS de propósito —
@@ -11,10 +11,10 @@ const MODEL_SHORT = {'claude-haiku-4-5-20251001':'Haiku 4.5','claude-sonnet-4-6'
 // NÃO reativar budget>0 aqui sem resolver esse conflito primeiro.
 var MODEL_PROFILES = {
   'claude-haiku-4-5-20251001':{label:'Rápido',budget:0,searches:1},
-  'claude-sonnet-4-6':{label:'Padrão',budget:0,searches:2},
+  'claude-sonnet-5':{label:'Padrão',budget:0,searches:2},
   'claude-opus-4-8':{label:'Profundo',budget:0,searches:3}
 };
-function modelProfile(){return MODEL_PROFILES[currentModel]||MODEL_PROFILES['claude-sonnet-4-6'];}
+function modelProfile(){return MODEL_PROFILES[currentModel]||MODEL_PROFILES['claude-sonnet-5'];}
 // Brasões dos clubes da Série A (ESPN CDN). Chaves normalizadas em _normTeamKey.
 // Completado em runtime por scoreboard/standings da ESPN e pela API-Football.
 const _ESPN_CREST=id=>`https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`;
@@ -120,7 +120,7 @@ const FLAGS = {
 // ─── State / competitions ──────────────────────────────────────────────
 // → js/state.js (schedule, history, views, setters + bridges globalThis)
 // → js/comp/competitions.js (COMPETITIONS, COMP_ORDER, season/API helpers)
-var currentModel  = 'claude-sonnet-4-6';
+var currentModel  = 'claude-sonnet-5';
 let _lastAnalysisId = null;
 let _lastChatId     = null;
 
@@ -400,8 +400,8 @@ const WORKER_URL_STORE='meridian_worker_url';
 // ESPN_BASE dinâmico (compat com código que ainda lê a const)
 var ESPN_BASE = espnBase(_activeCompId);
 var tokenState  = {sessionIn:0,sessionOut:0,sessionIn_p1:0,sessionOut_p1:0,lastIn:0,lastOut:0,runs:0,lastCacheCreated:0,lastCacheRead:0,sessionCacheRead:0,sessionCacheSaved:0,lastCacheHitPct:0,lastCacheMissReason:null};
-const MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-4-6':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
-const MODEL_DOCK  = {'claude-haiku-4-5-20251001':'Haiku','claude-sonnet-4-6':'Sonnet','claude-opus-4-8':'Opus'};
+const MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-5':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
+const MODEL_DOCK  = {'claude-haiku-4-5-20251001':'Haiku','claude-sonnet-5':'Sonnet','claude-opus-4-8':'Opus'};
 // Marca Meridian: estrela de 4 pontas. Gradiente com ID ÚNICO por instância (evita colisão
 // entre várias estrelas na página). Cores via CSS vars --brand-star-* (acompanham o tema
 // ao vivo — Aurora / Verde / B&W — inclusive se o usuário trocar a paleta no meio do loading).
@@ -1373,7 +1373,7 @@ function updateDockTokens(){
   const el=document.getElementById('i-tok-mini');if(el)el.style.display='flex';
   // Phase 1 always uses Haiku regardless of selected model; price each phase separately
   const haikuP=MODEL_PRICE['claude-haiku-4-5-20251001'];
-  const mainP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-4-6'];
+  const mainP=MODEL_PRICE[currentModel]||MODEL_PRICE['claude-sonnet-5'];
   const p1P=haikuP; // Fase 1 roda sempre no Haiku
   const p1Cost=(tokenState.sessionIn_p1*p1P.i+tokenState.sessionOut_p1*p1P.o)/1e6;
   const p2In=tokenState.sessionIn-tokenState.sessionIn_p1;
