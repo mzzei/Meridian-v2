@@ -1,36 +1,32 @@
 /* js/data/phase1-context.js — orquestra coleta estruturada da Fase 1
  *
- * Cascata AF→FD→ESPN + free registry + memória.
- * Anti-fantasma: só fontes ATIVAS entram no prompt (linha de repertoire limpa).
- * Silenciosas (vazias) ficam só na telemetria — sem lacunas inventadas.
+ * Camada A (campeonato): FD → ESPN → AF full só se nada mais (economiza free AF).
+ * Camada B (time): AF coach+lineup mínimo (cache) quando há chave.
+ * Free registry + memória em paralelo.
+ * Anti-fantasma + score A/B/C de cobertura.
  */
 const PHASE1_CTX_TOTAL = 16000;
 const PHASE1_CTX_EACH = 5000;
 
 /**
- * Cascata AF → FD → ESPN.
- * @returns {{text:string, source:string, benefits:string[]}}
+ * Camada A: tabela/jogos. Preferir fontes sem gastar cota AF free em standings.
+ * AF full (standings+fixtures) só se FD e ESPN falharem.
  */
-async function _phase1CascadePaidOrEspn(query) {
+async function _phase1CascadeLayerA(query) {
   let fdCtx = '';
   let source = '';
+  let fixturesForEnrich = null;
+
+  // 1) football-data.org free (chave) — limpo, free forever
   try {
-    if (typeof getAfKey === 'function' && getAfKey()) {
-      const [standings, fixtures] = await Promise.all([getAfStandings(), getAfFixtures()]);
-      fdCtx = formatAfContext(standings, fixtures);
-      if (fdCtx && typeof afEnrichCoachLineup === 'function') {
-        fdCtx += await afEnrichCoachLineup(query, fixtures);
-      }
-      if (fdCtx) source = 'af';
-    }
-  } catch {}
-  try {
-    if (!fdCtx && typeof getFdKey === 'function' && getFdKey()) {
+    if (typeof getFdKey === 'function' && getFdKey()) {
       const [standings, matches] = await Promise.all([getFdStandings(), getFdMatches()]);
       fdCtx = formatFdContext(standings, matches);
       if (fdCtx) source = 'fd';
     }
   } catch {}
+
+  // 2) ESPN — base ao vivo multi-liga, sem chave
   try {
     if (!fdCtx && typeof getEspnStandings === 'function') {
       const [standings, scoreboard] = await Promise.all([
@@ -41,10 +37,25 @@ async function _phase1CascadePaidOrEspn(query) {
       if (fdCtx) source = 'espn';
     }
   } catch {}
+
+  // 3) AF full só como último recurso da camada A (quando não há A)
+  try {
+    if (!fdCtx && typeof getAfKey === 'function' && getAfKey()) {
+      const [standings, fixtures] = await Promise.all([getAfStandings(), getAfFixtures()]);
+      fixturesForEnrich = fixtures;
+      fdCtx = formatAfContext(standings, fixtures);
+      if (fdCtx && typeof afEnrichCoachLineup === 'function') {
+        fdCtx += await afEnrichCoachLineup(query, fixtures);
+      }
+      if (fdCtx) source = 'af';
+    }
+  } catch {}
+
   const text = fdCtx || '';
   return {
     text,
     source,
+    fixturesForEnrich,
     benefits:
       text && typeof detectSourceBenefits === 'function'
         ? detectSourceBenefits(text)
@@ -55,30 +66,44 @@ async function _phase1CascadePaidOrEspn(query) {
 }
 
 /**
+ * Camada B mínima: AF coaches (+ lineup perto do jogo).
+ * Só se há chave AF e a cascata A NÃO foi AF full (já enriqueceu).
+ */
+async function _phase1AfLayerB(query, cascadeSource) {
+  if (typeof getAfKey !== 'function' || !getAfKey()) {
+    return { text: '', meta: { coaches: false, lineups: false, matched: false } };
+  }
+  // se cascata já foi AF, enrich já entrou em formatAfContext path
+  if (cascadeSource === 'af') {
+    return { text: '', meta: { coaches: false, lineups: false, matched: false, skipped: 'already_in_cascade' } };
+  }
+  if (typeof afEnrichCoachLineupMinimal !== 'function') {
+    return { text: '', meta: { coaches: false, lineups: false, matched: false } };
+  }
+  try {
+    return await afEnrichCoachLineupMinimal(query);
+  } catch {
+    return { text: '', meta: { coaches: false, lineups: false, matched: false } };
+  }
+}
+
+/**
  * Coleta completa de contexto estruturado p/ Fase 1.
- * @param {string} compId
- * @param {string} query
  */
 async function collectPhase1Context(compId, query) {
   const id = compId || (typeof _activeCompId !== 'undefined' ? _activeCompId : 'brsa');
   const teams =
     typeof parseMatchTeamsFromQuery === 'function' ? parseMatchTeamsFromQuery(query) : [];
 
-  // free bundle (texto + active/silent) em paralelo com a cascata
   const freeP =
     typeof getFreeSourcesBundle === 'function'
       ? getFreeSourcesBundle(id).catch(() => ({ text: '', active: [], silent: [] }))
-      : typeof getFreeSourcesContext === 'function'
-        ? getFreeSourcesContext(id)
-            .then((t) => ({
-              text: t || '',
-              active: t ? [{ id: 'free', text: t, chars: t.length }] : [],
-              silent: [],
-            }))
-            .catch(() => ({ text: '', active: [], silent: [] }))
-        : Promise.resolve({ text: '', active: [], silent: [] });
+      : Promise.resolve({ text: '', active: [], silent: [] });
 
-  const cascade = await _phase1CascadePaidOrEspn(query);
+  // AF layer B em paralelo com free (depois da cascade A sequencial — precisa saber source)
+  const cascade = await _phase1CascadeLayerA(query);
+  const afBP = _phase1AfLayerB(query, cascade.source);
+
   let freeBundle = { text: '', active: [], silent: [] };
   try {
     freeBundle = (await freeP) || freeBundle;
@@ -86,12 +111,21 @@ async function collectPhase1Context(compId, query) {
     freeBundle = { text: '', active: [], silent: [] };
   }
 
-  // apiText = cascata + free ativos — sem memória, sem fantasmas
-  const apiParts = [cascade.text, freeBundle.text].filter((t) => t && String(t).trim());
+  let afB = { text: '', meta: {} };
+  try {
+    afB = (await afBP) || afB;
+  } catch {
+    afB = { text: '', meta: {} };
+  }
+
+  // apiText = A + free + B (AF coach) — sem memória
+  const apiParts = [cascade.text, freeBundle.text, afB.text].filter(
+    (t) => t && String(t).trim()
+  );
   const apiText =
     typeof joinContextBlocks === 'function'
       ? joinContextBlocks(apiParts, {
-          maxTotal: PHASE1_CTX_TOTAL - 2500,
+          maxTotal: PHASE1_CTX_TOTAL - 2800,
           maxEach: PHASE1_CTX_EACH,
         })
       : apiParts.join('\n\n');
@@ -111,7 +145,6 @@ async function collectPhase1Context(compId, query) {
     memoryText = '';
   }
 
-  // active list (só o que tem chars) — base do raciocínio limpo
   const active = [];
   if (cascade.text && cascade.source) {
     active.push({
@@ -124,6 +157,17 @@ async function collectPhase1Context(compId, query) {
   (freeBundle.active || []).forEach((a) => {
     if (a && a.chars > 0) active.push(a);
   });
+  if (afB.text && String(afB.text).trim()) {
+    active.push({
+      id: 'af_b',
+      text: afB.text,
+      chars: afB.text.length,
+      benefits:
+        typeof detectSourceBenefits === 'function'
+          ? detectSourceBenefits(afB.text)
+          : ['técnico API'],
+    });
+  }
   if (memoryText && memoryText.trim()) {
     active.push({
       id: 'memory',
@@ -136,11 +180,35 @@ async function collectPhase1Context(compId, query) {
     });
   }
 
+  // Se cascade foi AF full, detectar coaches no texto para meta B
+  let afMeta = afB.meta || {};
+  if (cascade.source === 'af' && cascade.text) {
+    afMeta = {
+      coaches: /TÉCNICOS ATUAIS/i.test(cascade.text),
+      lineups: /ESCALAÇÕES CONFIRMADAS/i.test(cascade.text),
+      matched: true,
+      fromCascade: true,
+    };
+  }
+
+  const coverage =
+    typeof computeCoverageScore === 'function'
+      ? computeCoverageScore({
+          active,
+          apiText,
+          memoryText,
+          afMeta,
+          afText: afB.text || '',
+        })
+      : null;
+
   const agentLine =
     typeof buildAgentSourceLine === 'function' ? buildAgentSourceLine(active) : '';
+  const covBlock = (coverage && coverage.agentBlock) || '';
 
-  // fdCtx: linha de repertoire (se houver) + dados — sem listar silenciosas
-  const bodyParts = [agentLine, apiText, memoryText].filter((t) => t && String(t).trim());
+  const bodyParts = [agentLine, covBlock, apiText, memoryText].filter(
+    (t) => t && String(t).trim()
+  );
   const fdCtx =
     typeof joinContextBlocks === 'function'
       ? joinContextBlocks(bodyParts, {
@@ -149,7 +217,14 @@ async function collectPhase1Context(compId, query) {
         })
       : bodyParts.join('\n\n');
 
-  const hasFd = !!(cascade.text || freeBundle.text);
+  const hasFd = !!(cascade.text || freeBundle.text || afB.text);
+
+  const statusParts = [];
+  if (typeof formatSourcesStatusHuman === 'function') {
+    const s = formatSourcesStatusHuman(active);
+    if (s) statusParts.push(s);
+  }
+  if (coverage && coverage.summaryHuman) statusParts.push(coverage.summaryHuman);
 
   const telemetry =
     typeof recordPhase1Telemetry === 'function'
@@ -163,12 +238,13 @@ async function collectPhase1Context(compId, query) {
           memoryChars: (memoryText || '').length,
           teams,
           agentLine,
+          apiText,
+          memoryText,
+          afMeta,
+          afText: afB.text || '',
+          coverage,
         })
-      : {
-          active,
-          silent: freeBundle.silent || [],
-          cascade: cascade.source || null,
-        };
+      : { active, silent: freeBundle.silent || [], cascade: cascade.source || null, coverage };
 
   return {
     apiText,
@@ -177,18 +253,12 @@ async function collectPhase1Context(compId, query) {
     hasFd,
     teams,
     agentLine,
+    coverage,
     sources: telemetry,
-    statusHuman:
-      typeof formatSourcesStatusHuman === 'function'
-        ? formatSourcesStatusHuman(active)
-        : active.map((a) => a.id).join(' · '),
+    statusHuman: statusParts.join(' · ') || '',
   };
 }
 
-/**
- * Aplica filtro de tópicos com times do confronto.
- * @returns {{topics:string[],skipNote:string,skippedDims:string[]}}
- */
 function phase1FilterTopics(topics, compId, hasStructured, teams) {
   let out = { topics: topics || [], skippedDims: [] };
   try {
@@ -202,7 +272,7 @@ function phase1FilterTopics(topics, compId, hasStructured, teams) {
     skipNote =
       '\nECONOMIA DE BUSCA (memória local fresca p/ os times deste jogo): dimensões não re-buscadas: ' +
       out.skippedDims.join(', ') +
-      '. Use REPERTOIRE / DADOS DA API; só busque lacunas reais do jogo (lesões de última hora, etc.).\n';
+      '. Use REPERTOIRE / COBERTURA / DADOS DA API; só busque o que a cobertura marcar como BAIXA.\n';
   }
   return {
     topics: out.topics || topics || [],

@@ -188,7 +188,16 @@ assert(freeSrc.includes('getFreeSourcesBundle'), 'free sources bundle active/sil
 const telSrc = fs.readFileSync(path.join(ROOT, 'js/data/source-telemetry.js'), 'utf8');
 assert(telSrc.includes('buildAgentSourceLine') && telSrc.includes('recordPhase1Telemetry'), 'source-telemetry API');
 assert(telSrc.includes('REPERTOIRE ESTRUTURADO ATIVO'), 'agent repertoire header');
+assert(telSrc.includes('computeCoverageScore') && telSrc.includes('renderCoverageBadge'), 'coverage A/B/C API');
 assert(factsSrc.includes('REPERTOIRE DESTA COLETA') || factsSrc.includes('statusHuman'), 'gatherFacts anti-ghost status');
+assert(factsSrc.includes('COBERTURA') || factsSrc.includes('coverage'), 'gatherFacts coverage wire');
+const afSrc = fs.readFileSync(path.join(ROOT, 'js/data/football-apis.js'), 'utf8');
+assert(afSrc.includes('afEnrichCoachLineupMinimal'), 'AF minimal coach/lineup path');
+assert(afSrc.includes('_afLineupWorthFetch'), 'AF lineup only near kickoff');
+assert(p1Src.includes('_phase1AfLayerB') || p1Src.includes('afEnrichCoachLineupMinimal'), 'phase1 AF layer B');
+assert(p1Src.includes('computeCoverageScore') || p1Src.includes('coverage'), 'phase1 coverage');
+const indexSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+assert(indexSrc.includes('id="data-coverage"'), 'coverage badge in HTML');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -360,6 +369,19 @@ for (const rel of [
   });
   assert(tel.active.length === 2 && tel.silent.includes('scorebat'), 'telemetry keeps silent separate');
   assert(sandbox.formatSourcesStatusHuman(tel.active).includes('Fontes:'), 'human status');
+  const cov = sandbox.computeCoverageScore({
+    active: [
+      { id: 'espn', chars: 1000, benefits: ['classificação', 'próximos jogos', 'resultados'] },
+      { id: 'af_b', chars: 200, benefits: ['técnico API'] },
+    ],
+    apiText: '=== CLASSIFICAÇÃO === Pts: 40\n=== TÉCNICOS ATUAIS (API-Football · confirmado) ===\nFlamengo: X',
+    afMeta: { coaches: true, lineups: false },
+  });
+  assert(cov.A.level === 'high' || cov.A.level === 'medium', 'coverage A from table/games');
+  assert(cov.B.level === 'medium' || cov.B.level === 'high', 'coverage B from coaches');
+  assert(cov.C.level === 'low', 'coverage C low without xG');
+  assert(cov.summaryHuman.includes('Cobertura:'), 'coverage summary');
+  assert(cov.agentBlock.includes('COBERTURA DE DADOS'), 'coverage agent block');
   assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
   assert(typeof sandbox.parseMatchTeamsFromQuery === 'function', 'parseMatchTeamsFromQuery');
   const teams = sandbox.parseMatchTeamsFromQuery(

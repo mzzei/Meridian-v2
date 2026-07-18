@@ -191,14 +191,16 @@ async function getAfFixtures(){
 // a coleta cai no web_search como antes. Técnico muda raramente → cache de 24h. ──
 const AF_COACH_TTL = 24*60*60*1000;
 async function getAfCoach(teamId){
-  const d=await fetchAf(`/coachs?team=${teamId}`,`brsa_af_coach_${teamId}`,AF_COACH_TTL);
+  const cid=typeof _activeCompId!=='undefined'?_activeCompId:'brsa';
+  const d=await fetchAf(`/coachs?team=${teamId}`,`meridian_af_coach_${cid}_${teamId}`,AF_COACH_TTL);
   if(!d?.response?.length)return null;
   // Técnico atual = quem tem carreira neste time com end===null; senão, o 1º da lista.
   const cur=d.response.find(c=>Array.isArray(c.career)&&c.career.some(k=>k.team?.id===teamId&&!k.end));
   return (cur||d.response[0])?.name||null;
 }
 async function getAfLineups(fixtureId){
-  const d=await fetchAf(`/fixtures/lineups?fixture=${fixtureId}`,`brsa_af_lineup_${fixtureId}`,AF_FIX_TTL);
+  const cid=typeof _activeCompId!=='undefined'?_activeCompId:'brsa';
+  const d=await fetchAf(`/fixtures/lineups?fixture=${fixtureId}`,`meridian_af_lineup_${cid}_${fixtureId}`,AF_FIX_TTL);
   if(!d?.response?.length)return null;
   return d.response.map(t=>({
     team:t.team?.name||'', coach:t.coach?.name||'', formation:t.formation||'',
@@ -210,29 +212,92 @@ async function getAfLineups(fixtureId){
 // se não achar (ex.: pergunta livre com nomes fora do calendário) → sem enriquecimento.
 function _afMatchIds(query,fData){
   if(!fData?.response?.length||!query)return null;
-  const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const q=norm(query);
   for(const f of fData.response){
     const h=norm(f.teams?.home?.name),a=norm(f.teams?.away?.name);
     if(h&&a&&q.includes(h)&&q.includes(a))
-      return {homeId:f.teams.home.id,awayId:f.teams.away.id,fixtureId:f.fixture?.id,home:f.teams.home.name,away:f.teams.away.name};
+      return {homeId:f.teams.home.id,awayId:f.teams.away.id,fixtureId:f.fixture?.id,home:f.teams.home.name,away:f.teams.away.name,date:f.fixture?.date,status:f.fixture?.status?.short};
+  }
+  // match parcial por times parseados "A x B"
+  let teams=[];
+  try{if(typeof parseMatchTeamsFromQuery==='function')teams=parseMatchTeamsFromQuery(query)||[];}catch{}
+  if(teams.length>=2){
+    const t0=norm(teams[0]),t1=norm(teams[1]);
+    for(const f of fData.response){
+      const h=norm(f.teams?.home?.name),a=norm(f.teams?.away?.name);
+      if(!h||!a)continue;
+      const hit=(h.includes(t0)||t0.includes(h)||h.includes(t1)||t1.includes(h))
+        &&(a.includes(t0)||t0.includes(a)||a.includes(t1)||t1.includes(a));
+      if(hit)
+        return {homeId:f.teams.home.id,awayId:f.teams.away.id,fixtureId:f.fixture?.id,home:f.teams.home.name,away:f.teams.away.name,date:f.fixture?.date,status:f.fixture?.status?.short};
+    }
   }
   return null;
 }
+function _afLineupWorthFetch(ids){
+  if(!ids||!ids.fixtureId)return false;
+  const st=String(ids.status||'');
+  if(['1H','HT','2H','ET','P','LIVE'].includes(st))return true;
+  if(!ids.date)return false;
+  const kick=new Date(ids.date).getTime();
+  if(!kick)return false;
+  // só perto do jogo (36h) — economiza req/dia no free
+  return Math.abs(Date.now()-kick)<36*3600*1000;
+}
+function _afFormatCoachLineup(ids,ch,ca,lu){
+  const ex=[];
+  if(ch||ca){ex.push('=== TÉCNICOS ATUAIS (API-Football · confirmado, use direto) ===');if(ch)ex.push(`${ids.home}: ${ch}`);if(ca)ex.push(`${ids.away}: ${ca}`);}
+  if(lu&&lu.length){ex.push('\n=== ESCALAÇÕES CONFIRMADAS (API-Football) ===');lu.forEach(t=>ex.push(`${t.team}${t.formation?' ('+t.formation+')':''}${t.coach?' — téc. '+t.coach:''}: ${t.xi.join(', ')}`));}
+  return ex.length?ex.join('\n'):'';
+}
+/** Legado: enriquece com fixtures já em memória (cascata AF completa). */
 async function afEnrichCoachLineup(query,fData){
   try{
     const ids=_afMatchIds(query,fData);
     if(!ids)return '';
+    const wantLu=_afLineupWorthFetch(ids);
     const[ch,ca,lu]=await Promise.all([
       ids.homeId?getAfCoach(ids.homeId):null,
       ids.awayId?getAfCoach(ids.awayId):null,
-      ids.fixtureId?getAfLineups(ids.fixtureId):null
+      wantLu&&ids.fixtureId?getAfLineups(ids.fixtureId):null
     ]);
-    const ex=[];
-    if(ch||ca){ex.push('=== TÉCNICOS ATUAIS (API-Football · confirmado, use direto) ===');if(ch)ex.push(`${ids.home}: ${ch}`);if(ca)ex.push(`${ids.away}: ${ca}`);}
-    if(lu&&lu.length){ex.push('\n=== ESCALAÇÕES CONFIRMADAS (API-Football) ===');lu.forEach(t=>ex.push(`${t.team}${t.formation?' ('+t.formation+')':''}${t.coach?' — téc. '+t.coach:''}: ${t.xi.join(', ')}`));}
-    return ex.length?'\n\n'+ex.join('\n'):'';
+    const body=_afFormatCoachLineup(ids,ch,ca,lu);
+    return body?'\n\n'+body:'';
   }catch{return '';}
+}
+/**
+ * Caminho mínimo free-tier: 1× fixtures (cache 15min) + 0–2 coaches (24h) + 0–1 lineup (só perto do jogo).
+ * Usado quando a cascata A já veio da ESPN/FD — não gasta AF em standings.
+ * @returns {{text:string, meta:{coaches:boolean,lineups:boolean,matched:boolean,home?:string,away?:string}}}
+ */
+async function afEnrichCoachLineupMinimal(query){
+  const empty={text:'',meta:{coaches:false,lineups:false,matched:false}};
+  try{
+    if(typeof getAfKey!=='function'||!getAfKey())return empty;
+    const fData=await getAfFixtures();
+    if(!fData?.response?.length)return empty;
+    const ids=_afMatchIds(query,fData);
+    if(!ids)return {...empty,meta:{...empty.meta,matched:false}};
+    const wantLu=_afLineupWorthFetch(ids);
+    const[ch,ca,lu]=await Promise.all([
+      ids.homeId?getAfCoach(ids.homeId):null,
+      ids.awayId?getAfCoach(ids.awayId):null,
+      wantLu&&ids.fixtureId?getAfLineups(ids.fixtureId):null
+    ]);
+    const body=_afFormatCoachLineup(ids,ch,ca,lu);
+    return{
+      text:body,
+      meta:{
+        coaches:!!(ch||ca),
+        lineups:!!(lu&&lu.length),
+        matched:true,
+        home:ids.home,
+        away:ids.away,
+        lineupSkipped:!wantLu
+      }
+    };
+  }catch{return empty;}
 }
 function formatAfContext(sData,fData){
   const lines=[];

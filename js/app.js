@@ -1639,9 +1639,9 @@ function startThinking(){
 }
 function updateThinkingToks({inTokens=0,outTokens=0,thinkingTokens=0,status='',phase=2}){
   _thkTokCount=_thkP1Toks+inTokens+outTokens+thinkingTokens;
-  // Anti-fantasma: se status já é "Fontes: …", mostra direto (lista só ativos)
+  // Anti-fantasma / cobertura: status vindo da coleta (Fontes: … · Cobertura: A …)
   let label;
-  if(status&&/^Fontes:/i.test(status))label='[F1] '+status;
+  if(status&&(/Fontes:|Cobertura:/i.test(status)))label='[F1] '+(status.length>72?status.slice(0,70)+'…':status);
   else if(status&&/Coleta estruturada/i.test(status))label='[F1] coleta estruturada…';
   else if(phase===1)label=status&&status.length<48?'[F1] '+status:'[F1] pesquisando…';
   else if(status.includes('Raciocinando'))label='ainda pensando…';

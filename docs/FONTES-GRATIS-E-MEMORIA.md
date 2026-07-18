@@ -1,12 +1,29 @@
-# Fontes grátis + FactsMemory + anti-fantasma (shell 56)
+# Fontes grátis + FactsMemory + anti-fantasma + cobertura (shell 57)
+
+## Cobertura A/B/C (shell 57)
+
+| Camada | Significado | Alta quando |
+|--------|-------------|-------------|
+| **A** Campeonato | tabela, placares, próximos | ESPN/FD/TSDB/OF com classif. + jogos |
+| **B** Time | técnico, escalação | AF coach/lineup ou blocos equivalentes |
+| **C** Analítico | xG, métricas | raro na coleta estruturada → web_search |
+
+- Badge no dock: `#data-coverage` (pills A/B/C).
+- Bloco no prompt: `=== COBERTURA DE DADOS ===` orienta onde gastar busca.
+- `globalThis._phase1Coverage`.
+
+## AF free mínimo (shell 57)
+
+- Cascata A: **FD → ESPN → AF full só se falhar** (não gasta cota free em standings se ESPN ok).
+- Camada B: `afEnrichCoachLineupMinimal` = 1× fixtures (cache 15min) + 0–2 coaches (24h) + lineup **só &lt;36h** do kickoff.
+- Cache keys por competição: `meridian_af_coach_{comp}_{teamId}`.
 
 ## Anti-fantasma (shell 56)
 
-- Só fontes **ativas** (chars > 0) entram no prompt.
-- Bloco `=== REPERTOIRE ESTRUTURADO ATIVO ===` no topo de `DADOS DA API` com benefício de cada uma.
-- Fontes vazias → `silent[]` na telemetria (`_phase1Telemetry`) — **não** viram lacuna no agente.
-- UI thinking: `[F1] Fontes: ESPN · TheSportsDB · OpenFootball`.
-- `sessionStorage.meridian_phase1_sources_v1` para debug.
+- Só fontes **ativas** entram no prompt.
+- `=== REPERTOIRE ESTRUTURADO ATIVO ===`
+- `silent[]` só na telemetria.
+- UI: `[F1] Fontes: … · Cobertura: A alta · B média · C baixa`.
 
 ## Correções anteriores (ultra)
 

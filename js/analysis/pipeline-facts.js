@@ -91,15 +91,17 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
       _ctx={fdCtx:t,hasFd:!!t,teams:[],apiText:t,memoryText:'',statusHuman:t?'Fontes: ESPN':'',sources:null};
     }catch{_ctx={fdCtx:'',hasFd:false,teams:[],apiText:'',memoryText:'',statusHuman:'',sources:null};}
   }
-  // Anti-fantasma UI: mostra só o que de fato entrou (sem listar vazios)
+  // Anti-fantasma + cobertura A/B/C na UI
   try{
     const st=_ctx.statusHuman||'';
     if(st&&onUpdate)onUpdate({status:st,phase:1,inTokens:0,outTokens:0});
+    if(_ctx.coverage&&typeof _h('renderCoverageBadge')==='function')_h('renderCoverageBadge')(_ctx.coverage);
   }catch{}
   const fdCtx=_ctx.fdCtx||'';
   const hasFd=!!_ctx.hasFd;
   const _teams=Array.isArray(_ctx.teams)?_ctx.teams:[];
   const _activeIds=(_ctx.sources&&Array.isArray(_ctx.sources.active))?_ctx.sources.active.map(a=>a.id||a.label).filter(Boolean):[];
+  const _cov=_ctx.coverage||null;
   // jogadores_chave é uma LISTA DE OBJETOS estruturados (um por jogador citado) com o
   // conjunto fundamental de stats da competição — assim os mercados de jogador ficam cobertos
   // já na coleta e o portão de completude consegue checar campo a campo depois.
@@ -131,9 +133,12 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // Fontes hiperconfiáveis: TEXTO-GUIA no prompt (orienta o modelo a buscar/priorizar nelas).
   // NÃO usar como allowed_domains — a allowlist por domínio já degradou a coleta e quebrou o
   // formato estruturado 2x (ver worldcupagent-web-search-regression). Aqui é só dica, não filtro.
-  // Só cita no prompt as fontes ATIVAS desta coleta (anti-fantasma — sem lista genérica de fantasmas).
+  // Só ativos + cobertura A/B/C (orienta busca com benefício; sem lacunas fantasma)
   const _activeNote=_activeIds.length
-    ?('REPERTOIRE DESTA COLETA (ativos): '+_activeIds.join(', ')+'. O bloco "=== REPERTOIRE ESTRUTURADO ATIVO ===" lista o benefício de cada um. Use só o que está lá; não invente dados de fonte ausente.\n')
+    ?('REPERTOIRE DESTA COLETA (ativos): '+_activeIds.join(', ')+'. Use o bloco REPERTOIRE; não invente dados de fonte ausente.\n')
+    :'';
+  const _covNote=_cov
+    ?('COBERTURA A/B/C: A='+(_cov.A&&_cov.A.level)+' B='+(_cov.B&&_cov.B.level)+' C='+(_cov.C&&_cov.C.level)+' (ver bloco COBERTURA DE DADOS). Busque o que estiver baixa.\n')
     :'';
   const _srcNote='FONTES WEB (PRIORIZE P1; use P2 se necessário): '
     +'P1 imprensa: BBC Sport, The Guardian, Sky Sports, The Athletic, ESPN FC, Reuters. '
@@ -141,15 +146,15 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'P1 oficiais: federações e sites de clubes/competições. '
     +'P2: Transfermarkt, Goal, Marca, AS, L\'Équipe, Gazzetta, Kicker, GE/Lance/UOL (BR/CONMEBOL), Fabrizio Romano. '
     +'Em conflito, prevalece a mais recente e oficial. '
-    +'NÃO trate como lacuna uma fonte estruturada que não apareceu no REPERTOIRE — simplesmente não veio; busque na web só o que falta p/ o schema (técnico, escalação, xG, desfalques).';
-  const _coverNote='IMPORTANTE: preencha o schema a partir dos DADOS DA API (repertoire ativo) + buscas. A posição na tabela de '+_cl+' é pública — preencha "ranking_fifa" com posição/pontos quando os blocos trouxerem.\n'
-    +'PLACARES: se estiverem nos blocos ativos, use o número exato em "resultados_recentes". Nunca "resultado inferido".\n'
-    +'MEMÓRIA LOCAL (se no repertoire): reutilize técnico/xG/estilo do MESMO time; não é memória de treino.\n'
-    +'PRIORIDADE DE BUSCA WEB: o que o repertoire NÃO cobriu — tipicamente técnico, escalação, desfalques, xG, métricas de jogador. NUNCA invente de memória de treino.\n'
-    +'ESCALAÇÃO: formacao + onze_provavel (11 {nome,posicao}) + banco; nomes só se aparecerem nos dados/busca.\n'
+    +'NÃO trate como lacuna uma fonte estruturada ausente do REPERTOIRE — busque só o que a COBERTURA marcar como baixa e o schema ainda pedir.';
+  const _coverNote='IMPORTANTE: preencha o schema a partir dos DADOS DA API + buscas. Posição na tabela de '+_cl+': use blocos se A alta.\n'
+    +'PLACARES: números exatos dos blocos ativos. Nunca "resultado inferido".\n'
+    +'MEMÓRIA LOCAL (se no repertoire): reutilize técnico/xG do MESMO time; não é memória de treino.\n'
+    +'PRIORIDADE DE BUSCA: o que a cobertura C/B marcar como baixa — tipicamente xG, métricas, desfalques, escalação se B não for alta.\n'
+    +'ESCALAÇÃO: formacao + onze_provavel (11 {nome,posicao}) + banco; nomes só dos dados/busca.\n'
     +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+'.\n'
-    +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (só conflitos úteis, não "fonte X ausente").\n'
-    +_activeNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
+    +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (não "fonte X ausente").\n'
+    +_activeNote+_covNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
     ?`Você é um agente de pesquisa de futebol (${compLabel(state.activeCompId)}). Data: ${_h('currentDateFull')()}.
 O bloco REPERTOIRE ESTRUTURADO ATIVO + DADOS DA API abaixo já trazem classificação/resultados/forma quando listados — NÃO re-busque o que eles cobrem.
@@ -217,7 +222,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
         // Grava fatos básicos na memória local → próximas análises skipam web_search repetido.
         try{_h('factsMemIngestRawFacts')(_compId,rawFacts);}catch{}
       }
-      return{rawFacts,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||''};
+      return{rawFacts,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_cov};
     }
     if(data.stop_reason==='tool_use'){
       msgs.push({role:'assistant',content:data.content});
@@ -226,7 +231,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side (filtragem dinâmica)
     }else break;
   }
-  return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||''};
+  return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_cov};
 }
 // Fecha chaves/colchetes pendentes e aspas abertas → recupera JSON cortado no max_tokens.
 function repairJson(s){
