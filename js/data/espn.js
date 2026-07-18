@@ -79,11 +79,11 @@ function formatEspnContext(sData,sbData){
   }
   return lines.join('\n');
 }
-// ─── TheSportsDB (grátis · CORS aberto · Brasileirão Série A = liga 4351) ─
+// ─── TheSportsDB (grátis · CORS aberto · multi-liga via COMPETITIONS.tsdb) ─
 // 2ª fonte ESTRUTURADA e independente da ESPN: placares confirmados, rodada e
-// próximos jogos. Validado ao vivo (07/2026): cobre a temporada 2026 completa e
-// responde com Access-Control-Allow-Origin:* — chamada direta do navegador, sem
-// passar pelo Worker. Uso: validação cruzada de resultados + fallback da ESPN.
+// próximos jogos. Free key 123; IDs por competição em competitions.js (brsa 4351,
+// epl 4328, laliga 4335, ucl 4480; libertadores sem id estável no free tier).
+// Access-Control-Allow-Origin:* — chamada direta do navegador.
 const TSDB_BASE='https://www.thesportsdb.com/api/v1/json/123';
 const TSDB_TTL=15*60*1000;
 async function fetchTsdb(path,cacheKey){
@@ -103,14 +103,24 @@ function _tsdbLine(e){
   const rd=e.intRound?` (rodada ${e.intRound})`:'';
   return `${e.dateEvent||''} · ${e.strHomeTeam} ${sc} ${e.strAwayTeam}${rd}`;
 }
-async function getTsdbContext(){
+function _tsdbLeagueId(compId){
+  const id=compId||(typeof _activeCompId!=='undefined'?_activeCompId:'brsa');
+  if(typeof tsdbLeague==='function'){const v=tsdbLeague(id);if(v!=null)return v;}
+  if(typeof getComp==='function'){const c=getComp(id);if(c&&c.tsdb!=null)return c.tsdb;}
+  return null;
+}
+async function getTsdbContext(compId){
+  const leagueId=_tsdbLeagueId(compId);
+  if(leagueId==null)return '';
+  const cid=compId||(typeof _activeCompId!=='undefined'?_activeCompId:'brsa');
   const[past,next]=await Promise.all([
-    fetchTsdb('/eventspastleague.php?id=4351','brsa_tsdb_past_v1'),
-    fetchTsdb('/eventsnextleague.php?id=4351','brsa_tsdb_next_v1')
+    fetchTsdb('/eventspastleague.php?id='+leagueId,'tsdb_past_'+cid+'_'+leagueId),
+    fetchTsdb('/eventsnextleague.php?id='+leagueId,'tsdb_next_'+cid+'_'+leagueId)
   ]);
   const L=[];
-  if(past?.events?.length){L.push('=== RESULTADOS CONFIRMADOS (TheSportsDB · fonte estruturada independente — use para VALIDAÇÃO CRUZADA de placares/datas) ===');past.events.slice(0,15).forEach(e=>L.push(_tsdbLine(e)));}
-  if(next?.events?.length){L.push('=== PRÓXIMOS JOGOS (TheSportsDB) ===');next.events.slice(0,10).forEach(e=>L.push(_tsdbLine(e)));}
+  const label=typeof compLabel==='function'?compLabel(cid):cid;
+  if(past?.events?.length){L.push('=== RESULTADOS CONFIRMADOS (TheSportsDB · '+label+' · liga '+leagueId+' · fonte estruturada independente — use para VALIDAÇÃO CRUZADA de placares/datas) ===');past.events.slice(0,15).forEach(e=>L.push(_tsdbLine(e)));}
+  if(next?.events?.length){L.push('=== PRÓXIMOS JOGOS (TheSportsDB · '+label+') ===');next.events.slice(0,10).forEach(e=>L.push(_tsdbLine(e)));}
   return L.join('\n');
 }
 

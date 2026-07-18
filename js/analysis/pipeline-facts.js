@@ -85,9 +85,14 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // o usuário com chave quebrada ficava com dados PIORES do que sem chave. Agora a ESPN é
   // sempre a rede de segurança final (grátis, sem chave).
   let fdCtx='';
-  // TheSportsDB (fonte independente da cascata) dispara JÁ e roda em paralelo com AF/FD/ESPN;
-  // só é aguardada no fim, então seu timeout (até 8s se não responder) não soma ao tempo total.
-  const _tsdbPromise=_h('getTsdbContext')().catch(()=>'');
+  const _compId=state.activeCompId||'brsa';
+  // Fontes grátis independentes (TSDB multi-liga + OpenFootball + Scorebat + OpenLigaDB)
+  // disparam JÁ em paralelo com a cascata AF/FD/ESPN — timeouts não somam ao tempo total.
+  const _tsdbPromise=(()=>{try{return _h('getTsdbContext')(_compId);}catch{return Promise.resolve('');}})().catch(()=>'');
+  const _freePromise=(()=>{try{return _h('getFreeSourcesContext')(_compId);}catch{return Promise.resolve('');}})().catch(()=>'');
+  // Memória local: bloco de fatos básicos já vistos (skip web_search nas próximas rodadas).
+  let _memBlock='';
+  try{_memBlock=_h('factsMemBuildKnownBlock')(_compId)||'';}catch{}
   if(_h('getAfKey')()){
     const[standings,fixtures]=await Promise.all([_h('getAfStandings')(),_h('getAfFixtures')()]);
     fdCtx=_h('formatAfContext')(standings,fixtures);
@@ -104,11 +109,12 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     const[standings,scoreboard]=await Promise.all([_h('getEspnStandings')(),_h('getEspnScoreboard')()]);
     fdCtx=_h('formatEspnContext')(standings,scoreboard);
   }
-  // Camada extra: TheSportsDB (grátis, CORS aberto) — 2ª fonte estruturada INDEPENDENTE.
-  // Sempre anexada quando responde: dá à Fase 2 material real p/ validação cruzada de
-  // placares/datas, e vira a rede de segurança final se ESPN/AF/FD falharem juntas.
-  // (disparada lá em cima, em paralelo com a cascata — aqui só colhe o resultado.)
+  // Camadas grátis extras (sempre anexadas quando respondem): validação cruzada + rede de segurança.
   try{const _tsdb=await _tsdbPromise;if(_tsdb)fdCtx=fdCtx?fdCtx+'\n\n'+_tsdb:_tsdb;}catch{}
+  try{const _free=await _freePromise;if(_free)fdCtx=fdCtx?fdCtx+'\n\n'+_free:_free;}catch{}
+  if(_memBlock)fdCtx=fdCtx?fdCtx+'\n\n'+_memBlock:_memBlock;
+  // Persiste blob estruturado na memória (economiza re-busca de tabela/resultados).
+  try{if(fdCtx)_h('factsMemIngestStructured')(_compId,fdCtx);}catch{}
   const hasFd=!!fdCtx;
   // jogadores_chave é uma LISTA DE OBJETOS estruturados (um por jogador citado) com o
   // conjunto fundamental de stats da competição — assim os mercados de jogador ficam cobertos
@@ -121,9 +127,10 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // esforço: a 1ª busca é abrangente e a forma já vem do ESPN/API de graça. O esforço só
   // adiciona buscas que APROFUNDAM/cruzam fontes — não destrava tópicos. A profundidade de
   // raciocínio vem do thinking budget da Fase 2, separada da coleta.
+  // FactsMemory: se dimensões básicas já estão frescas, enxuga a lista de tópicos.
   const _cl=compLabel(state.activeCompId);
   const _season=typeof compSeasonLabel==='function'?compSeasonLabel(state.activeCompId):'';
-  const topics=hasFd?[
+  let topics=hasFd?[
     `"[Mandante] [Visitante] ${_cl} técnico atual posição tabela lesões suspensões escalação provável xG estilo tático" — Sofascore, FotMob, Transfermarkt, fbref`,
     `"[Mandante] desfalques e [Visitante] vulnerabilidades defensivas ${_cl} esquema tático treinador" — imprensa esportiva, Sofascore`,
     `"[Mandante] [Visitante] ${_cl} fbref xG expected goals estatísticas avançadas" — fbref, Sofascore`
@@ -132,6 +139,16 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     `"[Mandante] [Visitante] ${_cl} xG estilo tático vulnerabilidades defensivas treinador" — fbref, Sofascore`,
     `"${_cl} ${_season} classificação tabela estatísticas" — ESPN, fbref, imprensa`
   ];
+  let _skipNote='';
+  try{
+    const filtered=_h('factsMemFilterTopics')(topics,_compId,hasFd);
+    if(filtered&&Array.isArray(filtered.topics)&&filtered.topics.length){
+      topics=filtered.topics;
+      if(filtered.skippedDims&&filtered.skippedDims.length){
+        _skipNote='\nECONOMIA DE BUSCA (memória local fresca): dimensões já cobertas e NÃO re-buscadas na web: '+filtered.skippedDims.join(', ')+'. Use o bloco MEMÓRIA LOCAL / DADOS DA API; só busque lacunas e atualizações de última hora.\n';
+      }
+    }
+  }catch{}
   const _maxUses=Math.max(1,Math.min(maxSearches??topics.length,topics.length));
   const _dir=topics.slice(0,_maxUses).map((s,i)=>`${'①②③④'[i]} ${s}`).join('\n');
   // Fontes hiperconfiáveis: TEXTO-GUIA no prompt (orienta o modelo a buscar/priorizar nelas).
@@ -141,20 +158,22 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'P1 imprensa: BBC Sport, The Guardian, Sky Sports, The Athletic, ESPN FC, Reuters. '
     +'P1 stats: Sofascore e FotMob (métricas por jogo: rating, finalizações, grandes chances, posse, xG, forma, escalações); FBref/StatsBomb, Opta/The Analyst, WhoScored, Understat. '
     +'P1 oficiais: federações e sites de clubes/competições. '
+    +'P1 estruturadas grátis já no contexto (quando presentes): ESPN, TheSportsDB, OpenFootball, Scorebat, OpenLigaDB — use para validação cruzada de placares/tabela; NÃO re-busque na web o que já está nos blocos. '
     +'P2: Transfermarkt, Goal, Marca, AS, L\'Équipe, Gazzetta, Kicker, GE/Lance/UOL (BR/CONMEBOL), Fabrizio Romano (@FabrizioRomano) para notícias de última hora. '
     +'Em conflito, prevalece a mais recente e oficial entre as fontes citadas.';
   const _coverNote='IMPORTANTE: preencha TODOS os campos do schema (técnico, posição na tabela, lesões/desfalques, escalação, xG, estilo ofensivo, vulnerabilidades) a partir do que cada busca retornar e dos dados já fornecidos — cada busca cobre várias dimensões. A posição na tabela de '+_cl+' é pública — sempre preencha "ranking_fifa" com posição/pontos (ex.: "5º · 28 pts"); não o deixe vazio.\n'
-    +'RESULTADOS JÁ DISPUTADOS: os placares dos jogos que cada time já fez em '+_cl+' são FATOS DUROS e costumam estar no bloco de dados reais fornecido (ESPN/TheSportsDB) — extraia o PLACAR EXATO de cada um para "resultados_recentes". Nunca escreva "resultado inferido do contexto": ou o placar está nos dados/busca (use o número), ou registre honestamente que não veio.\n'
-    +'PRIORIDADE MÁXIMA DE COLETA — técnico atual e escalação/onze provável: são informação PÚBLICA e quase sempre encontrável (imprensa esportiva, escalações prováveis pré-jogo, Sofascore/FotMob, federações). BUSQUE ativamente e preencha "tecnico" e "escalacao_provavel" a partir do que a busca retornar. Deixá-los vazios é FALHA DE BUSCA, não uma lacuna legítima — se a sua busca não trouxe, refine a busca (ex.: "[Seleção] técnico atual 2026", "[Seleção] escalação provável [adversário]"). Só deixe vazio se a busca realmente não retornar NADA sobre eles. NUNCA preencha de memória (pode estar desatualizado) — o valor tem de vir dos resultados da busca.\n'
-    +'ESCALAÇÃO ESTRUTURADA (alimenta o mapa de campo do app): além do texto em "escalacao_provavel", preencha "formacao" (ex.: "4-3-3"), "onze_provavel" como LISTA DE 11 OBJETOS {nome, posicao} na ordem goleiro→defesa→meio→ataque, com posicao abreviada (GOL, ZAG, LAD, LAE, VOL, MEI, PON, ATA), e "banco" com os suplentes prováveis que a fonte citar (lista de nomes; vazio se a fonte não trouxer). As páginas de escalação provável (Sofascore/imprensa) publicam onze + banco — extraia dos resultados, nunca de memória.\n'
-    +'ESCANTEIOS POR TIME (alimenta a aba Escanteios): preencha "escanteios_por_jogo" (média de escanteios a FAVOR por jogo) e "escanteios_sofridos_por_jogo" (média CONTRA por jogo) de cada clube/seleção, com números REAIS da competição (Sofascore/FotMob publicam "corners per match"). Ex.: 6.2 e 3.8. Deixe null só se a busca realmente não trouxer; nunca invente de memória.\n'
-    +'PROIBIDO INVENTAR NOME DE JOGADOR (erro gravíssimo, nunca aceitável): cada nome em "onze_provavel", "banco" e "escalacao_provavel" TEM de aparecer literalmente nos resultados de busca. Nunca escreva um jogador "como opção/alternativa" (ex.: "X ou Y") a menos que AMBOS os nomes venham da mesma fonte para aquele slot. Se não tiver certeza de quem ocupa uma posição, escreva "a confirmar" — jamais preencha com um nome vindo de memória, mesmo que pareça plausível pelo estilo do time; jogadores saem por empréstimo, troca de clube ou lesão entre rodadas, e a memória do treino pode estar desatualizada ou simplesmente errada.\n'
-    +'MÉTRICAS POR JOGADOR (Sofascore/FotMob) — "jogadores_chave" é uma LISTA DE OBJETOS: um objeto por jogador citado (mire nos 3-5 titulares mais decisivos de cada time). Cada objeto tem o CONJUNTO FUNDAMENTAL OBRIGATÓRIO de campos, preenchidos com números REAIS de '+_cl+' (temporada atual) vindos da busca: "nome", "posicao", "jogos", "minutos", "gols", "assistencias", "finalizacoes_por_jogo", "finalizacoes_no_gol_por_jogo", "grandes_chances_ou_passes_decisivos_por_jogo", "cartoes_amarelos", "cartoes_vermelhos", "a_um_amarelo_da_suspensao" (true/false), "faltas_cometidas_por_jogo", "faltas_sofridas_por_jogo", "desarmes_por_jogo", "cobra_penaltis_ou_faltas" (ex.: "pênaltis e faltas"/"faltas"/"não"), "rating_medio", e "observacao" (texto livre p/ o que não couber acima — p/ goleiros use aqui: defesas/jogo, clean sheets, gols sofridos; e sequências/lesões relevantes). Esses dados fundamentam os mercados de jogador e são PÚBLICOS e quase sempre encontráveis — deixar os campos-chave (gols, finalizacoes_no_gol_por_jogo, cartoes_amarelos, rating_medio) vazios para um titular citado é FALHA DE BUSCA, não lacuna legítima: refine a busca (ex.: "[Jogador] cartões '+_cl+' Sofascore", "[Jogador] finalizações por jogo FotMob") antes de desistir. Use null (não invente) só quando a busca realmente não trouxer aquele número; SÓ use valores da busca, nunca de memória, e descarte implausíveis (jogos de liga + copas; não invente totais impossíveis).\n'
+    +'RESULTADOS JÁ DISPUTADOS: os placares dos jogos que cada time já fez em '+_cl+' são FATOS DUROS e costumam estar no bloco de dados reais fornecido (ESPN/TheSportsDB/OpenFootball/Scorebat) — extraia o PLACAR EXATO de cada um para "resultados_recentes". Nunca escreva "resultado inferido do contexto": ou o placar está nos dados/busca (use o número), ou registre honestamente que não veio.\n'
+    +'MEMÓRIA LOCAL: se existir bloco "=== MEMÓRIA LOCAL ===", reutilize técnico/xG/estilo/ranking/desfalques dali (são dados já coletados nesta app, não memória de treino). Só re-busque se o valor parecer velho demais para o jogo de hoje ou se faltar o adversário.\n'
+    +'PRIORIDADE MÁXIMA DE COLETA — técnico atual e escalação/onze provável: são informação PÚBLICA e quase sempre encontrável (imprensa esportiva, escalações prováveis pré-jogo, Sofascore/FotMob, federações). BUSQUE ativamente e preencha "tecnico" e "escalacao_provavel" a partir do que a busca retornar — EXCETO se a MEMÓRIA LOCAL já trouxer valor fresco para o mesmo time. Deixá-los vazios é FALHA DE BUSCA, não uma lacuna legítima. NUNCA preencha de memória de treino do modelo (pode estar desatualizado) — o valor tem de vir dos dados/API/busca desta mensagem.\n'
+    +'ESCALAÇÃO ESTRUTURADA (alimenta o mapa de campo do app): além do texto em "escalacao_provavel", preencha "formacao" (ex.: "4-3-3"), "onze_provavel" como LISTA DE 11 OBJETOS {nome, posicao} na ordem goleiro→defesa→meio→ataque, com posicao abreviada (GOL, ZAG, LAD, LAE, VOL, MEI, PON, ATA), e "banco" com os suplentes prováveis que a fonte citar (lista de nomes; vazio se a fonte não trouxer). As páginas de escalação provável (Sofascore/imprensa) publicam onze + banco — extraia dos resultados, nunca de memória de treino.\n'
+    +'ESCANTEIOS POR TIME (alimenta a aba Escanteios): preencha "escanteios_por_jogo" (média de escanteios a FAVOR por jogo) e "escanteios_sofridos_por_jogo" (média CONTRA por jogo) de cada clube/seleção, com números REAIS da competição (Sofascore/FotMob publicam "corners per match"). Ex.: 6.2 e 3.8. Deixe null só se a busca realmente não trouxer; nunca invente de memória de treino.\n'
+    +'PROIBIDO INVENTAR NOME DE JOGADOR (erro gravíssimo, nunca aceitável): cada nome em "onze_provavel", "banco" e "escalacao_provavel" TEM de aparecer literalmente nos resultados de busca ou nos blocos de dados. Nunca escreva um jogador "como opção/alternativa" (ex.: "X ou Y") a menos que AMBOS os nomes venham da mesma fonte para aquele slot. Se não tiver certeza de quem ocupa uma posição, escreva "a confirmar" — jamais preencha com um nome vindo de memória de treino.\n'
+    +'MÉTRICAS POR JOGADOR (Sofascore/FotMob) — "jogadores_chave" é uma LISTA DE OBJETOS: um objeto por jogador citado (mire nos 3-5 titulares mais decisivos de cada time). Cada objeto tem o CONJUNTO FUNDAMENTAL OBRIGATÓRIO de campos, preenchidos com números REAIS de '+_cl+' (temporada atual) vindos da busca: "nome", "posicao", "jogos", "minutos", "gols", "assistencias", "finalizacoes_por_jogo", "finalizacoes_no_gol_por_jogo", "grandes_chances_ou_passes_decisivos_por_jogo", "cartoes_amarelos", "cartoes_vermelhos", "a_um_amarelo_da_suspensao" (true/false), "faltas_cometidas_por_jogo", "faltas_sofridas_por_jogo", "desarmes_por_jogo", "cobra_penaltis_ou_faltas" (ex.: "pênaltis e faltas"/"faltas"/"não"), "rating_medio", e "observacao" (texto livre p/ o que não couber acima — p/ goleiros use aqui: defesas/jogo, clean sheets, gols sofridos; e sequências/lesões relevantes). Esses dados fundamentam os mercados de jogador e são PÚBLICOS e quase sempre encontráveis — deixar os campos-chave (gols, finalizacoes_no_gol_por_jogo, cartoes_amarelos, rating_medio) vazios para um titular citado é FALHA DE BUSCA, não lacuna legítima: refine a busca (ex.: "[Jogador] cartões '+_cl+' Sofascore", "[Jogador] finalizações por jogo FotMob") antes de desistir. Use null (não invente) só quando a busca realmente não trouxer aquele número; SÓ use valores da busca, nunca de memória de treino, e descarte implausíveis (jogos de liga + copas; não invente totais impossíveis).\n'
     +'VALIDAÇÃO CRUZADA NA COLETA: quando um mesmo fato (técnico, escalação, xG, placar) aparecer em 2+ fontes independentes, cite as fontes juntas no próprio valor (ex.: "4-3-3 (Sofascore, FBref)"); quando vier de UMA única fonte, cite só ela — a etapa de análise usa essa marcação para calibrar a confiança. Se duas fontes CONFLITAREM, registre o conflito em "lacunas" com ambas as versões.\n'
-    +_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
+    +_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
     ?`Você é um agente de pesquisa de futebol (${compLabel(state.activeCompId)}). Data: ${_h('currentDateFull')()}.
-CLASSIFICAÇÃO, RESULTADOS E FORMA RECENTE DO CAMPEONATO JÁ VÊM VIA API abaixo — não pesquise isso.
+CLASSIFICAÇÃO, RESULTADOS E FORMA RECENTE DO CAMPEONATO JÁ VÊM VIA API / fontes estruturadas / memória local abaixo — não pesquise isso de novo.
 Faça NO MÁXIMO ${_maxUses} busca(s) para complementar:
 ${_dir}
 ${_coverNote}
@@ -214,7 +233,11 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       let rawFacts=null;try{if(m)rawFacts=JSON.parse(m[0]);}catch{}
       // Anexa o corpus de evidência (dados da API + títulos/URLs de busca), minúsculo, p/ o
       // portão anti-alucinação. Não-enumerável: não polui o JSON exibido nem a persistência.
-      if(rawFacts&&typeof rawFacts==='object'){try{Object.defineProperty(rawFacts,'_evidence',{value:((hasFd?fdCtx:'')+'\n'+_evi.join('\n')).toLowerCase(),enumerable:false,configurable:true});}catch(_){}}
+      if(rawFacts&&typeof rawFacts==='object'){
+        try{Object.defineProperty(rawFacts,'_evidence',{value:((hasFd?fdCtx:'')+'\n'+_evi.join('\n')).toLowerCase(),enumerable:false,configurable:true});}catch(_){}
+        // Grava fatos básicos na memória local → próximas análises skipam web_search repetido.
+        try{_h('factsMemIngestRawFacts')(_compId,rawFacts);}catch{}
+      }
       return{rawFacts,inTokens:accIn,outTokens:accOut};
     }
     if(data.stop_reason==='tool_use'){

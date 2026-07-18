@@ -160,6 +160,17 @@ assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
 assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
 assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
+// Multi-fonte grátis + FactsMemory (v53)
+assert(factsSrc.includes('getFreeSourcesContext'), 'gatherFacts uses free sources');
+assert(factsSrc.includes('factsMemFilterTopics') || factsSrc.includes('factsMemBuildKnownBlock'), 'gatherFacts uses FactsMemory');
+assert(factsSrc.includes('factsMemIngestRawFacts'), 'gatherFacts ingests rawFacts to memory');
+assert(mainSrc.includes("'js/data/free-sources.js'"), 'free-sources in CLASSIC');
+assert(mainSrc.includes("'js/data/facts-memory.js'"), 'facts-memory in CLASSIC');
+const freeSrc = fs.readFileSync(path.join(ROOT, 'js/data/free-sources.js'), 'utf8');
+const memSrc = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8');
+assert(freeSrc.includes('getOpenFootballContext') && freeSrc.includes('getScorebatContext') && freeSrc.includes('getOpenLigaContext'), '3 free sources');
+assert(freeSrc.includes('getFreeSourcesContext'), 'getFreeSourcesContext aggregator');
+assert(memSrc.includes('factsMemFilterTopics') && memSrc.includes('factsMemIngestStructured'), 'FactsMemory API');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -208,6 +219,9 @@ assert(fs.existsSync(path.join(ROOT, 'js/runtime.js')), 'runtime.js host helper'
 const Comp = await import(pathToFileURL(path.join(ROOT, 'js/comp/competitions.js')).href);
 assert(Comp.COMP_ORDER.length === 5 && Comp.getComp('brsa').espn === 'bra.1', 'competitions catalog');
 assert(Comp.compLabel('epl').includes('Premier') || Comp.compLabel('epl') === 'Premier League', 'compLabel');
+assert(Comp.getComp('epl').tsdb === 4328 && Comp.getComp('laliga').tsdb === 4335 && Comp.getComp('ucl').tsdb === 4480, 'TSDB multi-liga IDs');
+assert(Comp.getComp('brsa').openfootball === 'br.1' && Comp.getComp('epl').openfootball === 'en.1', 'openfootball stems');
+assert(typeof Comp.tsdbLeague === 'function' && Comp.tsdbLeague('brsa') === 4351, 'tsdbLeague helper');
 const St = await import(pathToFileURL(path.join(ROOT, 'js/state.js')).href);
 assert(typeof St.setSchedule === 'function' && typeof St.setAnalysisCompId === 'function', 'state setters');
 St.setSchedule([{ id: 1 }]);
@@ -271,9 +285,57 @@ for (const rel of [
   'js/data/schedule.js',
   'js/data/football-apis.js',
   'js/data/espn.js',
+  'js/data/free-sources.js',
+  'js/data/facts-memory.js',
   'js/data/history.js',
 ]) {
   assert(fs.existsSync(path.join(ROOT, rel)), 'module ' + rel);
+}
+
+// FactsMemory pure smoke (classic script in vm)
+{
+  const code = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8');
+  const store = {};
+  const sandbox = {
+    localStorage: {
+      getItem: (k) => (k in store ? store[k] : null),
+      setItem: (k, v) => {
+        store[k] = String(v);
+      },
+      removeItem: (k) => {
+        delete store[k];
+      },
+    },
+    Date,
+    JSON,
+    String,
+    Object,
+    Array,
+    Math,
+    console,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
+  sandbox.factsMemSet('brsa', 'tecnico', 'Tite', 'Flamengo');
+  assert(sandbox.factsMemGet('brsa', 'tecnico', 'Flamengo') === 'Tite', 'factsMemGet roundtrip');
+  const filtered = sandbox.factsMemFilterTopics(
+    [
+      '"x x xG estilo tático" — fbref',
+      '"x desfalques técnico escalação" — sofascore',
+      '"classificação tabela" — espn',
+    ],
+    'brsa',
+    true
+  );
+  assert(filtered && Array.isArray(filtered.topics) && filtered.topics.length >= 1, 'factsMemFilterTopics keeps >=1');
+  sandbox.factsMemIngestRawFacts('brsa', {
+    mandante: { nome: 'Flamengo', tecnico: 'Filipe Luís', xg_marcado: 1.5, xg_sofrido: 0.9 },
+    visitante: { nome: 'Palmeiras', tecnico: 'Abel', ranking_fifa: '1º · 40 pts' },
+  });
+  assert(sandbox.factsMemIsFresh('brsa', 'tecnico', 'Flamengo'), 'ingest tecnico fresh');
+  const block = sandbox.factsMemBuildKnownBlock('brsa');
+  assert(typeof block === 'string' && block.includes('MEMÓRIA LOCAL'), 'memory block text');
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');

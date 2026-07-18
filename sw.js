@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '52';
+const SHELL_VERSION = '53';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -38,6 +38,8 @@ const SHELL = [
   './js/export/report.js?v=' + SHELL_VERSION,
   './js/data/espn.js?v=' + SHELL_VERSION,
   './js/data/football-apis.js?v=' + SHELL_VERSION,
+  './js/data/free-sources.js?v=' + SHELL_VERSION,
+  './js/data/facts-memory.js?v=' + SHELL_VERSION,
   './js/data/schedule.js?v=' + SHELL_VERSION,
   './js/data/live.js?v=' + SHELL_VERSION,
   './js/data/history.js?v=' + SHELL_VERSION,

@@ -19,6 +19,12 @@ export const COMPETITIONS = {
     af: 71,
     fd: 'BSA',
     tsdb: 4351,
+    // openfootball/football.json path stem (season prefix applied at fetch)
+    openfootball: 'br.1',
+    // Scorebat free feed: competition.name contains any of these (case-insensitive)
+    scorebat: ['brazil', 'brasileir', 'serie a'],
+    // OpenLigaDB leagueShortcut — null when not in DE coverage
+    openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png',
     labelDefault: 'Brasileirão Série A',
   },
@@ -32,7 +38,10 @@ export const COMPETITIONS = {
     espn: 'conmebol.libertadores',
     af: 13,
     fd: 'CLI',
-    tsdb: null,
+    tsdb: null, // free TSDB key 123 has no stable Libertadores id
+    openfootball: 'copa.l',
+    scorebat: ['libertadores', 'conmebol'],
+    openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/58.png',
     labelDefault: 'Libertadores',
   },
@@ -46,7 +55,10 @@ export const COMPETITIONS = {
     espn: 'eng.1',
     af: 39,
     fd: 'PL',
-    tsdb: null,
+    tsdb: 4328,
+    openfootball: 'en.1',
+    scorebat: ['premier league', 'england: premier'],
+    openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
     labelDefault: 'Premier League',
   },
@@ -60,7 +72,10 @@ export const COMPETITIONS = {
     espn: 'esp.1',
     af: 140,
     fd: 'PD',
-    tsdb: null,
+    tsdb: 4335,
+    openfootball: 'es.1',
+    scorebat: ['la liga', 'spain: la'],
+    openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
     labelDefault: 'LaLiga',
   },
@@ -74,7 +89,10 @@ export const COMPETITIONS = {
     espn: 'uefa.champions',
     af: 2,
     fd: 'CL',
-    tsdb: null,
+    tsdb: 4480,
+    openfootball: 'uefa.cl',
+    scorebat: ['champions league', 'uefa champions'],
+    openliga: null,
     logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
     labelDefault: 'Champions League',
   },
@@ -179,6 +197,24 @@ export function fdCode(id) {
   return getComp(id).fd;
 }
 
+export function tsdbLeague(id) {
+  const v = getComp(id).tsdb;
+  return v != null ? v : null;
+}
+
+export function openfootballStem(id) {
+  return getComp(id).openfootball || null;
+}
+
+export function scorebatKeys(id) {
+  const k = getComp(id).scorebat;
+  return Array.isArray(k) ? k : [];
+}
+
+export function openligaShortcut(id) {
+  return getComp(id).openliga || null;
+}
+
 export function seasonYearCalendar(d) {
   d = d || new Date();
   return d.getFullYear();
@@ -231,6 +267,10 @@ expose({
   espnStandingsUrl,
   afLeague,
   fdCode,
+  tsdbLeague,
+  openfootballStem,
+  scorebatKeys,
+  openligaShortcut,
   seasonYearCalendar,
   seasonYearEuropean,
   seasonYearFor,

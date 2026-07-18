@@ -32,6 +32,8 @@ const CLASSIC = [
   'js/analysis/render.js',
   'js/data/espn.js',
   'js/data/football-apis.js',
+  'js/data/free-sources.js',
+  'js/data/facts-memory.js',
   'js/data/schedule.js',
   'js/data/live.js',
   'js/ui/featured.js',
