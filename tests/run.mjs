@@ -401,8 +401,8 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   const runSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
   assert(runSrc2.includes("messages.push({role:'assistant',content:'{'})"), 'F2 prefill on enriched path');
   assert((runSrc2.match(/_prefill\?'\{':''/g) || []).length >= 2, 'prefill prepended to finalText');
-  assert(runSrc2.includes("{role:'assistant',content:'{'} // prefill"), 'retry has prefill');
-  assert(runSrc2.includes("parseAnalysisJson('{'+retryR.text)"), 'retry parse prepends brace');
+  assert(runSrc2.includes("if(_retryPrefill)retryMessages.push({role:'assistant',content:'{'})"), 'retry has model-gated prefill');
+  assert(runSrc2.includes("parseAnalysisJson((_retryPrefill?'{':'')+retryR.text)"), 'retry parse prepends brace only with prefill');
   assert((runSrc2.match(/_lastAnalysisFail/g) || []).length >= 3, 'failure diagnostics persisted');
   const promptsSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
   assert((promptsSrc3.match(/PRÉVIA É O CASO NORMAL/g) || []).length >= 2, 'previa-is-normal rule in both prompts');
@@ -414,6 +414,15 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
   assert(runSrc3.includes('_fallbackDiagLine') && runSrc3.includes('diagnóstico ['), 'fallback footer shows shell + failure reason');
   assert(!runSrc3.includes('Leve/Médio'), 'obsolete effort hint removed from fallback footer');
+  // Shell 79: Sonnet 5 NÃO suporta prefill (400 real) — gate + auto-cura + resgate Haiku
+  assert(runSrc3.includes('function _prefillOk'), 'prefill gated by model');
+  assert(runSrc3.includes('_prefillOk(globalThis.currentModel)'), 'prefill checks current model');
+  assert(runSrc3.includes("/prefill/i.test(e2.message") && runSrc3.includes('messages.pop();_prefill=false'), 'prefill auto-cure in F2 loop');
+  assert(runSrc3.includes('RESGATE FINAL') && runSrc3.includes("model:'claude-haiku-4-5-20251001',messages:rescueMessages"), 'haiku rescue with prefill');
+  // BUG LATENTE (achado no 79): const MODEL_PRICE em classic não chega ao window;
+  // pipeline-run (ESM) lê globalThis.MODEL_PRICE → toda análise crashava pós-Fase 2
+  assert(/var MODEL_PRICE\s*=/.test(appSrc), 'MODEL_PRICE is var (reaches window)');
+  assert(!runSrc3.includes('globalThis.MODEL_PRICE[globalThis'), 'no unguarded MODEL_PRICE access in pipeline-run');
 }
 
 // --- SW / index ---

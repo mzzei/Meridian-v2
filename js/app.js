@@ -400,7 +400,10 @@ const WORKER_URL_STORE='meridian_worker_url';
 // ESPN_BASE dinâmico (compat com código que ainda lê a const)
 var ESPN_BASE = espnBase(_activeCompId);
 var tokenState  = {sessionIn:0,sessionOut:0,sessionIn_p1:0,sessionOut_p1:0,lastIn:0,lastOut:0,runs:0,lastCacheCreated:0,lastCacheRead:0,sessionCacheRead:0,sessionCacheSaved:0,lastCacheHitPct:0,lastCacheMissReason:null};
-const MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-5':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
+// var (não const): pipeline-run (ESM) lê via globalThis.MODEL_PRICE — const em script
+// classic fica no escopo do script e NUNCA chega ao window (bug shell ≤78: toda análise
+// crashava na contabilidade de tokens pós-Fase 2 e caía no modo simplificado).
+var MODEL_PRICE = {'claude-haiku-4-5-20251001':{i:0.80,o:4.00,crs:0.72},'claude-sonnet-5':{i:3.00,o:15.00,crs:2.70},'claude-opus-4-8':{i:15.00,o:75.00,crs:13.50}};
 const MODEL_DOCK  = {'claude-haiku-4-5-20251001':'Haiku','claude-sonnet-5':'Sonnet','claude-opus-4-8':'Opus'};
 // Marca Meridian: estrela de 4 pontas. Gradiente com ID ÚNICO por instância (evita colisão
 // entre várias estrelas na página). Cores via CSS vars --brand-star-* (acompanham o tema

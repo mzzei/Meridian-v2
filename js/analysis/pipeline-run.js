@@ -205,7 +205,7 @@ async function runChat(){
             if(j.message?.usage){
               globalThis.tokenState.lastIn=j.message.usage.input_tokens||0;globalThis.tokenState.sessionIn+=globalThis.tokenState.lastIn;
               const _chatCR=j.message.usage.cache_read_input_tokens||0;
-              if(_chatCR>0){globalThis.tokenState.sessionCacheRead+=_chatCR;const _cP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-5'];globalThis.tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
+              if(_chatCR>0){globalThis.tokenState.sessionCacheRead+=_chatCR;const _cP=(globalThis.MODEL_PRICE||{})[globalThis.currentModel]||(globalThis.MODEL_PRICE||{})['claude-sonnet-5']||{crs:0};globalThis.tokenState.sessionCacheSaved+=(_chatCR*(_cP.crs||0))/1e6;}
             }
             if(j.message?.id)_lastChatId=j.message.id;
             if(j.message?.diagnostics?.cache_miss_reason)console.debug('[cache-diag chat] miss:',j.message.diagnostics.cache_miss_reason.type);
@@ -312,6 +312,11 @@ function showFallbackCard(query){
 // nesses, enviar {type:'disabled'} explícito. Modelos antigos (Haiku 4.5): omitir
 // já significa sem thinking — não enviar o campo (evita 400 em modelos que não o aceitam).
 function _noThinkModel(m){return /claude-sonnet-5/.test(m||'');}
+// Sonnet 5 REJEITA prefill de assistant (400 real 07/2026: "This model does not
+// support assistant message prefill. The conversation must end with a user
+// message."). Haiku 4.5 / Opus 4.8 aceitam. Há auto-cura no loop da Fase 2 para
+// modelos futuros que rejeitem sem estarem listados aqui.
+function _prefillOk(m){return !/claude-sonnet-5/.test(m||'');}
 async function conversationalFallback(query,apiKey,reqHeaders,signal){
   const ctx=getTournamentCtxString?_h('getTournamentCtxString')():'';
   const bubble=showFallbackCard(query);
@@ -556,7 +561,7 @@ async function runAnalysis(){
     // aconteceu…") fica estruturalmente impossível. Só no caminho enriquecido (sem
     // tools; prefill + tool_use não combinam). Comprovado: shell 76 ainda caía em
     // prosa mesmo com a regra ENTREGA OBRIGATÓRIA no prompt.
-    const _prefill=useEnriched&&(!baseBody.thinking||baseBody.thinking.type==='disabled');
+    let _prefill=useEnriched&&(!baseBody.thinking||baseBody.thinking.type==='disabled')&&_prefillOk(globalThis.currentModel);
     if(_prefill)messages.push({role:'assistant',content:'{'});
     let _newAnalysisId=null;
 
@@ -569,6 +574,12 @@ async function runAnalysis(){
           break;
         }catch(e2){
           if(e2.name==='AbortError'||e2.message==='cancelled')throw e2;
+          // Auto-cura de prefill (shell 79): modelo rejeitou o assistant '{' → remove
+          // e repete sem prefill (cobre modelos futuros fora da lista _prefillOk).
+          if(/prefill/i.test(e2.message||'')&&messages.length&&messages[messages.length-1].role==='assistant'){
+            messages.pop();_prefill=false;
+            continue;
+          }
           const isNet=(e2.name==='TypeError'||e2.message==='Failed to fetch');
           if(isNet&&_netAttempt<2&&!state.abort.signal.aborted){
             _netAttempt++;
@@ -599,7 +610,7 @@ async function runAnalysis(){
     }
 
     if(_newAnalysisId)_lastAnalysisId=_newAnalysisId;
-    const _mainP=globalThis.MODEL_PRICE[globalThis.currentModel]||globalThis.MODEL_PRICE['claude-sonnet-5'];
+    const _mainP=(globalThis.MODEL_PRICE||{})[globalThis.currentModel]||(globalThis.MODEL_PRICE||{})['claude-sonnet-5']||{crs:0};
     globalThis.tokenState.sessionCacheSaved+=(lastCacheRead*(_mainP.crs||0))/1e6;
     globalThis.tokenState.lastIn=lastIn;globalThis.tokenState.lastOut=lastOut;globalThis.tokenState.sessionIn+=lastIn;globalThis.tokenState.sessionOut+=lastOut;globalThis.tokenState.runs++;
     globalThis.tokenState.lastCacheCreated=lastCacheCreated;globalThis.tokenState.lastCacheRead=lastCacheRead;globalThis.tokenState.sessionCacheRead+=lastCacheRead;
@@ -616,9 +627,11 @@ async function runAnalysis(){
       const retryMessages=[
         {role:'user',content:`DATA: ${_h('currentDateFull')()}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`},
         {role:'assistant',content:finalText.slice(0,2000)},
-        {role:'user',content:'Sua resposta anterior NÃO era o JSON. Isto é uma PRÉVIA — jogo futuro sem placar/estatísticas da partida NÃO impede a análise: use tabela/forma/elenco coletados e estimativas rotuladas, declare o que faltar em "lacunas". Retorne APENAS o JSON estruturado COMPLETO da análise, começando com { e terminando com }, sem texto antes ou depois, sem blocos de código markdown. Recusar de novo é falha total.'},
-        {role:'assistant',content:'{'} // prefill: obriga a API a continuar o objeto
+        {role:'user',content:'Sua resposta anterior NÃO era o JSON. Isto é uma PRÉVIA — jogo futuro sem placar/estatísticas da partida NÃO impede a análise: use tabela/forma/elenco coletados e estimativas rotuladas, declare o que faltar em "lacunas". Retorne APENAS o JSON estruturado COMPLETO da análise, começando com { e terminando com }, sem texto antes ou depois, sem blocos de código markdown. Recusar de novo é falha total.'}
       ];
+      // prefill só em modelos que aceitam (Sonnet 5 rejeita com 400)
+      const _retryPrefill=_prefillOk(globalThis.currentModel);
+      if(_retryPrefill)retryMessages.push({role:'assistant',content:'{'});
       const retryBody={...baseBody,messages:retryMessages};
       delete retryBody.tools;delete retryBody.thinking;delete retryBody.temperature;
       // Re-desliga thinking após o delete: no Sonnet 5, OMITIR o campo = adaptive ON,
@@ -626,7 +639,19 @@ async function runAnalysis(){
       if(_noThinkModel(globalThis.currentModel))retryBody.thinking={type:'disabled'};
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson('{'+retryR.text);}
+      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson((_retryPrefill?'{':'')+retryR.text);}
+      // RESGATE FINAL (shell 79): modelo sem prefill (Sonnet 5) insistiu em prosa →
+      // Haiku 4.5 COM prefill monta o card (JSON por construção). Melhor um relatório
+      // de 7 abas do Haiku do que o modo simplificado.
+      if(!parsed&&!_retryPrefill){
+        _h('updateThinkingToks')({status:'Montando card (resgate)…',phase:2});
+        const rescueMessages=[...retryMessages,{role:'assistant',content:'{'}];
+        const rescueBody={...baseBody,model:'claude-haiku-4-5-20251001',messages:rescueMessages};
+        delete rescueBody.tools;delete rescueBody.thinking;delete rescueBody.temperature;
+        rescueBody.max_tokens=Math.max(rescueBody.max_tokens||0,9000);
+        const rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
+        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=parseAnalysisJson('{'+rescueR.text);}
+      }
     }
     if(!parsed){
       // Diagnóstico persistente (shell 77): nunca mais cair no modo simplificado às
