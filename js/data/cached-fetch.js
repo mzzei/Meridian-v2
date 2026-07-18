@@ -38,7 +38,15 @@ async function cachedJsonFetch(url, cacheKey, opts) {
       headers: opts.headers || undefined,
     });
     if (!res.ok) return staleOnError ? stale : null;
-    const d = await res.json();
+    // raw.githubusercontent costuma mandar text/plain; res.json() às vezes falha → text + parse
+    let d;
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('json')) {
+      d = await res.json();
+    } else {
+      const txt = await res.text();
+      d = JSON.parse(txt);
+    }
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d }));
     } catch {}

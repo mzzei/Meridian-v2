@@ -34,17 +34,38 @@ async function getEspnScoreboard(compId){
 }
 function formatEspnContext(sData,sbData){
   const lines=[];
-  // Standings
-  if(sData?.standings?.[0]?.entries?.length){
-    lines.push('=== CLASSIFICAÇÃO (ESPN) ===');
-    const groups={};
-    sData.standings[0].entries.forEach(e=>{
-      const g=e.team?.group?.displayName||e.group?.displayName||'Grupo';
-      if(!groups[g])groups[g]=[];
+  // Standings: payload atual da ESPN usa children[].standings.entries
+  // (o path antigo standings[0].entries ficou morto → classificação NUNCA ia pro agente).
+  // Reusa o parser canônico da UI (_parseEspnStandingsPayload) quando existir.
+  let groups=null;
+  try{
+    if(typeof _parseEspnStandingsPayload==='function'){
+      const parsed=_parseEspnStandingsPayload(sData,sbData);
+      if(parsed&&parsed.groups&&Object.keys(parsed.groups).length)groups=parsed.groups;
+    }
+  }catch{}
+  if(!groups&&sData?.standings?.[0]?.entries?.length){
+    groups={Grupo:sData.standings[0].entries.map(e=>{
       const stats=Object.fromEntries((e.stats||[]).map(s=>[s.name,s.value]));
-      groups[g].push(`  ${e.team.displayName} — Pts:${stats.points??'?'} J:${stats.gamesPlayed??'?'} V:${stats.wins??'?'} E:${stats.ties??'?'} D:${stats.losses??'?'} GP:${stats.pointsFor??'?'} GC:${stats.pointsAgainst??'?'}`);
+      return{time:e.team?.displayName,pts:stats.points,j:stats.gamesPlayed,v:stats.wins,e:stats.ties,d:stats.losses,gp:stats.pointsFor,gc:stats.pointsAgainst};
+    })};
+  }
+  if(!groups&&sData?.children?.[0]?.standings?.entries?.length){
+    groups={Grupo:sData.children[0].standings.entries.map(e=>{
+      const stats=Object.fromEntries((e.stats||[]).map(s=>[s.name,s.value]));
+      return{time:e.team?.displayName,pts:stats.points,j:stats.gamesPlayed,v:stats.wins,e:stats.ties,d:stats.losses,gp:stats.pointsFor,gc:stats.pointsAgainst};
+    })};
+  }
+  if(groups&&Object.keys(groups).length){
+    lines.push('=== CLASSIFICAÇÃO (ESPN) ===');
+    Object.entries(groups).forEach(([g,rows])=>{
+      if(!Array.isArray(rows)||!rows.length)return;
+      lines.push(g+':');
+      rows.forEach(r=>{
+        const name=r.time||r.team||r.nome||'?';
+        lines.push(`  ${name} — Pts:${r.pts??'?'} J:${r.j??'?'} V:${r.v??'?'} E:${r.e??'?'} D:${r.d??'?'} GP:${r.gp??'?'} GC:${r.gc??'?'}`);
+      });
     });
-    Object.entries(groups).forEach(([g,rows])=>{lines.push(g+':');rows.forEach(r=>lines.push(r));});
   }
   // Scoreboard
   if(sbData?.events?.length){
@@ -112,14 +133,39 @@ async function getTsdbContext(compId){
   const leagueId=_tsdbLeagueId(compId);
   if(leagueId==null)return '';
   const cid=compId||(typeof _activeCompId!=='undefined'?_activeCompId:'brsa');
-  const[past,next]=await Promise.all([
+  // Free key 123: eventspast/next costumam devolver 1 jogo só (quase fantasma).
+  // eventsseason + lookuptable dão repertório real no free tier.
+  const seasonY=(typeof seasonYearFor==='function'?seasonYearFor(cid):new Date().getFullYear());
+  const[past,next,season,table]=await Promise.all([
     fetchTsdb('/eventspastleague.php?id='+leagueId,'tsdb_past_'+cid+'_'+leagueId),
-    fetchTsdb('/eventsnextleague.php?id='+leagueId,'tsdb_next_'+cid+'_'+leagueId)
+    fetchTsdb('/eventsnextleague.php?id='+leagueId,'tsdb_next_'+cid+'_'+leagueId),
+    fetchTsdb('/eventsseason.php?id='+leagueId+'&s='+seasonY,'tsdb_season_'+cid+'_'+leagueId+'_'+seasonY),
+    fetchTsdb('/lookuptable.php?l='+leagueId+'&s='+seasonY,'tsdb_table_'+cid+'_'+leagueId+'_'+seasonY)
   ]);
   const L=[];
   const label=typeof compLabel==='function'?compLabel(cid):cid;
-  if(past?.events?.length){L.push('=== RESULTADOS CONFIRMADOS (TheSportsDB · '+label+' · liga '+leagueId+' · fonte estruturada independente — use para VALIDAÇÃO CRUZADA de placares/datas) ===');past.events.slice(0,15).forEach(e=>L.push(_tsdbLine(e)));}
-  if(next?.events?.length){L.push('=== PRÓXIMOS JOGOS (TheSportsDB · '+label+') ===');next.events.slice(0,10).forEach(e=>L.push(_tsdbLine(e)));}
+  // tabela (free truncada, mas melhor que nada)
+  if(table?.table?.length){
+    L.push('=== CLASSIFICAÇÃO (TheSportsDB · '+label+' · free tier pode vir truncada) ===');
+    table.table.slice(0,20).forEach(r=>{
+      L.push('  '+(r.intRank||'?')+'. '+(r.strTeam||'?')+' — Pts:'+(r.intPoints??'?')+' J:'+(r.intPlayed??'?')+' V:'+(r.intWin??'?')+' E:'+(r.intDraw??'?')+' D:'+(r.intLoss??'?')+' GP:'+(r.intGoalsFor??'?')+' GC:'+(r.intGoalsAgainst??'?'));
+    });
+  }
+  // resultados: preferir season se past for magro (<5)
+  let pastEv=past?.events||[];
+  if((!pastEv.length||pastEv.length<5)&&season?.events?.length){
+    pastEv=season.events.filter(e=>e.intHomeScore!=null&&e.intAwayScore!=null).slice(-20);
+  }else{
+    pastEv=pastEv.slice(0,15);
+  }
+  if(pastEv.length){
+    L.push('=== RESULTADOS CONFIRMADOS (TheSportsDB · '+label+' · liga '+leagueId+') ===');
+    pastEv.forEach(e=>L.push(_tsdbLine(e)));
+  }
+  if(next?.events?.length){
+    L.push('=== PRÓXIMOS JOGOS (TheSportsDB · '+label+') ===');
+    next.events.slice(0,10).forEach(e=>L.push(_tsdbLine(e)));
+  }
   return L.join('\n');
 }
 
