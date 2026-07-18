@@ -2,10 +2,13 @@
 
 **Data:** 2026-07-18  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `67`  
+**HEAD:** `9690972` — *feat: worker origin allowlist + health AF/FD + FPL element-summary (shell 67)*  
+**SHELL_VERSION:** `67` (version.js = sw.js = index `?v=` ×2)  
 **Escopo:** sessão A → B → C (allowlist Worker, smoke, health FD/AF, FPL element-summary)
 
 Continua: handoff **66** (UI) ← **65** (Worker/secrets) ← **57** (arquitetura multi-fonte).
+
+**Regra de processo (AGENTS.md):** início de sessão = ler handoff mais recente; **fim de sessão com mudanças = atualizar handoff + commit + push**.
 
 ---
 

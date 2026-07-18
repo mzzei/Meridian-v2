@@ -15,6 +15,21 @@ Isto foi pedido explicitamente pelo dono do projeto: *sempre que abrir sessão d
 
 Leia também **`ISOLAMENTO.md`** (v2 ≠ v1).
 
+## Obrigatório no FIM de TODA sessão com mudanças
+
+**Antes de encerrar o trabalho (sempre, sem o usuário precisar lembrar):**
+
+1. **Atualizar o handoff** em `docs/HANDOFF-V2-SHELL-<N>-YYYY-MM-DD.md`:
+   - Se o `SHELL_VERSION` subiu nesta sessão → **criar** handoff do shell novo (não só editar o antigo).
+   - Se o shell não subiu mas houve mudanças relevantes → **atualizar** o handoff mais recente (o que foi feito, HEAD, próximos passos).
+   - Incluir: shell, HEAD/commit, o que mudou, testes, deploy (Worker/Pages se aplicável), invariantes, próximos abertos, prompt pronto para a próxima sessão.
+2. **`node tests/run.mjs`** se houve mudança de código (deve passar).
+3. **`git add` + `git commit`** com mensagem clara (shell no subject se bump).
+4. **`git push origin main`** (ou a branch em uso).
+5. Confirmar ao usuário: handoff path + commit hash + push OK.
+
+Pedido explícito do dono: *ao final de tudo sempre atualize o handoff e push e commit no git*.
+
 ## Projeto
 
 - Workspace = **Meridian v2** (multi-campeonato), porta **3457**.
