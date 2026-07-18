@@ -196,6 +196,10 @@ export default {
         if (!h.has('anthropic-version')) h.set('anthropic-version', '2023-06-01');
         h.delete('host');
         h.delete('anthropic-dangerous-direct-browser-access');
+        // Sem Origin/Referer no upstream: com Origin, a Anthropic trata como request
+        // de browser e exige o header dangerous-direct (que acabamos de remover).
+        h.delete('origin');
+        h.delete('referer');
         const r = await fetch(upstream, {
           method: request.method,
           headers: h,
