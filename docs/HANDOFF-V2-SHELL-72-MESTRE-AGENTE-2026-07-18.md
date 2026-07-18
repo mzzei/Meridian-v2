@@ -627,49 +627,45 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **atual** (ver topo deste doc) em version/sw/index  
-- [ ] Ler **este** handoff mestre (+ 65/67 se for mexer em Worker)  
+- [ ] `git pull` · `SHELL_VERSION` **79** em version/sw/index  
+- [ ] Ler **este** handoff mestre (+ 65/67 se Worker)  
 - [ ] `node tests/run.mjs`  
-- [ ] Worker health: `service: meridian-v2-proxy`, `origin_gate: true`  
-- [ ] Análise: `Flamengo x Palmeiras` → 7 abas (JSON, não prosa)  
-- [ ] Chat: `como foi o jogo de hoje?` → popup, não inventa times  
-- [ ] Anexos → chat  
-- [ ] Sem seletor de “Esforço”; modelos Haiku / **Sonnet 5** / Opus  
-- [ ] `MODEL_PROFILES.*.budget === 0`  
-- [ ] Sonnet 5: bodies com `thinking: {type:'disabled'}` onde aplicável  
+- [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
+- [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
+- [ ] Análise prévia (ex. Inter × Cruzeiro) → **7 abas**, não prosa  
+- [ ] Se simplificado: rodapé `shell 79 · diagnóstico [parse|error]: …`  
+- [ ] Sonnet 5: prefill off; thinking disabled; resgate Haiku se prosa no retry  
+- [ ] Dual-mode: `A x B` → análise; opinião vaga → chat/popup  
 
 ## Prompt pronto
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main; shell = SHELL_VERSION no topo deste doc).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 79, HEAD 944a3f4+docs).
 
 Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
+(conteúdo até shell 79 — §7.5 prefill/MODEL_PRICE/resgate)
 
-Se for mexer em Worker/secrets, leia também HANDOFF 65 e 67.
+Pendências do print (ainda NÃO no código):
+1) banir monólogo de autocorreção no texto final (prompts F2)
+2) resgate final com Opus 4.8 em vez de Haiku (não rebaixar qualidade)
 
-Regras:
-- Dual-mode: intent.js decide analysis vs chat; não misturar 7 abas com bolha.
-- MODEL_PROFILES: budget 0; searches 1/2/3; default claude-sonnet-5.
-- Não ligar thinking na Fase 2 sem resolver JSON das 7 abas.
-- Sonnet 5: thinking disabled explícito (omitir = adaptive on).
-- v1 e meridian-proxy intocáveis.
-- Fim de sessão: handoff + commit + push.
-- node tests/run.mjs antes de push.
+Regras: inv. 30–31; dual-mode; v1 intocável; handoff+commit+push; tests.
 
 Quero: [OBJETIVO]
 ```
 
 ## Próximos passos ainda abertos (produto)
 
-1. UI troca de senha avançada.  
-2. Confirmar Pages com `?v=72` após deploy.  
-3. Regenerar secrets AF/FD se zelo.  
-4. Rate-limit Worker (além de Origin).  
-5. (Opcional) reintroduzir badge A/B/C se o usuário pedir.  
-6. (Opcional) thinking na Fase 2 **só** se houver structured outputs / schema compatível.
+1. **(print Claude)** Prompts: proibir monólogo/autocorreção no card final.  
+2. **(print Claude)** Resgate F2 com **Opus 4.8** + prefill (hoje ainda Haiku).  
+3. UI troca de senha avançada.  
+4. Confirmar Pages com `?v=79`.  
+5. Regenerar secrets AF/FD se zelo.  
+6. Rate-limit Worker.  
+7. Thinking Fase 2 só com schema/structured outputs ok.
 
 ---
 
-**Fim do handoff mestre (shell 72).**  
-Qualquer sessão futura que “não saiba” análise vs chat, Sonnet 5, budget 0, signature, grounding, Free AF, Worker ou anti-fantasma **não leu este arquivo**.
+**Fim do handoff mestre (shell 79; arquivo `…SHELL-72-MESTRE…`).**  
+Quem não souber prefill Sonnet 5, resgate, `var MODEL_PRICE`, dual-mode ou rodapé diagnóstico **não leu este arquivo**.
