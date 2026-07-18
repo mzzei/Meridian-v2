@@ -225,6 +225,10 @@ assert(appSrc.includes('afSaved||getWorkerUrl()') && appSrc.includes('saved||get
 assert(afSrc.includes('free plans do not have access'), 'AF plan-limit detected (not secret error)');
 assert(afSrc.includes('_afCoachOnlyFallback') && afSrc.includes('_afTeamIdByName'), 'AF coach fallback via team search');
 assert(afSrc.includes('return _afCoachOnlyFallback(query)'), 'minimal enrich falls back to coach-only');
+// Shell 65: tranca de senha nas informações avançadas (gate de vitrine)
+assert(appSrc.includes('ADV_PASS_HASH') && appSrc.includes('advPassHash') && appSrc.includes('initAdvLock'), 'advanced settings password gate');
+assert(indexSrc.includes('id="adv-lock"'), 'adv-lock details in HTML');
+assert(!indexSrc.match(/worker-url-input[\s\S]{0,4000}<details class="sf-adv" id="adv-lock"/), 'worker url moved inside locked section');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');

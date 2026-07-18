@@ -1963,6 +1963,41 @@ function _isSoftwareRenderer(){
   setInterval(_measurePerfAndApply,25000);
 })();
 
+// ─── Tranca de senha das informações avançadas ────────────────────────────
+// Gate de VITRINE (client-side): esconde configs sensíveis do público casual.
+// NÃO é segurança real — quem lê o código contorna; as chaves de verdade vivem
+// como secrets no Worker. Troque a senha gerando novo hash no console:
+//   await advPassHash('sua nova senha')  → cole o hex em ADV_PASS_HASH.
+const ADV_PASS_HASH='2ff169952775b9eb3704ee7bd153f94f983c7a312fe4fb80ce69de1a9c26f924';
+async function advPassHash(s){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(s)));
+  return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+(function initAdvLock(){
+  const det=document.getElementById('adv-lock');
+  if(!det)return;
+  let _checking=false;
+  det.addEventListener('toggle',async function(){
+    if(!det.open||_checking)return;
+    if(sessionStorage.getItem('meridian_adv_unlock')==='1')return;
+    det.open=false;
+    _checking=true;
+    try{
+      const p=prompt('Senha das informações avançadas:');
+      if(p==null)return;
+      const h=await advPassHash(p);
+      if(h===ADV_PASS_HASH){
+        sessionStorage.setItem('meridian_adv_unlock','1');
+        det.open=true;
+      }else{
+        try{toast('Senha incorreta.');}catch{alert('Senha incorreta.');}
+      }
+    }catch(_e){
+      try{toast('Não foi possível validar a senha neste contexto.');}catch{}
+    }finally{_checking=false;}
+  });
+})();
+
 // ─── Data API key listeners ───────────────────────────────────────────────
 (function initDataKeys(){
   // API-Football

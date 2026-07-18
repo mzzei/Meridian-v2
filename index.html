@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=64">
+<link rel="stylesheet" href="css/app.css?v=65">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -496,14 +496,14 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
         </div>
       </div>
     </details>
-    <div class="sf">
-      <label class="sf-lbl" for="worker-url-input">Worker URL (Cloudflare)</label>
-      <input id="worker-url-input" type="text" placeholder="https://seu-worker.workers.dev" autocomplete="off" oninput="saveWorkerUrl(this.value)">
-      <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic, <b>API-Football, football-data.org e FPL</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede essas APIs de funcionar direto no navegador. Código e passo a passo em <code>worker/</code> no repositório.</div>
-    </div>
-    <details class="sf-adv">
-      <summary>Informações avançadas (não interessantes)</summary>
+    <details class="sf-adv" id="adv-lock">
+      <summary>Informações avançadas (protegidas por senha)</summary>
       <div class="sf-adv-body">
+        <div class="sf">
+          <label class="sf-lbl" for="worker-url-input">Worker URL (Cloudflare)</label>
+          <input id="worker-url-input" type="text" placeholder="https://seu-worker.workers.dev" autocomplete="off" oninput="saveWorkerUrl(this.value)">
+          <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic, <b>API-Football, football-data.org e FPL</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede essas APIs de funcionar direto no navegador. Código e passo a passo em <code>worker/</code> no repositório.</div>
+        </div>
         <div class="sf">
           <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
           <div class="sf-hint" id="cov-help">O badge "Dados" (A/B/C) mostra a cobertura da coleta de cada análise: <b>A</b> campeonato (tabela/jogos) — fica alta com a ESPN, sem chave nenhuma; <b>B</b> time (técnico/escalação) — sobe com uma chave API-Football (grátis, 100 req/dia); <b>C</b> analítico (xG/métricas) — vem da busca web durante a análise, e o badge atualiza "pós-busca" quando ela encontra esses dados.</div>
@@ -638,7 +638,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=64"></script>
+<script type="module" src="js/main.js?v=65"></script>
 
 
 <!-- Mobile sidebar backdrop -->
