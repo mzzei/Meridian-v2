@@ -82,18 +82,24 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // Coleta estruturada unificada (cascata AF→FD→ESPN + free registry + memória por times).
   // Orquestração em phase1-context.js — aqui só consome o resultado.
   const _compId=state.activeCompId||'brsa';
-  let _ctx={fdCtx:'',hasFd:false,teams:[],apiText:'',memoryText:''};
+  let _ctx={fdCtx:'',hasFd:false,teams:[],apiText:'',memoryText:'',statusHuman:'',sources:null};
   try{_ctx=await _h('collectPhase1Context')(_compId,query);}catch(e){
     // fallback mínimo se phase1-context falhar no load
     try{
       const[standings,scoreboard]=await Promise.all([_h('getEspnStandings')(),_h('getEspnScoreboard')()]);
       const t=_h('formatEspnContext')(standings,scoreboard);
-      _ctx={fdCtx:t,hasFd:!!t,teams:[],apiText:t,memoryText:''};
-    }catch{_ctx={fdCtx:'',hasFd:false,teams:[],apiText:'',memoryText:''};}
+      _ctx={fdCtx:t,hasFd:!!t,teams:[],apiText:t,memoryText:'',statusHuman:t?'Fontes: ESPN':'',sources:null};
+    }catch{_ctx={fdCtx:'',hasFd:false,teams:[],apiText:'',memoryText:'',statusHuman:'',sources:null};}
   }
+  // Anti-fantasma UI: mostra só o que de fato entrou (sem listar vazios)
+  try{
+    const st=_ctx.statusHuman||'';
+    if(st&&onUpdate)onUpdate({status:st,phase:1,inTokens:0,outTokens:0});
+  }catch{}
   const fdCtx=_ctx.fdCtx||'';
   const hasFd=!!_ctx.hasFd;
   const _teams=Array.isArray(_ctx.teams)?_ctx.teams:[];
+  const _activeIds=(_ctx.sources&&Array.isArray(_ctx.sources.active))?_ctx.sources.active.map(a=>a.id||a.label).filter(Boolean):[];
   // jogadores_chave é uma LISTA DE OBJETOS estruturados (um por jogador citado) com o
   // conjunto fundamental de stats da competição — assim os mercados de jogador ficam cobertos
   // já na coleta e o portão de completude consegue checar campo a campo depois.
@@ -125,26 +131,29 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // Fontes hiperconfiáveis: TEXTO-GUIA no prompt (orienta o modelo a buscar/priorizar nelas).
   // NÃO usar como allowed_domains — a allowlist por domínio já degradou a coleta e quebrou o
   // formato estruturado 2x (ver worldcupagent-web-search-regression). Aqui é só dica, não filtro.
-  const _srcNote='FONTES (PRIORIZE P1; use P2 se necessário — não descarte fonte boa só por não ser P1): '
+  // Só cita no prompt as fontes ATIVAS desta coleta (anti-fantasma — sem lista genérica de fantasmas).
+  const _activeNote=_activeIds.length
+    ?('REPERTOIRE DESTA COLETA (ativos): '+_activeIds.join(', ')+'. O bloco "=== REPERTOIRE ESTRUTURADO ATIVO ===" lista o benefício de cada um. Use só o que está lá; não invente dados de fonte ausente.\n')
+    :'';
+  const _srcNote='FONTES WEB (PRIORIZE P1; use P2 se necessário): '
     +'P1 imprensa: BBC Sport, The Guardian, Sky Sports, The Athletic, ESPN FC, Reuters. '
-    +'P1 stats: Sofascore e FotMob (métricas por jogo: rating, finalizações, grandes chances, posse, xG, forma, escalações); FBref/StatsBomb, Opta/The Analyst, WhoScored, Understat. '
+    +'P1 stats: Sofascore, FotMob, FBref/StatsBomb, Opta/The Analyst, WhoScored, Understat. '
     +'P1 oficiais: federações e sites de clubes/competições. '
-    +'P1 estruturadas já no contexto (quando presentes): ESPN/API, TheSportsDB, OpenFootball, Scorebat — validação cruzada de placares/tabela; NÃO re-busque o que já está nos blocos. '
-    +'P2: Transfermarkt, Goal, Marca, AS, L\'Équipe, Gazzetta, Kicker, GE/Lance/UOL (BR/CONMEBOL), Fabrizio Romano (@FabrizioRomano) para notícias de última hora. '
-    +'Em conflito, prevalece a mais recente e oficial entre as fontes citadas.';
-  const _coverNote='IMPORTANTE: preencha TODOS os campos do schema (técnico, posição na tabela, lesões/desfalques, escalação, xG, estilo ofensivo, vulnerabilidades) a partir do que cada busca retornar e dos dados já fornecidos — cada busca cobre várias dimensões. A posição na tabela de '+_cl+' é pública — sempre preencha "ranking_fifa" com posição/pontos (ex.: "5º · 28 pts"); não o deixe vazio.\n'
-    +'RESULTADOS JÁ DISPUTADOS: os placares dos jogos que cada time já fez em '+_cl+' são FATOS DUROS e costumam estar no bloco de dados reais (ESPN/TheSportsDB/OpenFootball/Scorebat) — extraia o PLACAR EXATO para "resultados_recentes". Nunca escreva "resultado inferido do contexto".\n'
-    +'MEMÓRIA LOCAL: se existir bloco "=== MEMÓRIA LOCAL ===", reutilize técnico/xG/estilo/ranking/desfalques dali (dados já coletados nesta app, não memória de treino). Só re-busque se faltar o adversário ou o valor estiver velho para o jogo de hoje.\n'
-    +'PRIORIDADE MÁXIMA — técnico e escalação/onze: busque ativamente EXCETO se a MEMÓRIA LOCAL já trouxer valor fresco para o MESMO time. NUNCA preencha de memória de treino do modelo.\n'
-    +'ESCALAÇÃO ESTRUTURADA: preencha "formacao", "onze_provavel" (11 objetos {nome,posicao}) e "banco". Nomes TEM de aparecer nos dados/busca — proibido inventar.\n'
-    +'ESCANTEIOS: "escanteios_por_jogo" e "escanteios_sofridos_por_jogo" com números reais da competição; null só se a busca não trouxer.\n'
-    +'MÉTRICAS POR JOGADOR (Sofascore/FotMob) — "jogadores_chave": 3–5 titulares com jogos/gols/finalizações/cartões/rating de '+_cl+'. SÓ valores da busca.\n'
-    +'VALIDAÇÃO CRUZADA: 2+ fontes → cite juntas; conflito → "lacunas".\n'
-    +_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
+    +'P2: Transfermarkt, Goal, Marca, AS, L\'Équipe, Gazzetta, Kicker, GE/Lance/UOL (BR/CONMEBOL), Fabrizio Romano. '
+    +'Em conflito, prevalece a mais recente e oficial. '
+    +'NÃO trate como lacuna uma fonte estruturada que não apareceu no REPERTOIRE — simplesmente não veio; busque na web só o que falta p/ o schema (técnico, escalação, xG, desfalques).';
+  const _coverNote='IMPORTANTE: preencha o schema a partir dos DADOS DA API (repertoire ativo) + buscas. A posição na tabela de '+_cl+' é pública — preencha "ranking_fifa" com posição/pontos quando os blocos trouxerem.\n'
+    +'PLACARES: se estiverem nos blocos ativos, use o número exato em "resultados_recentes". Nunca "resultado inferido".\n'
+    +'MEMÓRIA LOCAL (se no repertoire): reutilize técnico/xG/estilo do MESMO time; não é memória de treino.\n'
+    +'PRIORIDADE DE BUSCA WEB: o que o repertoire NÃO cobriu — tipicamente técnico, escalação, desfalques, xG, métricas de jogador. NUNCA invente de memória de treino.\n'
+    +'ESCALAÇÃO: formacao + onze_provavel (11 {nome,posicao}) + banco; nomes só se aparecerem nos dados/busca.\n'
+    +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+'.\n'
+    +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (só conflitos úteis, não "fonte X ausente").\n'
+    +_activeNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
     ?`Você é um agente de pesquisa de futebol (${compLabel(state.activeCompId)}). Data: ${_h('currentDateFull')()}.
-CLASSIFICAÇÃO, RESULTADOS E FORMA RECENTE DO CAMPEONATO JÁ VÊM VIA API / fontes estruturadas / memória local abaixo — não pesquise isso de novo.
-Faça NO MÁXIMO ${_maxUses} busca(s) para complementar:
+O bloco REPERTOIRE ESTRUTURADO ATIVO + DADOS DA API abaixo já trazem classificação/resultados/forma quando listados — NÃO re-busque o que eles cobrem.
+Faça NO MÁXIMO ${_maxUses} busca(s) só para complementar o que falta:
 ${_dir}
 ${_coverNote}
 Retorne APENAS JSON válido:
@@ -155,7 +164,7 @@ ${SCHEMA}
 BUSCAS:
 ${_dir}
 ${_coverNote}
-Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e estilo diretamente das páginas. RESPONDA APENAS COM O JSON.`;
+Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e estilo das páginas. RESPONDA APENAS COM O JSON.`;
   const msgs=[{role:'user',content:hasFd?`${query}\n\nDADOS DA API:\n${fdCtx}`:query}];
   let accIn=0,accOut=0; // acumula uso por todas as iterações (busca + resposta)
   // Evidência de busca em TEXTO-CLARO (títulos + URLs dos resultados). O CORPO das páginas
@@ -208,7 +217,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
         // Grava fatos básicos na memória local → próximas análises skipam web_search repetido.
         try{_h('factsMemIngestRawFacts')(_compId,rawFacts);}catch{}
       }
-      return{rawFacts,inTokens:accIn,outTokens:accOut};
+      return{rawFacts,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||''};
     }
     if(data.stop_reason==='tool_use'){
       msgs.push({role:'assistant',content:data.content});
@@ -217,7 +226,7 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side (filtragem dinâmica)
     }else break;
   }
-  return{rawFacts:null,inTokens:accIn,outTokens:accOut};
+  return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||''};
 }
 // Fecha chaves/colchetes pendentes e aspas abertas → recupera JSON cortado no max_tokens.
 function repairJson(s){

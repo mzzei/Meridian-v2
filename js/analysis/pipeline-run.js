@@ -416,11 +416,13 @@ async function runAnalysis(){
 
   try{
     // ── Fase 1: Haiku coleta fatos via web_search ─────────────────────────
-    _h('updateThinkingToks')({status:'Pesquisando dados…',phase:1});
+    _h('updateThinkingToks')({status:'Coleta estruturada…',phase:1});
     let rawFacts=null,p1in=0,p1out=0;
     try{
       const r1=await gatherFacts(query,apiKey,state.abort.signal,(upd)=>_h('updateThinkingToks')({...upd,phase:1}),globalThis.EFFORT_SEARCHES[globalThis.currentEffort]??1);
       rawFacts=r1.rawFacts;p1in=r1.inTokens;p1out=r1.outTokens;
+      // Anti-fantasma: status só com fontes ativas (não lista vazios)
+      if(r1.statusHuman)_h('updateThinkingToks')({status:r1.statusHuman,phase:1});
     }catch(e1){
       if(e1.message==='cancelled'||e1.name==='AbortError')throw e1;
       _h('updateThinkingToks')({status:'Pesquisa falhou, analisando diretamente…',phase:1});

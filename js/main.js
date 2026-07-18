@@ -31,6 +31,7 @@ const CLASSIC = [
   'js/analysis/prompts.js',
   'js/analysis/render.js',
   'js/data/cached-fetch.js',
+  'js/data/source-telemetry.js',
   'js/data/espn.js',
   'js/data/football-apis.js',
   'js/data/free-sources.js',

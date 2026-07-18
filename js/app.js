@@ -1639,7 +1639,15 @@ function startThinking(){
 }
 function updateThinkingToks({inTokens=0,outTokens=0,thinkingTokens=0,status='',phase=2}){
   _thkTokCount=_thkP1Toks+inTokens+outTokens+thinkingTokens;
-  const label=phase===1?'[F1] pesquisando…':status.includes('Raciocinando')?'ainda pensando…':status.includes('Pesquisando')?'buscando dados…':status.includes('Concluindo')?'concluindo…':'analisando…';
+  // Anti-fantasma: se status já é "Fontes: …", mostra direto (lista só ativos)
+  let label;
+  if(status&&/^Fontes:/i.test(status))label='[F1] '+status;
+  else if(status&&/Coleta estruturada/i.test(status))label='[F1] coleta estruturada…';
+  else if(phase===1)label=status&&status.length<48?'[F1] '+status:'[F1] pesquisando…';
+  else if(status.includes('Raciocinando'))label='ainda pensando…';
+  else if(status.includes('Pesquisando'))label='buscando dados…';
+  else if(status.includes('Concluindo'))label='concluindo…';
+  else label='analisando…';
   const lb=document.getElementById('thk-label');if(lb)lb.textContent=label;
 }
 function stopThinking(done=true){

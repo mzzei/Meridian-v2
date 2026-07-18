@@ -167,6 +167,7 @@ assert(factsSrc.includes('factsMemIngestRawFacts'), 'gatherFacts ingests rawFact
 assert(mainSrc.includes("'js/data/free-sources.js'"), 'free-sources in CLASSIC');
 assert(mainSrc.includes("'js/data/facts-memory.js'"), 'facts-memory in CLASSIC');
 assert(mainSrc.includes("'js/data/cached-fetch.js'"), 'cached-fetch in CLASSIC');
+assert(mainSrc.includes("'js/data/source-telemetry.js'"), 'source-telemetry in CLASSIC');
 assert(mainSrc.includes("'js/data/phase1-context.js'"), 'phase1-context in CLASSIC');
 const freeSrc = fs.readFileSync(path.join(ROOT, 'js/data/free-sources.js'), 'utf8');
 const memSrc = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8');
@@ -182,6 +183,12 @@ assert(cachedSrc.includes('cachedJsonFetch') && cachedSrc.includes('joinContextB
 assert(cachedSrc.includes('parseMatchTeamsFromQuery'), 'parseMatchTeamsFromQuery');
 assert(p1Src.includes('collectPhase1Context') && p1Src.includes('phase1FilterTopics'), 'phase1-context API');
 assert(p1Src.includes('apiText') && p1Src.includes('memoryText'), 'api/memory split');
+assert(p1Src.includes('buildAgentSourceLine') || p1Src.includes('agentLine'), 'phase1 agent source line');
+assert(freeSrc.includes('getFreeSourcesBundle'), 'free sources bundle active/silent');
+const telSrc = fs.readFileSync(path.join(ROOT, 'js/data/source-telemetry.js'), 'utf8');
+assert(telSrc.includes('buildAgentSourceLine') && telSrc.includes('recordPhase1Telemetry'), 'source-telemetry API');
+assert(telSrc.includes('REPERTOIRE ESTRUTURADO ATIVO'), 'agent repertoire header');
+assert(factsSrc.includes('REPERTOIRE DESTA COLETA') || factsSrc.includes('statusHuman'), 'gatherFacts anti-ghost status');
 // Passos 2–4: pipeline-facts ESM
 assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
 assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
@@ -301,6 +308,7 @@ for (const rel of [
   'js/data/free-sources.js',
   'js/data/facts-memory.js',
   'js/data/cached-fetch.js',
+  'js/data/source-telemetry.js',
   'js/data/phase1-context.js',
   'js/data/history.js',
 ]) {
@@ -331,7 +339,27 @@ for (const rel of [
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/cached-fetch.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/source-telemetry.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8'), sandbox);
+  // anti-fantasma: só ativos na linha do agente
+  const line = sandbox.buildAgentSourceLine([
+    { id: 'espn', chars: 1200, benefits: ['classificação', 'próximos jogos'] },
+    { id: 'tsdb', chars: 800, benefits: ['resultados'] },
+    { id: 'scorebat', chars: 0, benefits: [] }, // fantasma — não entra
+  ]);
+  assert(line.includes('ESPN') && line.includes('TheSportsDB'), 'agent line lists active');
+  assert(!line.includes('Scorebat'), 'agent line omits zero-char ghost');
+  const tel = sandbox.recordPhase1Telemetry({
+    compId: 'brsa',
+    cascade: 'espn',
+    active: [
+      { id: 'espn', chars: 100, benefits: ['classificação'] },
+      { id: 'openfootball', chars: 200, benefits: ['resultados'] },
+    ],
+    silent: ['scorebat', 'openliga'],
+  });
+  assert(tel.active.length === 2 && tel.silent.includes('scorebat'), 'telemetry keeps silent separate');
+  assert(sandbox.formatSourcesStatusHuman(tel.active).includes('Fontes:'), 'human status');
   assert(typeof sandbox.factsMemSet === 'function', 'factsMemSet classic');
   assert(typeof sandbox.parseMatchTeamsFromQuery === 'function', 'parseMatchTeamsFromQuery');
   const teams = sandbox.parseMatchTeamsFromQuery(

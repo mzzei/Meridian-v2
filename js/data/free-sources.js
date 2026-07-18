@@ -243,10 +243,13 @@ async function getOpenLigaContext(compId) {
 }
 
 /**
- * Registry de fontes independentes (paralelo).
- * TSDB vive em espn.js; chamado aqui para um único ponto de agregação.
+ * Registry de fontes independentes (paralelo) — anti-fantasma.
+ * Retorna { text, active[], silent[] }:
+ *   active = só quem devolveu texto útil (entra no agente)
+ *   silent = tentados e vazios (NÃO vão pro prompt; só telemetria)
+ * TSDB vive em espn.js.
  */
-async function getFreeSourcesContext(compId) {
+async function getFreeSourcesBundle(compId) {
   const id = _freeCompId(compId);
   const providers = [
     {
@@ -258,40 +261,44 @@ async function getFreeSourcesContext(compId) {
     { id: 'scorebat', run: () => getScorebatContext(id) },
     { id: 'openliga', run: () => getOpenLigaContext(id) },
   ];
-  const results = await Promise.all(
+  const settled = await Promise.all(
     providers.map(async (p) => {
       try {
         const text = await p.run();
-        return text && String(text).trim() ? { id: p.id, text: String(text).trim() } : null;
+        const t = text && String(text).trim() ? String(text).trim() : '';
+        if (!t) return { id: p.id, ok: false, text: '', chars: 0 };
+        return { id: p.id, ok: true, text: t, chars: t.length };
       } catch {
-        return null;
+        return { id: p.id, ok: false, text: '', chars: 0 };
       }
     })
   );
-  const blocks = results.filter(Boolean).map((r) => r.text);
-  if (typeof joinContextBlocks === 'function') {
-    return joinContextBlocks(blocks, { maxTotal: FREE_CAP_TOTAL, maxEach: FREE_CAP_EACH });
-  }
-  return blocks.join('\n\n').slice(0, FREE_CAP_TOTAL);
+  const active = settled
+    .filter((r) => r.ok)
+    .map((r) => ({
+      id: r.id,
+      text: r.text,
+      chars: r.chars,
+      benefits:
+        typeof detectSourceBenefits === 'function' ? detectSourceBenefits(r.text) : [],
+    }));
+  const silent = settled.filter((r) => !r.ok).map((r) => r.id);
+  const blocks = active.map((a) => a.text);
+  const text =
+    typeof joinContextBlocks === 'function'
+      ? joinContextBlocks(blocks, { maxTotal: FREE_CAP_TOTAL, maxEach: FREE_CAP_EACH })
+      : blocks.join('\n\n').slice(0, FREE_CAP_TOTAL);
+  return { text, active, silent };
 }
 
-/** Lista de provider ids que responderam (debug / meta). */
+/** Compat: só o texto (quem não precisa de telemetria). */
+async function getFreeSourcesContext(compId) {
+  const b = await getFreeSourcesBundle(compId);
+  return b.text || '';
+}
+
+/** Ids ativos (telemetria). */
 async function getFreeSourcesMeta(compId) {
-  const id = _freeCompId(compId);
-  const checks = [
-    ['tsdb', typeof getTsdbContext === 'function' ? getTsdbContext(id) : ''],
-    ['openfootball', getOpenFootballContext(id)],
-    ['scorebat', getScorebatContext(id)],
-    ['openliga', getOpenLigaContext(id)],
-  ];
-  const used = [];
-  await Promise.all(
-    checks.map(async ([name, p]) => {
-      try {
-        const t = await p;
-        if (t && String(t).trim()) used.push(name);
-      } catch {}
-    })
-  );
-  return used;
+  const b = await getFreeSourcesBundle(compId);
+  return (b.active || []).map((a) => a.id);
 }

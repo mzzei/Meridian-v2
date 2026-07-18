@@ -1,24 +1,15 @@
 /* js/data/phase1-context.js — orquestra coleta estruturada da Fase 1
  *
- * Um único ponto: cascata paga/grátis + free registry + memória por times.
- * gatherFacts só consome o resultado (sem spaghetti de IIFEs).
- *
- * Retorno:
- *   {
- *     apiText,      // só APIs (p/ ingest memória; sem eco de MEMÓRIA LOCAL)
- *     memoryText,   // bloco MEMÓRIA LOCAL focado nos times
- *     fdCtx,        // api + free + memória (p/ prompt), com orçamento
- *     hasFd,        // há dado estruturado de API nesta run (não só memória)
- *     teams,        // [home, away] parseados da query
- *     sources,      // meta leve
- *   }
+ * Cascata AF→FD→ESPN + free registry + memória.
+ * Anti-fantasma: só fontes ATIVAS entram no prompt (linha de repertoire limpa).
+ * Silenciosas (vazias) ficam só na telemetria — sem lacunas inventadas.
  */
 const PHASE1_CTX_TOTAL = 16000;
 const PHASE1_CTX_EACH = 5000;
 
 /**
- * Cascata AF → FD → ESPN (igual comportamento histórico).
- * Funções vêm do global classic (football-apis / espn).
+ * Cascata AF → FD → ESPN.
+ * @returns {{text:string, source:string, benefits:string[]}}
  */
 async function _phase1CascadePaidOrEspn(query) {
   let fdCtx = '';
@@ -50,7 +41,17 @@ async function _phase1CascadePaidOrEspn(query) {
       if (fdCtx) source = 'espn';
     }
   } catch {}
-  return { text: fdCtx || '', source };
+  const text = fdCtx || '';
+  return {
+    text,
+    source,
+    benefits:
+      text && typeof detectSourceBenefits === 'function'
+        ? detectSourceBenefits(text)
+        : text
+          ? ['contexto estruturado']
+          : [],
+  };
 }
 
 /**
@@ -63,28 +64,38 @@ async function collectPhase1Context(compId, query) {
   const teams =
     typeof parseMatchTeamsFromQuery === 'function' ? parseMatchTeamsFromQuery(query) : [];
 
-  // free registry (TSDB+OF+Scorebat+OpenLiga) em paralelo com a cascata
+  // free bundle (texto + active/silent) em paralelo com a cascata
   const freeP =
-    typeof getFreeSourcesContext === 'function'
-      ? getFreeSourcesContext(id).catch(() => '')
-      : Promise.resolve('');
+    typeof getFreeSourcesBundle === 'function'
+      ? getFreeSourcesBundle(id).catch(() => ({ text: '', active: [], silent: [] }))
+      : typeof getFreeSourcesContext === 'function'
+        ? getFreeSourcesContext(id)
+            .then((t) => ({
+              text: t || '',
+              active: t ? [{ id: 'free', text: t, chars: t.length }] : [],
+              silent: [],
+            }))
+            .catch(() => ({ text: '', active: [], silent: [] }))
+        : Promise.resolve({ text: '', active: [], silent: [] });
 
   const cascade = await _phase1CascadePaidOrEspn(query);
-  let freeText = '';
+  let freeBundle = { text: '', active: [], silent: [] };
   try {
-    freeText = (await freeP) || '';
+    freeBundle = (await freeP) || freeBundle;
   } catch {
-    freeText = '';
+    freeBundle = { text: '', active: [], silent: [] };
   }
 
-  // apiText = cascata + free — NUNCA inclui memória (evita ingest circular)
-  const apiParts = [cascade.text, freeText].filter((t) => t && String(t).trim());
+  // apiText = cascata + free ativos — sem memória, sem fantasmas
+  const apiParts = [cascade.text, freeBundle.text].filter((t) => t && String(t).trim());
   const apiText =
     typeof joinContextBlocks === 'function'
-      ? joinContextBlocks(apiParts, { maxTotal: PHASE1_CTX_TOTAL - 2000, maxEach: PHASE1_CTX_EACH })
+      ? joinContextBlocks(apiParts, {
+          maxTotal: PHASE1_CTX_TOTAL - 2500,
+          maxEach: PHASE1_CTX_EACH,
+        })
       : apiParts.join('\n\n');
 
-  // persiste trechos reais de API (não o bloco de memória)
   try {
     if (apiText && typeof factsMemIngestStructured === 'function') {
       factsMemIngestStructured(id, apiText);
@@ -100,14 +111,64 @@ async function collectPhase1Context(compId, query) {
     memoryText = '';
   }
 
-  const allParts = [apiText, memoryText].filter((t) => t && String(t).trim());
+  // active list (só o que tem chars) — base do raciocínio limpo
+  const active = [];
+  if (cascade.text && cascade.source) {
+    active.push({
+      id: cascade.source,
+      text: cascade.text,
+      chars: cascade.text.length,
+      benefits: cascade.benefits || [],
+    });
+  }
+  (freeBundle.active || []).forEach((a) => {
+    if (a && a.chars > 0) active.push(a);
+  });
+  if (memoryText && memoryText.trim()) {
+    active.push({
+      id: 'memory',
+      text: memoryText,
+      chars: memoryText.length,
+      benefits:
+        typeof detectSourceBenefits === 'function'
+          ? detectSourceBenefits(memoryText)
+          : ['cache local'],
+    });
+  }
+
+  const agentLine =
+    typeof buildAgentSourceLine === 'function' ? buildAgentSourceLine(active) : '';
+
+  // fdCtx: linha de repertoire (se houver) + dados — sem listar silenciosas
+  const bodyParts = [agentLine, apiText, memoryText].filter((t) => t && String(t).trim());
   const fdCtx =
     typeof joinContextBlocks === 'function'
-      ? joinContextBlocks(allParts, { maxTotal: PHASE1_CTX_TOTAL, maxEach: PHASE1_CTX_EACH })
-      : allParts.join('\n\n');
+      ? joinContextBlocks(bodyParts, {
+          maxTotal: PHASE1_CTX_TOTAL,
+          maxEach: PHASE1_CTX_EACH,
+        })
+      : bodyParts.join('\n\n');
 
-  // hasFd = API real nesta run (cascata ou free). Memória sozinha NÃO conta.
-  const hasFd = !!(cascade.text || freeText);
+  const hasFd = !!(cascade.text || freeBundle.text);
+
+  const telemetry =
+    typeof recordPhase1Telemetry === 'function'
+      ? recordPhase1Telemetry({
+          compId: id,
+          cascade: cascade.source || null,
+          active,
+          silent: freeBundle.silent || [],
+          freeChars: (freeBundle.text || '').length,
+          apiChars: (apiText || '').length,
+          memoryChars: (memoryText || '').length,
+          teams,
+          agentLine,
+        })
+      : {
+          active,
+          silent: freeBundle.silent || [],
+          cascade: cascade.source || null,
+        };
 
   return {
     apiText,
@@ -115,12 +176,12 @@ async function collectPhase1Context(compId, query) {
     fdCtx,
     hasFd,
     teams,
-    sources: {
-      cascade: cascade.source || null,
-      freeChars: (freeText || '').length,
-      memoryChars: (memoryText || '').length,
-      teams,
-    },
+    agentLine,
+    sources: telemetry,
+    statusHuman:
+      typeof formatSourcesStatusHuman === 'function'
+        ? formatSourcesStatusHuman(active)
+        : active.map((a) => a.id).join(' · '),
   };
 }
 
@@ -141,7 +202,7 @@ function phase1FilterTopics(topics, compId, hasStructured, teams) {
     skipNote =
       '\nECONOMIA DE BUSCA (memória local fresca p/ os times deste jogo): dimensões não re-buscadas: ' +
       out.skippedDims.join(', ') +
-      '. Use MEMÓRIA LOCAL / DADOS DA API; só busque lacunas e atualizações de última hora.\n';
+      '. Use REPERTOIRE / DADOS DA API; só busque lacunas reais do jogo (lesões de última hora, etc.).\n';
   }
   return {
     topics: out.topics || topics || [],
