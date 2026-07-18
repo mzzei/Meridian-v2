@@ -1,6 +1,6 @@
 /* js/analysis/pipeline-run.js — runChat, runAnalysis, streamOnce */
 async function runChat(){
-  if(_running)return;
+  if(_running)return; // state.running via bridge
   const apiKey=document.getElementById('api-key-input').value.trim();
   const query=document.getElementById('match-input').value.trim();
   const atts=_attachments.slice();
@@ -369,7 +369,8 @@ async function runAnalysis(){
   const query=document.getElementById('match-input').value.trim();
   if(!query){document.getElementById('match-input').focus();return;}
 
-  _running=true;_abort=new AbortController();_pendingQuery=query;
+  _abort=new AbortController();_pendingQuery=query;
+  if(typeof setRunning==='function')setRunning(true,_abort,query);else _running=true;
   document.getElementById('error-box').style.display='none';
   setRunBtn(true);
   const ks=document.getElementById('key-status');ks.textContent='Analisando…';ks.style.color='var(--muted)';
@@ -547,7 +548,8 @@ async function runAnalysis(){
       }
     }
   }finally{
-    _running=false;_abort=null;
+    if(typeof setRunning==='function')setRunning(false,null,'');
+    else{_running=false;_abort=null;}
     setRunBtn(false);
   }
 }

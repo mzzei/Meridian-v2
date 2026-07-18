@@ -49,6 +49,18 @@ Arquivos envolvidos (nomes aproximados):
 
 Faça **um passo por vez**. Só avance se o passo anterior estiver “OK”.
 
+### Status atual (implementado no código)
+
+| Passo | Status |
+|-------|--------|
+| 0–1 base | OK (state, competitions, html-bridge, testes) |
+| **2** liga via catálogo | **OK** — `pipeline-facts` importa `compLabel` / `compSanity` / `compSeasonLabel` |
+| **3** state na análise | **OK** — `state.activeCompId`; `setRunning` no `runAnalysis` |
+| **4** pipeline-facts ESM | **OK** — import no `main.js`, fora do classic |
+| 5 pipeline-run ESM | pendente |
+| 6 espn/af/live ESM | pendente |
+| 7 limpeza final | pendente |
+
 ### Passo 0 — Checklist de segurança (sempre)
 
 1. Servidor local ligado (`Iniciar Meridian v2` / porta 3457).  

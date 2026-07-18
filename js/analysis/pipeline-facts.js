@@ -1,4 +1,22 @@
-/* js/analysis/pipeline-facts.js — grounding, gather, verify, placares */
+/* js/analysis/pipeline-facts.js — ESM (gather/verify + grounding)
+ * Passos 2–4: competitions + state por import; host APIs em call-time via _h().
+ */
+import { expose } from '../expose.js';
+import { host } from '../runtime.js';
+import { state } from '../state.js';
+import {
+  compLabel,
+  compSanity,
+  compSeasonLabel,
+} from '../comp/competitions.js';
+
+/** Funções classic (espn/af/app) resolvidas só na chamada — após loadClassic. */
+function _h(name) {
+  const fn = host()[name];
+  if (typeof fn === 'function') return fn;
+  throw new Error('[pipeline-facts] host missing: ' + name);
+}
+
 // Regra de grounding temporal compartilhada (Fase 1 coleta + Fase 2 análise). Escrita UMA vez:
 // princípio geral (qualquer fato volátil só dos dados) + verificação (dados vencem a memória) +
 // completude (extrair tudo; "a confirmar" é último recurso). Cobre toda a classe de erro, não
@@ -69,22 +87,22 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   let fdCtx='';
   // TheSportsDB (fonte independente da cascata) dispara JÁ e roda em paralelo com AF/FD/ESPN;
   // só é aguardada no fim, então seu timeout (até 8s se não responder) não soma ao tempo total.
-  const _tsdbPromise=getTsdbContext().catch(()=>'');
-  if(getAfKey()){
-    const[standings,fixtures]=await Promise.all([getAfStandings(),getAfFixtures()]);
-    fdCtx=formatAfContext(standings,fixtures);
+  const _tsdbPromise=_h('getTsdbContext')().catch(()=>'');
+  if(_h('getAfKey')()){
+    const[standings,fixtures]=await Promise.all([_h('getAfStandings')(),_h('getAfFixtures')()]);
+    fdCtx=_h('formatAfContext')(standings,fixtures);
     // Técnico atual e escalação confirmada direto da API-Football (determinístico).
-    if(fdCtx)fdCtx+=await afEnrichCoachLineup(query,fixtures);
+    if(fdCtx)fdCtx+=await _h('afEnrichCoachLineup')(query,fixtures);
   }
-  if(!fdCtx&&getFdKey()){
-    const[standings,matches]=await Promise.all([getFdStandings(),getFdMatches()]);
-    fdCtx=formatFdContext(standings,matches);
+  if(!fdCtx&&_h('getFdKey')()){
+    const[standings,matches]=await Promise.all([_h('getFdStandings')(),_h('getFdMatches')()]);
+    fdCtx=_h('formatFdContext')(standings,matches);
   }
   if(!fdCtx){
     // ESPN: grátis, sem chave — base garantida (classificação, resultados, forma recente).
     // Técnico/escalação NÃO vêm da ESPN → ficam por conta do web_search (Sofascore etc.).
-    const[standings,scoreboard]=await Promise.all([getEspnStandings(),getEspnScoreboard()]);
-    fdCtx=formatEspnContext(standings,scoreboard);
+    const[standings,scoreboard]=await Promise.all([_h('getEspnStandings')(),_h('getEspnScoreboard')()]);
+    fdCtx=_h('formatEspnContext')(standings,scoreboard);
   }
   // Camada extra: TheSportsDB (grátis, CORS aberto) — 2ª fonte estruturada INDEPENDENTE.
   // Sempre anexada quando responde: dá à Fase 2 material real p/ validação cruzada de
@@ -103,8 +121,8 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   // esforço: a 1ª busca é abrangente e a forma já vem do ESPN/API de graça. O esforço só
   // adiciona buscas que APROFUNDAM/cruzam fontes — não destrava tópicos. A profundidade de
   // raciocínio vem do thinking budget da Fase 2, separada da coleta.
-  const _cl=compLabel(_activeCompId);
-  const _season=typeof compSeasonLabel==='function'?compSeasonLabel(_activeCompId):'';
+  const _cl=compLabel(state.activeCompId);
+  const _season=typeof compSeasonLabel==='function'?compSeasonLabel(state.activeCompId):'';
   const topics=hasFd?[
     `"[Mandante] [Visitante] ${_cl} técnico atual posição tabela lesões suspensões escalação provável xG estilo tático" — Sofascore, FotMob, Transfermarkt, fbref`,
     `"[Mandante] desfalques e [Visitante] vulnerabilidades defensivas ${_cl} esquema tático treinador" — imprensa esportiva, Sofascore`,
@@ -135,20 +153,20 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'VALIDAÇÃO CRUZADA NA COLETA: quando um mesmo fato (técnico, escalação, xG, placar) aparecer em 2+ fontes independentes, cite as fontes juntas no próprio valor (ex.: "4-3-3 (Sofascore, FBref)"); quando vier de UMA única fonte, cite só ela — a etapa de análise usa essa marcação para calibrar a confiança. Se duas fontes CONFLITAREM, registre o conflito em "lacunas" com ambas as versões.\n'
     +_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
-    ?`Você é um agente de pesquisa de futebol (${compLabel(_activeCompId)}). Data: ${currentDateFull()}.
+    ?`Você é um agente de pesquisa de futebol (${compLabel(state.activeCompId)}). Data: ${_h('currentDateFull')()}.
 CLASSIFICAÇÃO, RESULTADOS E FORMA RECENTE DO CAMPEONATO JÁ VÊM VIA API abaixo — não pesquise isso.
 Faça NO MÁXIMO ${_maxUses} busca(s) para complementar:
 ${_dir}
 ${_coverNote}
 Retorne APENAS JSON válido:
 ${SCHEMA}`
-    :`Você é um agente de pesquisa de futebol (${compLabel(_activeCompId)}). Data: ${currentDateFull()}.
+    :`Você é um agente de pesquisa de futebol (${compLabel(state.activeCompId)}). Data: ${_h('currentDateFull')()}.
 Faça NO MÁXIMO ${_maxUses} busca(s) (uma por linha) e retorne APENAS JSON válido:
 ${SCHEMA}
 BUSCAS:
 ${_dir}
 ${_coverNote}
-Extraia placares, classificação de ${compLabel(_activeCompId)}, xG e estilo diretamente das páginas. RESPONDA APENAS COM O JSON.`;
+Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e estilo diretamente das páginas. RESPONDA APENAS COM O JSON.`;
   const msgs=[{role:'user',content:hasFd?`${query}\n\nDADOS DA API:\n${fdCtx}`:query}];
   let accIn=0,accOut=0; // acumula uso por todas as iterações (busca + resposta)
   // Evidência de busca em TEXTO-CLARO (títulos + URLs dos resultados). O CORPO das páginas
@@ -158,30 +176,30 @@ Extraia placares, classificação de ${compLabel(_activeCompId)}, xG e estilo di
   // Filtragem dinâmica (opt-in): Sonnet + web_search_20260209 filtra as páginas antes de
   // entrarem no contexto. Auto-cura: se o acesso não suportar (400), desliga e cai pro
   // Haiku + web_search básico (caminho provado) sem quebrar a coleta.
-  let _useModel=getDynSearch()?'claude-sonnet-4-6':'claude-haiku-4-5-20251001';
-  let _useTool=getDynSearch()?'web_search_20260209':'web_search_20250305';
-  let _dynActive=getDynSearch();
+  let _useModel=_h('getDynSearch')()?'claude-sonnet-4-6':'claude-haiku-4-5-20251001';
+  let _useTool=_h('getDynSearch')()?'web_search_20260209':'web_search_20250305';
+  let _dynActive=_h('getDynSearch')();
   // Structured outputs na coleta: JSON garantido pela API (testado ao vivo com
   // Haiku 4.5 e Sonnet 4.6 + web_search). Auto-cura: 400 → desliga e repete.
   let _soP1=true;
   for(let i=0;i<5;i++){
     if(signal.aborted)throw new Error('cancelled');
     const mkBody=()=>JSON.stringify({model:_useModel,max_tokens:3000,system:SP,messages:msgs,tools:[{type:_useTool,name:'web_search',max_uses:_maxUses}],...(_soP1?{output_config:{format:{type:'json_schema',schema:FACTS_SCHEMA}}}:{})});
-    let res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body:mkBody(),signal});
+    let res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
     // Auto-cura em 400, do reparo mais barato para o mais destrutivo:
     // 1º structured outputs (flag local, não muda modelo nem persiste nada);
     // só se o 400 PERSISTIR desligamos a filtragem dinâmica (persistida + rebaixa Sonnet→Haiku).
     // Ordem importa: um 400 causado pelo structured outputs não pode sacrificar a dynSearch por engano.
     if(res.status===400&&_soP1){
       _soP1=false; // structured outputs não suportado neste acesso/combinação → caminho provado
-      res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body:mkBody(),signal});
+      res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
     }
     if(res.status===400&&_dynActive){
-      setDynSearch(false);_dynActive=false;_useModel='claude-haiku-4-5-20251001';_useTool='web_search_20250305';
-      try{toast('Filtragem dinâmica indisponível neste acesso — usando busca padrão.');}catch{}
-      res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body:mkBody(),signal});
+      _h('setDynSearch')(false);_dynActive=false;_useModel='claude-haiku-4-5-20251001';_useTool='web_search_20250305';
+      try{_h('toast')('Filtragem dinâmica indisponível neste acesso — usando busca padrão.');}catch{}
+      res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
     }
-    parseRateLimitHeaders(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
+    _h('parseRateLimitHeaders')(res);if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
     const data=await res.json();
     const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;
     // Colhe títulos/URLs dos resultados de busca desta iteração (texto-claro).
@@ -299,16 +317,16 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
     if(!gaps.length&&!teamGaps.length)return{inTokens:0,outTokens:0}; // completo → custo zero
     onUpdate&&onUpdate({status:'Completando dados faltantes…',phase:1});
     const partes=[];
-    const _clGap=compLabel(_activeCompId);
+    const _clGap=compLabel(state.activeCompId);
     if(teamGaps.length)partes.push('CLUBES (posição na tabela de '+_clGap+' é pública — ex.: "5º · 28 pts"):\n'+teamGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(gaps.length)partes.push('JOGADORES:\n'+gaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (tabela/posição · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":""}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/"" quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;
-    const msgs=[{role:'user',content:`DATA: ${currentDateFull()}. Busque e preencha os dados faltantes em ${_clGap}:\n${partes.join('\n\n')}`}];
+    const msgs=[{role:'user',content:`DATA: ${_h('currentDateFull')()}. Busque e preencha os dados faltantes em ${_clGap}:\n${partes.join('\n\n')}`}];
     let accIn=0,accOut=0;
     for(let i=0;i<3;i++){
       if(signal.aborted)break;
       const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,system:SP,messages:msgs,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}]});
-      const res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body,signal});
+      const res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body,signal});
       if(!res.ok)break;
       const data=await res.json();const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;
       if(data.stop_reason==='end_turn'){
@@ -337,10 +355,10 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
 function _lvKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
 function _lvCollectNames(tm){
   if(!tm)return[];
-  const out=[],push=n=>{const c=_cleanName(n);if(c&&c.length>1&&!/^a confirmar$/i.test(c))out.push(c);};
+  const out=[],push=n=>{const c=_h('_cleanName')(n);if(c&&c.length>1&&!/^a confirmar$/i.test(c))out.push(c);};
   (Array.isArray(tm.onze_provavel)?tm.onze_provavel:[]).forEach(p=>push(typeof p==='string'?p:(p&&p.nome)));
   (Array.isArray(tm.banco)?tm.banco:[]).forEach(push);
-  const rows=_lineupRowsFromText(tm.escalacao_provavel||'',tm.formacao||'');
+  const rows=_h('_lineupRowsFromText')(tm.escalacao_provavel||'',tm.formacao||'');
   if(rows)rows.flat().forEach(p=>push(p.nome));
   const seen=new Set(),ded=[];
   out.forEach(n=>{const k=_lvKey(n);if(k&&!seen.has(k)){seen.add(k);ded.push(n);}});
@@ -372,16 +390,16 @@ async function verifyLineupNames(rawFacts,apiKey,signal,onUpdate){
     const mNome=(rawFacts.mandante&&rawFacts.mandante.nome)||'mandante',vNome=(rawFacts.visitante&&rawFacts.visitante.nome)||'visitante';
     onUpdate&&onUpdate({status:'Verificando escalações…',phase:1});
     const evi=(rawFacts._evidence||'').slice(0,3000);
-    const _clLv=compLabel(_activeCompId);
+    const _clLv=compLabel(state.activeCompId);
     const SP=`Você VERIFICA elencos de ${_clLv} com busca na web. Para CADA jogador listado, confirme se ele está ATUALMENTE no clube indicado e disponível (no elenco) para ${_clLv}. Responda APENAS JSON: {"jogadores":[{"nome":"","time":"mandante|visitante","no_elenco":true|false|null}]}. `
       +'no_elenco=false SOMENTE se a busca mostrar que ele NÃO está no elenco atual (aposentado do clube, cortado, ou nome que não corresponde a jogador real desse clube). no_elenco=true se achar o jogador no elenco/escalação atual. no_elenco=null se não achar evidência suficiente — NUNCA invalide por falta de evidência, só com evidência de ausência. Não invente jogadores nem substitutos.';
     const lista=[...mN.map(n=>`- ${n} (${mNome})`),...vN.map(n=>`- ${n} (${vNome})`)].join('\n');
-    const msgs=[{role:'user',content:`DATA: ${currentDateFull()}. Jogo: ${mNome} x ${vNome}. Verifique no elenco atual (${_clLv}):\n${lista}${evi?`\n\nEVIDÊNCIA JÁ COLETADA (títulos/links de busca — use como pista, confirme com nova busca):\n${evi}`:''}`}];
+    const msgs=[{role:'user',content:`DATA: ${_h('currentDateFull')()}. Jogo: ${mNome} x ${vNome}. Verifique no elenco atual (${_clLv}):\n${lista}${evi?`\n\nEVIDÊNCIA JÁ COLETADA (títulos/links de busca — use como pista, confirme com nova busca):\n${evi}`:''}`}];
     let accIn=0,accOut=0,verif=null;
     for(let i=0;i<3;i++){
       if(signal.aborted)break;
       const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,system:SP,messages:msgs,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}]});
-      const res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body,signal});
+      const res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body,signal});
       if(!res.ok)break;
       const data=await res.json();const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;
       if(data.stop_reason==='end_turn'){
@@ -401,7 +419,7 @@ async function verifyLineupNames(rawFacts,apiKey,signal,onUpdate){
         const rm=[..._lvScrubTeam(rawFacts.mandante,invalid),..._lvScrubTeam(rawFacts.visitante,invalid)];
         if(rm.length){
           rawFacts.lacunas=Array.isArray(rawFacts.lacunas)?rawFacts.lacunas:[];
-          rawFacts.lacunas.push(`Nome(s) retirado(s) da escalação por não constarem no elenco atual de ${compLabel(_activeCompId)} (verificação automática): ${rm.join(', ')}.`);
+          rawFacts.lacunas.push(`Nome(s) retirado(s) da escalação por não constarem no elenco atual de ${compLabel(state.activeCompId)} (verificação automática): ${rm.join(', ')}.`);
         }
       }
     }
@@ -430,7 +448,7 @@ async function verifyAnalysis(parsed,rawFacts,apiKey,signal,onUpdate){
   try{
     if(!parsed)return null;
     onUpdate&&onUpdate({status:'Auditando análise…',phase:2});
-    const SP=`Você é um AUDITOR de análises de futebol multi-campeonato (foco: ${compLabel(_activeCompId)}). Recebe (A) FATOS COLETADOS e (B) a ANÁLISE final. NÃO refaça a análise; aponte apenas problemas OBJETIVOS e verificáveis nos dois blocos: `
+    const SP=`Você é um AUDITOR de análises de futebol multi-campeonato (foco: ${compLabel(state.activeCompId)}). Recebe (A) FATOS COLETADOS e (B) a ANÁLISE final. NÃO refaça a análise; aponte apenas problemas OBJETIVOS e verificáveis nos dois blocos: `
       +'1) INCONSISTÊNCIA NUMÉRICA — probabilidade de ticket incompatível com os lambdas declarados; múltipla cuja probabilidade combinada não bate com o produto das pernas; 1X2 que não soma ~100%. '
       +'2) FALTA DE LASTRO — afirmação factual central de (B) apresentada como MEDIDA/oficial que NÃO aparece em (A) (possível alucinação). Se (A) estiver vazio, pule este critério. NÃO é falta de lastro um valor rotulado como ESTIMADO (ex.: "xG estimado ~1.6 · de finalizações/grandes chances") derivado de proxies presentes em (A) — estimar é função legítima do analista; só marque se a estimativa NÃO tiver proxy nenhum em (A) ou for vendida como valor oficial. '
       +'3) CONFIANÇA MAL CALIBRADA — "alto"/"alta" apoiada em fonte única ou convivendo com lacunas graves declaradas. '
@@ -440,7 +458,7 @@ async function verifyAnalysis(parsed,rawFacts,apiKey,signal,onUpdate){
       +'Responda APENAS JSON: {"veredito":"aprovada|com_ressalvas","rebaixar_confianca":true|false,"ressalvas":[{"gravidade":"alta|media","problema":"","onde":""}]}';
     const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,system:SP,
       messages:[{role:'user',content:`(A) FATOS COLETADOS:\n${JSON.stringify(rawFacts||{})}\n\n(B) ANÁLISE FINAL:\n${JSON.stringify(parsed)}`}]});
-    const res=await fetch(getApiBase()+'/v1/messages',{method:'POST',headers:getReqHeaders(apiKey),body,signal});
+    const res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body,signal});
     if(!res.ok)return null;
     const data=await res.json();const u=data.usage||{};
     const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -503,7 +521,7 @@ function hasExplicitMatchAnchor(q){
   if(sideHits.length>=2)return true;
   if(sideHits.length===1&&/\b(hoje|ontem|agora|placar|resultado|amistoso|final|semi|copa|libertadores|brasileir|premier|champions|euro|mundial)\b/i.test(s))return true;
   // contexto da conversa já nomeou o jogo
-  const ctx=getChatContext();
+  const ctx=_h('getChatContext')();
   if(ctx&&/\b(?:x|vs\.?|versus|×)\b/i.test(ctx)&&ctx.length>8)return true;
   return false;
 }
@@ -517,7 +535,7 @@ function isVagueMatchQuery(q){
   if(!s||s.length>280)return false;
   if(hasExplicitMatchAnchor(s))return false;
   // anexos / contexto longo com âncora já resolvem
-  if(getChatContext()&&hasExplicitMatchAnchor(getChatContext()))return false;
+  if(_h('getChatContext')()&&hasExplicitMatchAnchor(_h('getChatContext')()))return false;
   const aboutMatch=/\b(jogo|partida|confronto|placar|resultado)\b/i.test(s)
     ||/\b(opini[aã]o|achou|acha|an[aá]lise|analisa|comenta|como\s+foi|que\s+achou)\b/i.test(s);
   const vagueWhen=/\b(hoje|ontem|agora|desse?\s+jogo|do\s+jogo|da\s+partida|o\s+jogo|a\s+partida|esse\s+jogo|essa\s+partida)\b/i.test(s)
@@ -537,8 +555,8 @@ function isVagueMatchQuery(q){
  * Retorna bloco para o chat — o modelo principal não deve inventar placar.
  */
 async function fetchVerifiedMatchFacts(query,apiKey,signal,espnHint){
-  if(!apiKey&&!getWorkerUrl())return'';
-  const today=currentDateFull();
+  if(!apiKey&&!_h('getWorkerUrl')())return'';
+  const today=_h('currentDateFull')();
   const isoToday=new Date().toISOString().slice(0,10);
   const isoYday=new Date(Date.now()-864e5).toISOString().slice(0,10);
   const hintBlock=(espnHint&&String(espnHint).trim())
@@ -606,9 +624,9 @@ JSON:
     let acc='';
     for(let i=0;i<5;i++){
       if(signal&&signal.aborted)break;
-      const res=await fetch(getApiBase()+'/v1/messages',{
+      const res=await fetch(_h('getApiBase')()+'/v1/messages',{
         method:'POST',
-        headers:getReqHeaders(apiKey),
+        headers:_h('getReqHeaders')(apiKey),
         body:JSON.stringify({
           model:'claude-haiku-4-5-20251001',
           max_tokens:1400,
@@ -652,3 +670,38 @@ JSON:
   }
 }
 
+export {
+  GROUNDING_RULE,
+  SOURCE_RULE,
+  ticketRulesFor,
+  gatherFacts,
+  repairJson,
+  parseAnalysisJson,
+  buildEnrichedQuery,
+  fillDataGaps,
+  verifyLineupNames,
+  verifyAnalysis,
+  hasExplicitMatchAnchor,
+  isVagueMatchQuery,
+  _chatNeedsLiveData,
+  _chatNeedsScoreVerification,
+  fetchVerifiedMatchFacts
+};
+
+expose({
+  GROUNDING_RULE,
+  SOURCE_RULE,
+  ticketRulesFor,
+  gatherFacts,
+  repairJson,
+  parseAnalysisJson,
+  buildEnrichedQuery,
+  fillDataGaps,
+  verifyLineupNames,
+  verifyAnalysis,
+  hasExplicitMatchAnchor,
+  isVagueMatchQuery,
+  _chatNeedsLiveData,
+  _chatNeedsScoreVerification,
+  fetchVerifiedMatchFacts
+});

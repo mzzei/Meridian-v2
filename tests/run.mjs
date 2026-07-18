@@ -160,6 +160,13 @@ assert(factsSrc.includes('async function gatherFacts'), 'gatherFacts in pipeline
 assert(runSrc.includes('async function runAnalysis'), 'runAnalysis in pipeline-run');
 assert(!appSrc.includes('async function gatherFacts'), 'gatherFacts not in app.js');
 assert(!appSrc.includes('async function runAnalysis'), 'runAnalysis not in app.js');
+// Passos 2–4: pipeline-facts ESM
+assert(factsSrc.includes("from '../comp/competitions.js'"), 'pipeline-facts imports competitions');
+assert(factsSrc.includes("from '../state.js'"), 'pipeline-facts imports state');
+assert(factsSrc.includes('state.activeCompId'), 'pipeline-facts uses state.activeCompId');
+assert(factsSrc.includes("export {"), 'pipeline-facts has export');
+assert(mainSrc.includes("import './analysis/pipeline-facts.js'"), 'main imports pipeline-facts ESM');
+assert(!mainSrc.includes("'js/analysis/pipeline-facts.js'"), 'pipeline-facts not in CLASSIC');
 assert(!appSrc.includes('function loadSchedule'), 'schedule not in app.js');
 assert(!appSrc.includes('function showView'), 'library not in app.js');
 assert(!appSrc.includes('function _copaStatsHTML'), 'featured not in app.js');

@@ -21,6 +21,8 @@ import './analysis/lineup.js';
 import './analysis/normalize.js';
 import './data/history.js';
 import './export/report.js';
+// Passos 2–4: coleta de fatos com competitions+state por import
+import './analysis/pipeline-facts.js';
 
 expose({ SHELL_VERSION, MERIDIAN_SHELL_VERSION: SHELL_VERSION });
 
@@ -33,7 +35,6 @@ const CLASSIC = [
   'js/data/live.js',
   'js/ui/featured.js',
   'js/ui/library.js',
-  'js/analysis/pipeline-facts.js',
   'js/analysis/pipeline-run.js',
   'js/app.js',
 ];
@@ -59,7 +60,7 @@ try {
   console.info(
     '[Meridian v2] shell',
     SHELL_VERSION,
-    '· state+competitions',
+    '· state+competitions+pipeline-facts',
     '· classic:',
     CLASSIC.length
   );
