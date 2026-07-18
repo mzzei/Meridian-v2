@@ -1097,7 +1097,10 @@ function saveWorkerUrl(v){try{localStorage.setItem(WORKER_URL_STORE,v.trim());}c
 function getApiBase(){const w=getWorkerUrl();return w||'https://api.anthropic.com';}
 function getReqHeaders(apiKey,betas=[]){
   const h={'Content-Type':'application/json','anthropic-version':'2023-06-01'};
-  if(!getWorkerUrl()){h['x-api-key']=apiKey;h['anthropic-dangerous-direct-browser-access']='true';}
+  // x-api-key vai SEMPRE que existir: sem Worker é obrigatória; com Worker serve de
+  // fallback quando a secret ANTHROPIC_KEY não está configurada lá (a secret prevalece).
+  if(apiKey)h['x-api-key']=apiKey;
+  if(!getWorkerUrl())h['anthropic-dangerous-direct-browser-access']='true';
   if(betas.length)h['anthropic-beta']=betas.join(',');
   return h;
 }

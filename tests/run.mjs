@@ -212,6 +212,9 @@ assert(afSrc.includes('CORS da FD') || afSrc.includes('configure Worker URL'), '
 // Shell 61: /status da AF (não conta na cota) — consumo do plano no status
 assert(afSrc.includes('getAfStatus') && afSrc.includes("'/status'"), 'AF status endpoint (quota-free)');
 assert(afSrc.includes('req hoje'), 'AF quota display');
+// Shell 62: x-api-key sempre que existir (fallback p/ Worker sem secret ANTHROPIC_KEY)
+assert(appSrc.includes("if(apiKey)h['x-api-key']=apiKey"), 'x-api-key always sent when present');
+assert(workerSrc.includes("request.headers.get('x-api-key')"), 'worker accepts client anthropic key fallback');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');
 assert(freeSrc.includes('getStatsbombOpenContext') && freeSrc.includes('_sbOpenPickSeason'), 'StatsBomb Open provider');
 assert(freeSrc.includes("id: 'fpl'") && freeSrc.includes("id: 'statsbomb'"), 'fpl+statsbomb in registry');

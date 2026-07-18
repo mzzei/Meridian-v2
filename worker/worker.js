@@ -94,15 +94,16 @@ export default {
 
       // ── Anthropic: {worker}/v1/<path> (streaming) ─────────────────────────
       if (url.pathname.startsWith('/v1/')) {
-        if (!env.ANTHROPIC_KEY) {
-          return new Response(JSON.stringify({ error: { message: 'ANTHROPIC_KEY não configurada no Worker' } }),
-            { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        // Chave: secret do Worker (preferida) OU o x-api-key que o app enviar.
+        // Sem nenhuma das duas → erro claro.
+        if (!env.ANTHROPIC_KEY && !request.headers.get('x-api-key')) {
+          return new Response(JSON.stringify({ error: { message: 'Sem chave Anthropic: configure a secret ANTHROPIC_KEY no Worker ou cole a chave no app.' } }),
+            { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } });
         }
         const upstream = 'https://api.anthropic.com' + url.pathname + url.search;
-        // Repassa os cabeçalhos do cliente, mas injeta a chave a partir do ambiente
-        // (o app NÃO envia x-api-key quando um Worker está configurado).
+        // Repassa os cabeçalhos do cliente; a secret do ambiente (se existir) prevalece.
         const h = new Headers(request.headers);
-        h.set('x-api-key', env.ANTHROPIC_KEY);
+        if (env.ANTHROPIC_KEY) h.set('x-api-key', env.ANTHROPIC_KEY);
         if (!h.has('anthropic-version')) h.set('anthropic-version', '2023-06-01');
         h.delete('host');
         h.delete('anthropic-dangerous-direct-browser-access'); // desnecessário fora do navegador
