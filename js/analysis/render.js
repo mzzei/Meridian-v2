@@ -79,6 +79,25 @@ function _cornerChips(corners){
   };
   return one(corners.mandante)+one(corners.visitante);
 }
+// ── Confronto tático (RECUPERADAS do commit 8f8aae2 — shell 82) ──────────────
+// Perdidas num refactor da decomposição do monólito: renderResults as chamava mas
+// a definição sumiu → TODO card real (schema F2 sempre traz confronto_tatico)
+// crashava com ReferenceError e caía no modo simplificado.
+function ctVanTag(v,hn,an){
+  if(!v||v==='equilibrado')return `<span class="ct-van ct-van-e">Equilibrado</span>`;
+  if(v==='mandante')return `<span class="ct-van ct-van-m">Vantagem ${hn}</span>`;
+  return `<span class="ct-van ct-van-a">Vantagem ${an}</span>`;
+}
+function ctSideSection(s,hn,an,atkN,defN){
+  if(!s)return '';
+  return `<div class="tab-s"><div class="tab-h">Ataque ${atkN} × Defesa ${defN}</div>`+
+    ctVanTag(s.vantagem,hn,an)+
+    (s.diagnostico?`<p class="ct-diag">${esc(s.diagnostico)}</p>`:'')+
+    (s.pontos_exploracao?.length?`<div class="ct-group"><div class="ct-glbl">Pontos de exploração</div>${s.pontos_exploracao.map(p=>`<div class="ct-item ct-atk">${esc(textFrom(p))}</div>`).join('')}</div>`:'')+
+    (s.bloqueios?.length?`<div class="ct-group"><div class="ct-glbl">Bloqueios previstos</div>${s.bloqueios.map(b=>`<div class="ct-item ct-def">${esc(textFrom(b))}</div>`).join('')}</div>`:'')+
+    '</div>';
+}
+
 function renderResults(d,opts){
   opts=opts||{};
   _cardCount++;

@@ -148,6 +148,16 @@ assert(fs.existsSync(path.join(ROOT, 'css/print-report.css')), 'print-report.css
 const renderSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
 assert(renderSrc.includes('renderAnalysisTabShell'), 'render uses tab shell');
 assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not normalize');
+// Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
+assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');
+// toda função chamada no render deve estar definida em algum classic/ESM (fumaça anti-regressão)
+{
+  const calls = renderSrc.match(/\bct[A-Z]\w+\(/g) || [];
+  calls.forEach((c) => {
+    const name = c.slice(0, -1);
+    assert(renderSrc.includes('function ' + name), 'render helper defined: ' + name);
+  });
+}
 
 // --- ownership ---
 const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
