@@ -1,11 +1,11 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 83)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 84)
 
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `83` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** `11ed7c3` (shell 83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80) · `944a3f4` (79)
+**SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** `f0e957a` (shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo até shell 83**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo até shell 84**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -588,6 +588,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **81** | **Export PDF volta à lógica do v1 (impressão nativa)** — PDF real do usuário saiu QUEBRADO com 47 págs/4.6MB: o html2pdf rasterizava (html2canvas→JPEG→jsPDF) e `pagebreak avoid` num card de metros explodia a paginação. Removido o rasterizador; `format:'pdf'` agora abre o relatório HTML numa aba com `autoPrint` (window.print no load) → "Salvar como PDF" nativo: vetorial, ~14KB de HTML, quebras pelo `@media print` (print-report.css já tinha as regras e até o CSS dos botões v1 `.rep-print`). Relatório carrega botão próprio "Salvar como PDF" (`.rep-actions no-print`); popup bloqueado → baixa o HTML com o botão. `assets/vendor/html2pdf` ficou no disco mas SEM uso — não reintroduzir |
 | **82** | **`ctSideSection`/`ctVanTag` RECUPERADAS** (achado do teste de fidelidade do export): a decomposição do monólito perdeu as duas funções do confronto tático; `renderResults` as chamava → **TODO card real crashava** com ReferenceError (schema F2 sempre traz `confronto_tatico`) → catch → modo simplificado. Terceiro assassino silencioso da série (MODEL_PRICE, prefill, ctSideSection). Recuperadas do commit `8f8aae2`; teste de fumaça novo: toda `ct*()` chamada no render deve ter `function ct*` definida. Fidelidade card→relatório validada: nenhuma perda de conteúdo por seção (só o disclaimer, removido de propósito — o relatório tem rodapé próprio) |
 | **83** | **Diagnóstico da FASE 1** (caso real: card completo mas aba Escalação com "pesquisa não pôde ser concluída" = `rawFacts` nulo, Fase 1 morreu MUDA e a F2 pesquisou sozinha): `_lastAnalysisFail` agora cobre `fase1-parse` (end_turn sem JSON, com amostra do texto), `fase1-loop` (5 iterações sem convergir) e `fase1-error` (exceção de API/rede na coleta). O empty-state da aba Escalação mostra o diag (`_fallbackDiagLine`, agora exposta) quando `_coletaOk===false` — o print do usuário passa a dizer POR QUE a coleta falhou. Validado e2e: F1 prosa → card 7 abas entregue + aba com "diagnóstico [fase1-parse]: …" |
+| **84** | **HARDENING DA COLETA F1** (causas achadas por CÓDIGO, sem esperar amostra do usuário): (1) `stop_reason:'max_tokens'` caía no `break` do loop e **jogava fora** um JSON quase completo (teto 3000 era apertado p/ schema com onze+banco+métricas) → agora max_tokens é TERMINAL com parse robusto e o teto subiu p/ **5000**; (2) parse ingênuo (`txt.match` + `JSON.parse` seco) → `gatherFacts`, `fillDataGaps`, `verifyLineupNames` e `verifyAnalysis` agora usam **`parseAnalysisJson`** (strip de cercas markdown + `repairJson`); (3) **retry de forma `_p1JsonRescue`**: se ainda sem JSON, 1 chamada **Haiku SEM tools com prefill `{`** (Haiku aceita prefill, inv. 30) reescreve a resposta anterior como JSON puro — espelha o retry da F2; status UI "Reformatando coleta…". Diag `fase1-parse` agora carimba `[stop=…, retry de forma falhou]`. 5 asserts novos. Pages conferido: serve `main` (auto-atualiza no push) |
 
 ---
 
@@ -625,6 +626,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 30. Fase 2 enriquecida usa **prefill `{`** (assistant) — JSON por construção — **SÓ em modelos que aceitam** (`_prefillOk`; **Sonnet 5 rejeita com 400**). Sem tools, thinking off/disabled, `'{'+text` no parse. Modelo sem prefill que insistir em prosa → resgate **Opus 4.8** com prefill (shells 77/79/80 — nunca Haiku: resgate não rebaixa qualidade).  
 31. Globais de classic lidos via `globalThis` pelo ESM devem ser `var`/`function`/`expose()` — **`const`/`let` de script classic NÃO chegam ao window** (bug MODEL_PRICE, shell 79: derrubava toda análise pós-Fase 2). Ao criar ponte classic↔ESM, teste `typeof globalThis.X`.  
 32. **Escalação empty com card completo ≠ bug de render tático**: significa `_coletaOk === false` (Fase 1 sem `rawFacts`). Diagnóstico obrigatório via `_lastAnalysisFail` stages `fase1-parse` \| `fase1-loop` \| `fase1-error` no empty-state (shell 83) — nunca silenciar a causa da coleta.  
+33. **Todo parse de JSON vindo de LLM usa `parseAnalysisJson`** (fences + `repairJson`) — nunca `txt.match(/\{…\}/)` + `JSON.parse` seco (assert proíbe). `stop_reason:'max_tokens'` na F1 é terminal com salvage, não `break`. Retry de forma da F1 = `_p1JsonRescue` (Haiku + prefill `{`, sem tools) — shell 84.  
 
 ---
 
@@ -655,8 +657,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **83** em `js/version.js` = `sw.js` = `index.html ?v=` ×2  
-- [ ] HEAD ≥ `11ed7c3` (shell 83) · ler **este** handoff mestre (+ 65/67 se Worker)  
+- [ ] `git pull` · `SHELL_VERSION` **84** em `js/version.js` = `sw.js` = `index.html ?v=` ×2  
+- [ ] HEAD ≥ `f0e957a` (shell 84) · ler **este** handoff mestre (+ 65/67 se Worker)  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
 - [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
@@ -688,24 +690,25 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 ## Prompt pronto (colar na próxima sessão)
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 83, HEAD 11ed7c3+).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84, HEAD f0e957a+).
 
 Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-(conteúdo até shell 83 — §7.5 prefill/MODEL_PRICE/resgate Opus/PDF/ctSideSection/diag Fase1 Escalação)
+(conteúdo até shell 84 — §7.5 prefill/MODEL_PRICE/resgate Opus/diag F1 + hardening coleta 84)
 
-Contexto do último print (siufghisughuishg.png):
-- Card 7 abas ok, mas aba Escalação empty = _coletaOk false (Fase 1 rawFacts nulo).
-- Shell 83 já expõe fase1-parse | fase1-loop | fase1-error no empty-state.
-- Próximo: hard reload shell 83 → reanalisar → se Escalação voltar, era transitório;
-  se não, copiar o diagnóstico embutido (amostra) e corrigir a causa da coleta.
+Contexto:
+- Shell 84 blindou a Fase 1: parse robusto (parseAnalysisJson em TODOS os parsers),
+  max_tokens terminal com salvage (teto 5000), retry de forma _p1JsonRescue
+  (Haiku + prefill '{', sem tools). Escalação vazia deve ter ficado rara.
+- Se AINDA aparecer Escalação vazia: o diag agora carimba
+  "[stop=…, retry de forma falhou] amostra…" — colar esse texto e corrigir a causa.
 
 Já FEITO (não reabrir): resgate Opus 4.8 (não Haiku); anti-monólogo F2; PDF nativo v1;
-ctSideSection/ctVanTag; diagnóstico F1 na Escalação.
+ctSideSection/ctVanTag; diagnóstico F1; hardening coleta (84); Pages serve main.
 
-Regras: inv. 30–31; dual-mode; v1 intocável; handoff+commit+push no fim; tests.
+Regras: inv. 30–33; dual-mode; v1 intocável; handoff+commit+push no fim; tests.
 
-Quero: [OBJETIVO — ex.: “analisar amostra fase1-parse que coletei” / “hardening da coleta Haiku” / “Pages ?v=83”]
+Quero: [OBJETIVO — ex.: “amostra fase1 pós-84” / “UI senha avançada” / “rate-limit Worker”]
 ```
 
 ## Próximos passos ainda abertos (produto)
@@ -717,10 +720,10 @@ Quero: [OBJETIVO — ex.: “analisar amostra fase1-parse que coletei” / “ha
 | 3 | PDF export nativo (v1), não html2pdf | **FEITO** shell 81 |
 | 4 | `ctSideSection` / `ctVanTag` no render | **FEITO** shell 82 |
 | 5 | Diagnóstico Fase 1 na aba Escalação | **FEITO** shell 83 |
-| 6 | **Depurar causa real** da F1 nula (se o re-run continuar empty) | **ABERTO** — depende da amostra `fase1-*` do usuário |
-| 7 | Hardening coleta Haiku (JSON garantido / retry / prefill F1?) | **ABERTO** se amostra confirmar prosa/loop |
+| 6 | **Depurar causa real** da F1 nula (se o re-run continuar empty) | **MITIGADO** shell 84 (2 causas de código corrigidas); se AINDA cair, a amostra `fase1-*` agora traz stop_reason + "retry falhou" |
+| 7 | Hardening coleta Haiku (JSON garantido / retry / prefill F1) | **FEITO** shell 84 |
 | 8 | UI troca de senha avançada | aberto |
-| 9 | Confirmar Cloudflare Pages com `?v=83` | aberto |
+| 9 | Confirmar Pages com `?v=` atual | **FEITO** shell 84 — `mzzei.github.io/Meridian-v2` serve o `main` (HTTP 200, `?v=` acompanha o push; conferir de novo só se o push não refletir em ~2min) |
 | 10 | Regenerar secrets AF/FD se zelo | aberto |
 | 11 | Rate-limit Worker | aberto |
 | 12 | Thinking Fase 2 só com schema/structured outputs ok | aberto (budget 0 mantido) |
