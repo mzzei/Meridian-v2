@@ -1,13 +1,13 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 79)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 83)
 
-**Data:** 2026-07-18 (canônico atual)  
+**Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `79` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** `944a3f4` (shell 79) · `73b2852` (78) · `b96f72a` (77) · … · `d2fd1db` (72)
+**SHELL_VERSION:** `83` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência:** `11ed7c3` (shell 83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80) · `944a3f4` (79)
 
-**Nome do arquivo:** histórico (`…SHELL-72-MESTRE…`); conteúdo **atualizado até shell 79**. Não criar cópia 79-MESTRE sem mover o ponteiro em `AGENTS.md`.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo até shell 83**.
 
-**Regra de manutenção:** atualizar este mestre **a cada implementação** (timeline + invariantes no mesmo push). Início de sessão = ler este arquivo. Fim = handoff + commit + push.
+**Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
 Este é o **handoff detalhado e canônico** do agente Meridian v2. Não economizar páginas no que for crucial.
 
@@ -329,11 +329,11 @@ Código:
 function _prefillOk(m){ return !/claude-sonnet-5/.test(m||''); }  // Haiku/Opus: true
 // F2: só preenche '{' se _prefillOk(currentModel)
 // Auto-cura: se e2.message contém /prefill/i → pop do assistant '{' e repete sem prefill
-// RESGATE FINAL: se ainda sem parse E modelo sem prefill → Haiku 4.5 COM prefill monta o card
-//   (7 abas Haiku > modo simplificado)
+// RESGATE FINAL (shell 80): se ainda sem parse E modelo sem prefill
+//   → Opus 4.8 COM prefill monta o card (NUNCA Haiku — não rebaixar qualidade)
 ```
 
-Validado: Sonnet prosa 2× → resgate Haiku → card 7 abas PRÉVIA.
+Validado: Sonnet prosa 2× → resgate **Opus** → card 7 abas PRÉVIA.
 
 **(2) Bug latente `MODEL_PRICE` (derrubava TODA análise)**
 
@@ -352,20 +352,43 @@ const _mainP = (globalThis.MODEL_PRICE||{})[model] || (globalThis.MODEL_PRICE||{
 
 **Invariante 31:** globais classic lidos pelo ESM = `var` / `function` / `expose()`. Testar `typeof globalThis.X`.
 
-### Pedidos do usuário ainda PENDENTES (Claude propôs; **não** estão no código em 944a3f4)
+### Shell 80 — pendências do print (IMPLEMENTADAS)
 
-Do diálogo no print (limite de uso do Claude pode ter interrompido):
+1. **Resgate com Opus 4.8** (nunca rebaixar): `rescueBody.model = 'claude-opus-4-8'` + prefill `{`. Aceita prefill e é tier **acima** do Sonnet. Status UI: “Montando card (resgate Opus)…”.  
+2. **Proibida autocorreção / monólogo** no texto final: regra nos **2 prompts F2**, persona do chat e `conversationalFallback` — sem hesitação do tipo *“retrospecto Gre-Nal… não, esse é outro clássico”* no card.
 
-1. **Proibir monólogo de autocorreção** no texto final do modelo  
-   (ex.: *“…não, esse é o clássico gaúcho”* embutido na resposta).  
-   → Ajustar `analystSystemPrompt` / prompts F2: versão final **sem** monólogo de raciocínio no card.
+### Shells 81–83 (resumo + diagnóstico Escalação)
 
-2. **Resgate não pode rebaixar qualidade**  
-   Hoje o resgate usa **Haiku 4.5**. Usuário: não quer análise inferior.  
-   Proposta do Claude: resgate com **Opus 4.8** (aceita prefill e é tier ≥ Sonnet).  
-   → **Ainda NÃO implementado** — `rescueBody.model` continua `'claude-haiku-4-5-20251001'`.
+| Shell | O quê |
+|-------|--------|
+| **81** | Export PDF: volta à lógica **v1** — `window.print` / Salvar como PDF **vetorial** (~14KB); remove raster html2pdf do fluxo (PDF do user quebrava em 47 páginas) |
+| **82** | **ctSideSection / ctVanTag** recuperadas no `render.js` — perda na decomposição do monólito; **todo** card com `confronto_tatico` crashava no render → modo simplificado (3º assassino silencioso: MODEL_PRICE, prefill, ctSideSection) |
+| **83** | **Diagnóstico da Fase 1**: se `rawFacts` nulo → `_coletaOk === false` → aba Escalação (e siblings) mostram **porquê**, não só “coleta falhou”. `_lastAnalysisFail` cobre `fase1-parse` \| `fase1-loop` \| `fase1-error`. Empty-state Escalação anexa `_fallbackDiagLine()`. |
 
-Próxima sessão de código: implementar (1) e (2) se o usuário confirmar.
+### Interpretação do empty-state Escalação (print shell 83)
+
+Mensagem típica:
+
+> *“A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo…”*
+
+Significa **`_coletaOk === false`** = **Fase 1 (`gatherFacts`) devolveu `rawFacts` nulo** (ou equivalente). A Fase 2 montou tática/tickets/etc. por conta própria a partir do prompt, mas o **mapa de campo / escalação estruturada nasce da coleta** — sem coleta, a aba Escalação fica vazia (comportamento honesto).
+
+**Antes do 83:** a causa da Fase 1 morria muda (só a F2 tinha diagnóstico).  
+**No 83:** a aba Escalação (e o rodapé quando aplicável) mostram:
+
+`shell 83 · diagnóstico [fase1-parse|fase1-loop|fase1-error]: …`
+
+| stage | Significado |
+|-------|-------------|
+| `fase1-parse` | Coleta terminou sem JSON útil; amostra do que o Haiku devolveu |
+| `fase1-loop` | 5 iterações tool_use/pause sem `end_turn` |
+| `fase1-error` | Exceção API/rede na Fase 1 |
+
+**Como depurar no próximo run:** recarregar hard (shell 83 no rodapé) → reanalisar o mesmo jogo.  
+- Escalação **volta** → falha F1 foi transitória (rede, rate limit, timeout).  
+- Continua empty + diag → copiar a **amostra** do diagnóstico (não o sintoma): ex. prosa em vez de JSON, structured output rejeitado, etc.
+
+Código: `normalize.js` `parsed._coletaOk = !!rawFacts`; `render.js` `_abaVaziaMsg` + diag na Escalação; `pipeline-facts.js` registra falhas F1 em `_lastAnalysisFail`.
 
 ## 8. Grounding e regras de verdade (ambos os modos; mais rígidas na análise)
 
@@ -601,6 +624,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 29. Análise sem âncora em jogo real (agenda/scoreboard) → **popup de contexto ANTES do pipeline** (0 chamadas LLM até o usuário escolher); `[Contexto confirmado:]` e `PARTIDA:` pulam o gate; reenvio pós-popup volta para `runAnalysis` (`_ctxResumeMode`), nunca para o chat (shell 75).  
 30. Fase 2 enriquecida usa **prefill `{`** (assistant) — JSON por construção — **SÓ em modelos que aceitam** (`_prefillOk`; **Sonnet 5 rejeita com 400**). Sem tools, thinking off/disabled, `'{'+text` no parse. Modelo sem prefill que insistir em prosa → resgate **Opus 4.8** com prefill (shells 77/79/80 — nunca Haiku: resgate não rebaixa qualidade).  
 31. Globais de classic lidos via `globalThis` pelo ESM devem ser `var`/`function`/`expose()` — **`const`/`let` de script classic NÃO chegam ao window** (bug MODEL_PRICE, shell 79: derrubava toda análise pós-Fase 2). Ao criar ponte classic↔ESM, teste `typeof globalThis.X`.  
+32. **Escalação empty com card completo ≠ bug de render tático**: significa `_coletaOk === false` (Fase 1 sem `rawFacts`). Diagnóstico obrigatório via `_lastAnalysisFail` stages `fase1-parse` \| `fase1-loop` \| `fase1-error` no empty-state (shell 83) — nunca silenciar a causa da coleta.  
 
 ---
 
@@ -631,45 +655,77 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **79** em version/sw/index  
-- [ ] Ler **este** handoff mestre (+ 65/67 se Worker)  
+- [ ] `git pull` · `SHELL_VERSION` **83** em `js/version.js` = `sw.js` = `index.html ?v=` ×2  
+- [ ] HEAD ≥ `11ed7c3` (shell 83) · ler **este** handoff mestre (+ 65/67 se Worker)  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
 - [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
-- [ ] Análise prévia (ex. Inter × Cruzeiro) → **7 abas**, não prosa  
-- [ ] Se simplificado: rodapé `shell 79 · diagnóstico [parse|error]: …`  
-- [ ] Sonnet 5: prefill off; thinking disabled; resgate Haiku se prosa no retry  
+- [ ] Análise prévia (ex. Inter × Cruzeiro / qualquer A×B) → **7 abas**, não prosa  
+- [ ] Se **modo simplificado**: rodapé `shell 83 · diagnóstico [parse|error|fase1-*]: …`  
+- [ ] Se card completo mas **aba Escalação vazia**: deve mostrar `diagnóstico [fase1-parse|fase1-loop|fase1-error]: …` (não só “pesquisa não pôde ser concluída”)  
+- [ ] Sonnet 5: prefill off; thinking disabled; se prosa no retry → resgate **Opus 4.8** (nunca Haiku)  
 - [ ] Dual-mode: `A x B` → análise; opinião vaga → chat/popup  
+- [ ] Print/PDF: fluxo nativo (shell 81), sem html2pdf no caminho principal  
 
-## Prompt pronto
+## Estado atual (print `siufghisughuishg.png` · shell 83)
+
+**Sintoma observado:** card de análise com abas, mas aba **Escalação** com empty-state:
+
+> *“A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo…”*
+
+**Interpretação canônica:** `_coletaOk === false` → Fase 1 (`gatherFacts`) devolveu `rawFacts` nulo e **morreu muda** (antes do 83). Fase 2 montou tática/tickets do JSON dela; o mapa de campo **só** nasce da coleta estruturada.
+
+**O que o shell 83 já fez:** `_lastAnalysisFail.stage` ∈ `fase1-parse` | `fase1-loop` | `fase1-error` + empty-state Escalação com `_fallbackDiagLine()`.
+
+**Próximo passo prático do usuário (não é código ainda):**
+
+1. Hard reload (confirmar rodapé **shell 83**).  
+2. Re-rodar a **mesma** análise.  
+3. Dois desfechos:
+   - **Escalação volta** → falha F1 foi transitória (rede / rate limit / timeout).  
+   - **Continua empty** → copiar o texto `diagnóstico [fase1-…]: …` (a **amostra** do que a coleta devolveu) e mandar ao agente — aí se corrige a **causa** (ex. Haiku em prosa, structured output rejeitado, loop de tools), não o sintoma.
+
+## Prompt pronto (colar na próxima sessão)
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 79, HEAD 944a3f4+docs).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 83, HEAD 11ed7c3+).
 
 Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-(conteúdo até shell 79 — §7.5 prefill/MODEL_PRICE/resgate)
+(conteúdo até shell 83 — §7.5 prefill/MODEL_PRICE/resgate Opus/PDF/ctSideSection/diag Fase1 Escalação)
 
-Pendências do print (ainda NÃO no código):
-1) banir monólogo de autocorreção no texto final (prompts F2)
-2) resgate final com Opus 4.8 em vez de Haiku (não rebaixar qualidade)
+Contexto do último print (siufghisughuishg.png):
+- Card 7 abas ok, mas aba Escalação empty = _coletaOk false (Fase 1 rawFacts nulo).
+- Shell 83 já expõe fase1-parse | fase1-loop | fase1-error no empty-state.
+- Próximo: hard reload shell 83 → reanalisar → se Escalação voltar, era transitório;
+  se não, copiar o diagnóstico embutido (amostra) e corrigir a causa da coleta.
 
-Regras: inv. 30–31; dual-mode; v1 intocável; handoff+commit+push; tests.
+Já FEITO (não reabrir): resgate Opus 4.8 (não Haiku); anti-monólogo F2; PDF nativo v1;
+ctSideSection/ctVanTag; diagnóstico F1 na Escalação.
 
-Quero: [OBJETIVO]
+Regras: inv. 30–31; dual-mode; v1 intocável; handoff+commit+push no fim; tests.
+
+Quero: [OBJETIVO — ex.: “analisar amostra fase1-parse que coletei” / “hardening da coleta Haiku” / “Pages ?v=83”]
 ```
 
 ## Próximos passos ainda abertos (produto)
 
-1. **(print Claude)** Prompts: proibir monólogo/autocorreção no card final.  
-2. **(print Claude)** Resgate F2 com **Opus 4.8** + prefill (hoje ainda Haiku).  
-3. UI troca de senha avançada.  
-4. Confirmar Pages com `?v=79`.  
-5. Regenerar secrets AF/FD se zelo.  
-6. Rate-limit Worker.  
-7. Thinking Fase 2 só com schema/structured outputs ok.
+| # | Item | Status |
+|---|------|--------|
+| 1 | Anti-monólogo / autocorreção no card | **FEITO** shell 80 |
+| 2 | Resgate F2 **Opus 4.8** + prefill (nunca Haiku) | **FEITO** shell 80 |
+| 3 | PDF export nativo (v1), não html2pdf | **FEITO** shell 81 |
+| 4 | `ctSideSection` / `ctVanTag` no render | **FEITO** shell 82 |
+| 5 | Diagnóstico Fase 1 na aba Escalação | **FEITO** shell 83 |
+| 6 | **Depurar causa real** da F1 nula (se o re-run continuar empty) | **ABERTO** — depende da amostra `fase1-*` do usuário |
+| 7 | Hardening coleta Haiku (JSON garantido / retry / prefill F1?) | **ABERTO** se amostra confirmar prosa/loop |
+| 8 | UI troca de senha avançada | aberto |
+| 9 | Confirmar Cloudflare Pages com `?v=83` | aberto |
+| 10 | Regenerar secrets AF/FD se zelo | aberto |
+| 11 | Rate-limit Worker | aberto |
+| 12 | Thinking Fase 2 só com schema/structured outputs ok | aberto (budget 0 mantido) |
 
 ---
 
-**Fim do handoff mestre (shell 79; arquivo `…SHELL-72-MESTRE…`).**  
-Quem não souber prefill Sonnet 5, resgate, `var MODEL_PRICE`, dual-mode ou rodapé diagnóstico **não leu este arquivo**.
+**Fim do handoff mestre (shell 83; arquivo `…SHELL-72-MESTRE…`).**  
+Quem não souber: prefill Sonnet 5, resgate **Opus**, `var MODEL_PRICE`, `ctSideSection`, dual-mode, PDF nativo, ou **por que Escalação empty = Fase 1 muda** — **não leu este arquivo**.

@@ -5,9 +5,9 @@
 **Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
 
 1. Localize e leia o handoff **mestre do agente** (prioridade máxima):
-   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; conteúdo até shell 79** — prefill, MODEL_PRICE, resgate, dual-mode).
+   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; conteúdo até shell 83** — prefill, MODEL_PRICE, resgate Opus, PDF nativo, ctSideSection, diag Fase1/Escalação, dual-mode).
    - Se existir `*MESTRE*` com número de shell **maior** no nome, preferir esse.
-   - Não pular: dual-mode, Sonnet 5, budget 0, prefill/`_prefillOk`, resgate, `var MODEL_PRICE`, Worker.
+   - Não pular: dual-mode, Sonnet 5, budget 0, prefill/`_prefillOk`, resgate Opus (nunca Haiku), `var MODEL_PRICE`, `_coletaOk`/fase1-*, Worker.
 2. Se a tarefa for pontual de uma sessão antiga, complemente com `docs/HANDOFF-V2-SHELL-*.md` do shell relevante (65 Worker, 67 allowlist, etc.).
 3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
 4. Só então atenda o pedido do usuário.
