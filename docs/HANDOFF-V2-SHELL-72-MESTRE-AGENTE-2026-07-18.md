@@ -3,9 +3,9 @@
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
 **SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** `f0e957a` (shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)
+**HEAD de referência:** `3ed48a8` (docs mestre 84) · `f0e957a` (código shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo até shell 84**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 84**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -357,39 +357,54 @@ const _mainP = (globalThis.MODEL_PRICE||{})[model] || (globalThis.MODEL_PRICE||{
 1. **Resgate com Opus 4.8** (nunca rebaixar): `rescueBody.model = 'claude-opus-4-8'` + prefill `{`. Aceita prefill e é tier **acima** do Sonnet. Status UI: “Montando card (resgate Opus)…”.  
 2. **Proibida autocorreção / monólogo** no texto final: regra nos **2 prompts F2**, persona do chat e `conversationalFallback` — sem hesitação do tipo *“retrospecto Gre-Nal… não, esse é outro clássico”* no card.
 
-### Shells 81–83 (resumo + diagnóstico Escalação)
+### Shells 81–84 (PDF, render, diag F1, hardening coleta)
 
 | Shell | O quê |
 |-------|--------|
 | **81** | Export PDF: volta à lógica **v1** — `window.print` / Salvar como PDF **vetorial** (~14KB); remove raster html2pdf do fluxo (PDF do user quebrava em 47 páginas) |
 | **82** | **ctSideSection / ctVanTag** recuperadas no `render.js` — perda na decomposição do monólito; **todo** card com `confronto_tatico` crashava no render → modo simplificado (3º assassino silencioso: MODEL_PRICE, prefill, ctSideSection) |
 | **83** | **Diagnóstico da Fase 1**: se `rawFacts` nulo → `_coletaOk === false` → aba Escalação (e siblings) mostram **porquê**, não só “coleta falhou”. `_lastAnalysisFail` cobre `fase1-parse` \| `fase1-loop` \| `fase1-error`. Empty-state Escalação anexa `_fallbackDiagLine()`. |
+| **84** | **Hardening da coleta F1** (causas achadas no código, sem esperar amostra do user): ver subseção abaixo |
 
-### Interpretação do empty-state Escalação (print shell 83)
+### Shell 84 — hardening da coleta Fase 1 (CRUCIAL)
+
+Causa raiz típica do empty Escalação **não era só “rede”** — três bugs de parsing/fluxo:
+
+1. **`stop_reason: 'max_tokens'`** caía no `else break` do loop de `gatherFacts` e **descartava** JSON quase completo. Teto era **3000** (apertado p/ schema com onze+banco+métricas) → subiu p/ **5000**. `max_tokens` agora é **terminal** com parse robusto (igual `end_turn`).
+2. **Parse ingênuo** (`match` + `JSON.parse` seco) falhava com fences markdown / JSON truncado. Agora `gatherFacts`, `fillDataGaps`, `verifyLineupNames` e `verifyAnalysis` usam **`parseAnalysisJson`** (strip ``` + `repairJson`).
+3. **Retry de forma `_p1JsonRescue`**: se ainda sem JSON, 1 chamada **Haiku SEM tools + prefill `{`** (Haiku aceita prefill — inv. 30; **nunca** Sonnet 5) reescreve a resposta anterior como JSON puro. Status UI: *“Reformatando coleta…”*.
+
+Diag `fase1-parse` pós-84 carimba:
+
+`[stop=<end_turn|max_tokens>, retry de forma falhou] <amostra…>`
+
+Código: `js/analysis/pipeline-facts.js` (`gatherFacts`, `_p1JsonRescue`, `parseAnalysisJson`, `repairJson`). Asserts em `tests/run.mjs`.
+
+### Interpretação do empty-state Escalação (print shell 83 → mitigado no 84)
 
 Mensagem típica:
 
 > *“A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo…”*
 
-Significa **`_coletaOk === false`** = **Fase 1 (`gatherFacts`) devolveu `rawFacts` nulo** (ou equivalente). A Fase 2 montou tática/tickets/etc. por conta própria a partir do prompt, mas o **mapa de campo / escalação estruturada nasce da coleta** — sem coleta, a aba Escalação fica vazia (comportamento honesto).
+Significa **`_coletaOk === false`** = **Fase 1 (`gatherFacts`) devolveu `rawFacts` nulo**. A Fase 2 montou tática/tickets do JSON dela; o **mapa de campo / escalação estruturada nasce da coleta** — sem coleta, a aba fica vazia (comportamento honesto).
 
-**Antes do 83:** a causa da Fase 1 morria muda (só a F2 tinha diagnóstico).  
-**No 83:** a aba Escalação (e o rodapé quando aplicável) mostram:
-
-`shell 83 · diagnóstico [fase1-parse|fase1-loop|fase1-error]: …`
+| Era | Comportamento |
+|-----|----------------|
+| **Pré-83** | F1 morria **muda** — só F2 tinha diagnóstico |
+| **83** | Empty-state mostra `diagnóstico [fase1-parse\|fase1-loop\|fase1-error]: …` |
+| **84+** | Causas de código (max_tokens / parse seco / prosa) **mitigadas**; Escalação vazia deve ser **rara**. Se ainda cair, a amostra inclui `stop=` + “retry de forma falhou” |
 
 | stage | Significado |
 |-------|-------------|
-| `fase1-parse` | Coleta terminou sem JSON útil; amostra do que o Haiku devolveu |
+| `fase1-parse` | Coleta terminal sem JSON útil (pós-retry de forma); amostra do texto Haiku |
 | `fase1-loop` | 5 iterações tool_use/pause sem `end_turn` |
-| `fase1-error` | Exceção API/rede na Fase 1 |
+| `fase1-error` | Exceção API/rede na Fase 1 (`pipeline-run` catch) |
 
-**Como depurar no próximo run:** recarregar hard (shell 83 no rodapé) → reanalisar o mesmo jogo.  
-- Escalação **volta** → falha F1 foi transitória (rede, rate limit, timeout).  
-- Continua empty + diag → copiar a **amostra** do diagnóstico (não o sintoma): ex. prosa em vez de JSON, structured output rejeitado, etc.
+**Como depurar (shell 84 no rodapé):** hard reload → reanalisar.  
+- Escalação **volta** → transitório (rede/rate limit) **ou** o 84 salvou o JSON que o 83 só diagnosticava.  
+- Continua empty → copiar o texto completo do diagnóstico (não só o sintoma) e corrigir a **causa** residual.
 
-Código: `normalize.js` `parsed._coletaOk = !!rawFacts`; `render.js` `_abaVaziaMsg` + diag na Escalação; `pipeline-facts.js` registra falhas F1 em `_lastAnalysisFail`.
-
+Código: `normalize.js` `parsed._coletaOk = !!rawFacts`; `render.js` `_abaVaziaMsg` + `_fallbackDiagLine()` na Escalação; `pipeline-facts.js` registra F1 em `_lastAnalysisFail`.
 ## 8. Grounding e regras de verdade (ambos os modos; mais rígidas na análise)
 
 Definidas em `pipeline-facts.js` (`GROUNDING_RULE`, `SOURCE_RULE`) e prompts:
@@ -413,7 +428,8 @@ Definidas em `pipeline-facts.js` (`GROUNDING_RULE`, `SOURCE_RULE`) e prompts:
 8. Não ligar thinking estendido no chat “para igualar Opus”.  
 9. Não stripar `signature` dos blocos thinking no stream (shell 69).  
 10. Não reativar `budget > 0` na Fase 2 sem resolver conflito JSON vs prosa (shell 71).  
-11. Em Sonnet 5+, se thinking deve ficar off: enviar `thinking: {type:'disabled'}` — **não omitir** (shell 72).
+11. Em Sonnet 5+, se thinking deve ficar off: enviar `thinking: {type:'disabled'}` — **não omitir** (shell 72).  
+12. Não voltar parse de LLM a `match`+`JSON.parse` seco; não tratar `max_tokens` na F1 como `break` silencioso; não remover `_p1JsonRescue` (shell 84).  
 
 ---
 
@@ -636,10 +652,10 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 |---------|-----------------|
 | `js/lib/intent.js` | **Roteamento** análise vs chat |
 | `js/analysis/pipeline-run.js` | toggleRun, runAnalysis, runChat, stream |
-| `js/analysis/pipeline-facts.js` | gatherFacts, grounding, vague/anchor, portões |
+| `js/analysis/pipeline-facts.js` | gatherFacts, `_p1JsonRescue`, `parseAnalysisJson`/`repairJson`, grounding, portões |
 | `js/analysis/prompts.js` | system prompts F2 |
-| `js/analysis/render.js` | 7 abas |
-| `js/analysis/normalize.js` | schema |
+| `js/analysis/render.js` | 7 abas; `ctSideSection`/`ctVanTag`; empty Escalação + diag F1 |
+| `js/analysis/normalize.js` | schema; `_coletaOk = !!rawFacts` |
 | `js/data/phase1-context.js` | coleta A/B + free + memória |
 | `js/data/espn.js` | ESPN + TSDB |
 | `js/data/football-apis.js` | FD/AF, ready, coach fallback |
@@ -658,57 +674,57 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 ## Checklist ao retomar
 
 - [ ] `git pull` · `SHELL_VERSION` **84** em `js/version.js` = `sw.js` = `index.html ?v=` ×2  
-- [ ] HEAD ≥ `f0e957a` (shell 84) · ler **este** handoff mestre (+ 65/67 se Worker)  
-- [ ] `node tests/run.mjs`  
+- [ ] HEAD ≥ `f0e957a` (código 84) / docs mestre atualizado · ler **este** handoff (+ 65/67 se Worker)  
+- [ ] `node tests/run.mjs` (asserts F1: `parseAnalysisJson`, `_p1JsonRescue` Haiku, max_tokens terminal)  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
 - [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
-- [ ] Análise prévia (ex. Inter × Cruzeiro / qualquer A×B) → **7 abas**, não prosa  
-- [ ] Se **modo simplificado**: rodapé `shell 83 · diagnóstico [parse|error|fase1-*]: …`  
-- [ ] Se card completo mas **aba Escalação vazia**: deve mostrar `diagnóstico [fase1-parse|fase1-loop|fase1-error]: …` (não só “pesquisa não pôde ser concluída”)  
-- [ ] Sonnet 5: prefill off; thinking disabled; se prosa no retry → resgate **Opus 4.8** (nunca Haiku)  
+- [ ] Análise prévia (qualquer A×B) → **7 abas**, não prosa  
+- [ ] Rodapé / empty-state carimba **`shell 84`** (se mostrar 83 ou menos → hard reload / limpar SW)  
+- [ ] Se **modo simplificado**: `shell 84 · diagnóstico [parse|error|fase1-*]: …`  
+- [ ] Se card ok mas **Escalação vazia**: deve mostrar `diagnóstico [fase1-…]: [stop=…, retry de forma falhou] …`  
+- [ ] Sonnet 5: prefill off; thinking disabled; prosa no retry → resgate **Opus 4.8** (nunca Haiku no F2)  
 - [ ] Dual-mode: `A x B` → análise; opinião vaga → chat/popup  
 - [ ] Print/PDF: fluxo nativo (shell 81), sem html2pdf no caminho principal  
 
-## Estado atual (print `siufghisughuishg.png` · shell 83)
+## Estado atual (revisão 2026-07-19 · shell 84)
 
-**Sintoma observado:** card de análise com abas, mas aba **Escalação** com empty-state:
+**Linha do produto do agente (últimos shells):**
 
-> *“A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo…”*
+| Shell | Entrega |
+|-------|---------|
+| 80 | Resgate F2 = **Opus 4.8**; anti-monólogo nos prompts |
+| 81 | PDF = impressão nativa v1 (sem html2pdf) |
+| 82 | `ctSideSection`/`ctVanTag` restauradas (crash de card) |
+| 83 | Escalação empty deixa de ser muda — stages `fase1-*` |
+| 84 | Coleta F1: parse robusto + salvage `max_tokens` + `_p1JsonRescue` |
 
-**Interpretação canônica:** `_coletaOk === false` → Fase 1 (`gatherFacts`) devolveu `rawFacts` nulo e **morreu muda** (antes do 83). Fase 2 montou tática/tickets do JSON dela; o mapa de campo **só** nasce da coleta estruturada.
+**Print histórico (`siufghisughuishg.png`, era shell 83):** card 7 abas + Escalação empty = `_coletaOk false` (F1 `rawFacts` nulo). Isso **não** é bug de render da aba tática.
 
-**O que o shell 83 já fez:** `_lastAnalysisFail.stage` ∈ `fase1-parse` | `fase1-loop` | `fase1-error` + empty-state Escalação com `_fallbackDiagLine()`.
+**Pós-84:** as causas de código (JSON truncado descartado, parse seco, prosa sem retry de forma) estão **mitigadas**. Validação de campo pendente: hard reload **shell 84** e reanalisar; se Escalação ainda falhar, a amostra do diag é o input da próxima correção.
 
-**Próximo passo prático do usuário (não é código ainda):**
-
-1. Hard reload (confirmar rodapé **shell 83**).  
-2. Re-rodar a **mesma** análise.  
-3. Dois desfechos:
-   - **Escalação volta** → falha F1 foi transitória (rede / rate limit / timeout).  
-   - **Continua empty** → copiar o texto `diagnóstico [fase1-…]: …` (a **amostra** do que a coleta devolveu) e mandar ao agente — aí se corrige a **causa** (ex. Haiku em prosa, structured output rejeitado, loop de tools), não o sintoma.
+**Não reabrir** (já no código): resgate Haiku na F2, monólogo no card, html2pdf no fluxo PDF, badge A/B/C no dock, thinking budget > 0 na F2.
 
 ## Prompt pronto (colar na próxima sessão)
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84, HEAD f0e957a+).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84, HEAD f0e957a+docs).
 
 Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-(conteúdo até shell 84 — §7.5 prefill/MODEL_PRICE/resgate Opus/diag F1 + hardening coleta 84)
+(canônico até shell 84 — §7.5 prefill/MODEL_PRICE/resgate Opus/PDF/ct*/diag F1 + hardening coleta)
 
-Contexto:
-- Shell 84 blindou a Fase 1: parse robusto (parseAnalysisJson em TODOS os parsers),
-  max_tokens terminal com salvage (teto 5000), retry de forma _p1JsonRescue
-  (Haiku + prefill '{', sem tools). Escalação vazia deve ter ficado rara.
-- Se AINDA aparecer Escalação vazia: o diag agora carimba
-  "[stop=…, retry de forma falhou] amostra…" — colar esse texto e corrigir a causa.
+Estado:
+- F2: Sonnet 5 default; prefill só se _prefillOk; resgate Opus 4.8; thinking disabled; budget 0.
+- F1: Haiku + web_search; max_tokens 5000 terminal; parseAnalysisJson; _p1JsonRescue (Haiku+prefill).
+- Escalação empty = _coletaOk false; diag fase1-parse|loop|error (amostra com stop= e retry).
+- Pages: mzzei.github.io/Meridian-v2 serve main (?v= acompanha push).
 
-Já FEITO (não reabrir): resgate Opus 4.8 (não Haiku); anti-monólogo F2; PDF nativo v1;
-ctSideSection/ctVanTag; diagnóstico F1; hardening coleta (84); Pages serve main.
+Já FEITO: shells 80–84 (não reabrir). Abertos: senha avançada UI, rate-limit Worker,
+secrets AF/FD se zelo, thinking F2 só com schema ok, amostra residual pós-84 se houver.
 
-Regras: inv. 30–33; dual-mode; v1 intocável; handoff+commit+push no fim; tests.
+Regras: inv. 1–33; dual-mode; v1 intocável; handoff+commit+push no fim; node tests/run.mjs.
 
-Quero: [OBJETIVO — ex.: “amostra fase1 pós-84” / “UI senha avançada” / “rate-limit Worker”]
+Quero: [OBJETIVO]
 ```
 
 ## Próximos passos ainda abertos (produto)
@@ -720,15 +736,15 @@ Quero: [OBJETIVO — ex.: “amostra fase1 pós-84” / “UI senha avançada”
 | 3 | PDF export nativo (v1), não html2pdf | **FEITO** shell 81 |
 | 4 | `ctSideSection` / `ctVanTag` no render | **FEITO** shell 82 |
 | 5 | Diagnóstico Fase 1 na aba Escalação | **FEITO** shell 83 |
-| 6 | **Depurar causa real** da F1 nula (se o re-run continuar empty) | **MITIGADO** shell 84 (2 causas de código corrigidas); se AINDA cair, a amostra `fase1-*` agora traz stop_reason + "retry falhou" |
-| 7 | Hardening coleta Haiku (JSON garantido / retry / prefill F1) | **FEITO** shell 84 |
+| 6 | Causas de código da F1 nula (max_tokens / parse / prosa) | **FEITO** shell 84 |
+| 7 | Validação de campo pós-84 (Escalação volta na prática) | **ABERTO** — hard reload + reanalisar; se falhar, colar amostra |
 | 8 | UI troca de senha avançada | aberto |
-| 9 | Confirmar Pages com `?v=` atual | **FEITO** shell 84 — `mzzei.github.io/Meridian-v2` serve o `main` (HTTP 200, `?v=` acompanha o push; conferir de novo só se o push não refletir em ~2min) |
+| 9 | Pages com `?v=` atual | **FEITO** (serve `main`; rechecar só se push não refletir ~2 min) |
 | 10 | Regenerar secrets AF/FD se zelo | aberto |
 | 11 | Rate-limit Worker | aberto |
 | 12 | Thinking Fase 2 só com schema/structured outputs ok | aberto (budget 0 mantido) |
 
 ---
 
-**Fim do handoff mestre (shell 83; arquivo `…SHELL-72-MESTRE…`).**  
-Quem não souber: prefill Sonnet 5, resgate **Opus**, `var MODEL_PRICE`, `ctSideSection`, dual-mode, PDF nativo, ou **por que Escalação empty = Fase 1 muda** — **não leu este arquivo**.
+**Fim do handoff mestre (shell 84; arquivo `…SHELL-72-MESTRE…`).**  
+Quem não souber: dual-mode, prefill Sonnet 5, resgate **Opus**, `var MODEL_PRICE`, `ctSideSection`, PDF nativo, `_coletaOk`/fase1-*, `parseAnalysisJson`/`_p1JsonRescue` — **não leu este arquivo**.
