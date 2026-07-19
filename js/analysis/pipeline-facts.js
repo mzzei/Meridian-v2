@@ -205,6 +205,9 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
       const m=txt.match(/\{[\s\S]*\}/);
       let rawFacts=null;try{if(m)rawFacts=JSON.parse(m[0]);}catch{}
+      // Diagnóstico Fase 1 (shell 83): coleta terminou sem JSON → registra amostra
+      // (a análise segue "direto do modelo" e a aba Escalação fica sem mapa).
+      if(!rawFacts){try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-parse',model:_useModel,sample:String(txt||'').slice(0,400)};console.warn('[analysis-fail] fase1-parse',globalThis._lastAnalysisFail);}catch{}}
       // Anexa o corpus de evidência (dados da API + títulos/URLs de busca), minúsculo, p/ o
       // portão anti-alucinação. Não-enumerável: não polui o JSON exibido nem a persistência.
       if(rawFacts&&typeof rawFacts==='object'){
@@ -227,6 +230,8 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       msgs.push({role:'assistant',content:data.content}); // retoma a busca server-side
     }else break;
   }
+  // Loop esgotado (5 iterações sem end_turn) — também é falha de Fase 1
+  try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-loop',model:_useModel,msg:'coleta não convergiu em 5 iterações (tool_use/pause sem end_turn)'};console.warn('[analysis-fail] fase1-loop');}catch{}
   return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_covOut};
 }
 // Fecha chaves/colchetes pendentes e aspas abertas → recupera JSON cortado no max_tokens.

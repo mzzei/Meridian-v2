@@ -148,6 +148,15 @@ assert(fs.existsSync(path.join(ROOT, 'css/print-report.css')), 'print-report.css
 const renderSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
 assert(renderSrc.includes('renderAnalysisTabShell'), 'render uses tab shell');
 assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not normalize');
+// Shell 83: diagnóstico da FASE 1 (antes morria muda) + diag visível na aba Escalação
+{
+  const factsSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(factsSrc3.includes("stage:'fase1-parse'") && factsSrc3.includes("stage:'fase1-loop'"), 'fase1 failure diagnostics');
+  const runSrc4 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert(runSrc4.includes("stage:'fase1-error'"), 'fase1 API error recorded');
+  assert(runSrc4.includes('_fallbackDiagLine,'), '_fallbackDiagLine exposed');
+  assert(renderSrc.includes("d._coletaOk===false&&typeof _fallbackDiagLine==='function'"), 'escalacao empty-state shows diag');
+}
 // Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
 assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');
 // toda função chamada no render deve estar definida em algum classic/ESM (fumaça anti-regressão)

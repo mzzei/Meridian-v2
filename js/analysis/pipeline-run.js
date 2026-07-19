@@ -495,6 +495,8 @@ async function runAnalysis(){
       if(r1.statusHuman)_h('updateThinkingToks')({status:r1.statusHuman,phase:1});
     }catch(e1){
       if(e1.message==='cancelled'||e1.name==='AbortError')throw e1;
+      // Diagnóstico Fase 1 (shell 83): erro de API/rede na coleta — antes morria mudo
+      try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-error',model:globalThis.currentModel,msg:String(e1&&e1.message||e1).slice(0,400)};console.warn('[analysis-fail] fase1-error',globalThis._lastAnalysisFail);}catch{}
       _h('updateThinkingToks')({status:'Pesquisa falhou, analisando diretamente…',phase:1});
     }
     globalThis.tokenState.sessionIn+=p1in;globalThis.tokenState.sessionOut+=p1out;
@@ -783,6 +785,7 @@ export {
 };
 
 expose({
+  _fallbackDiagLine,
   runChat,
   runAnalysis,
   toggleRun,
