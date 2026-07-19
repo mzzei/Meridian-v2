@@ -198,10 +198,15 @@ body.printing .a-tabs,.no-print{display:none!important}
         <div class="rep-meta">${escHtml(cl)} · ${dateStr} · ${count} análise${count !== 1 ? 's' : ''}</div>
       </div>
     </div>
+    <div class="rep-actions no-print">
+      <button type="button" class="rep-print rep-print-pdf" onclick="window.print()">Salvar como PDF</button>
+      <div class="rep-print-hint">Impressão nativa do navegador: escolha "Salvar como PDF" no destino. Paginação vetorial, arquivo leve.</div>
+    </div>
   </div>
   ${clone.innerHTML}
   <div class="rep-disc">Análise estatística baseada em modelo de Poisson e dados reais · não é recomendação financeira · Meridian</div>
 </div>
+${opts.autoPrint ? `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},350);});</script>` : ''}
 </body>
 </html>`;
   return { html, now, count, theme };
@@ -216,73 +221,13 @@ function _exportFileSlug(cardEls, opts, now) {
   return `meridian-${compSlug}-${slug}-${now.toISOString().slice(0, 10)}`;
 }
 
-let _html2pdfPromise = null;
-function _ensureHtml2Pdf() {
-  if (typeof window !== 'undefined' && window.html2pdf) return Promise.resolve(window.html2pdf);
-  if (_html2pdfPromise) return _html2pdfPromise;
-  _html2pdfPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'assets/vendor/html2pdf.bundle.min.js';
-    s.async = true;
-    s.onload = () =>
-      window.html2pdf ? resolve(window.html2pdf) : reject(new Error('html2pdf missing'));
-    s.onerror = () => reject(new Error('html2pdf local load failed'));
-    document.head.appendChild(s);
-  }).catch((err) => {
-    _html2pdfPromise = null;
-    throw err;
-  });
-  return _html2pdfPromise;
-}
-
-async function _downloadPdfOneClick(html, baseName) {
-  const h2p = await _ensureHtml2Pdf();
-  const mount = document.createElement('div');
-  mount.style.cssText =
-    'position:fixed;left:-10000px;top:0;width:794px;background:#0c1016;z-index:-1;opacity:0;pointer-events:none;';
-  document.body.appendChild(mount);
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'width:794px;min-height:1123px;border:0;';
-  mount.appendChild(iframe);
-  const idoc = iframe.contentDocument || iframe.contentWindow.document;
-  idoc.open();
-  idoc.write(html);
-  idoc.close();
-  try {
-    if (idoc.fonts && idoc.fonts.ready) await idoc.fonts.ready.catch(() => {});
-  } catch (_) {}
-  await new Promise((r) => {
-    if (iframe.contentWindow) iframe.contentWindow.onload = r;
-    setTimeout(r, 200);
-  });
-  try {
-    await h2p()
-      .set({
-        margin: [8, 8, 10, 8],
-        filename: baseName + '.pdf',
-        image: { type: 'jpeg', quality: 0.93 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#0c1016',
-          windowWidth: 794,
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.a-card', '.tab-s', '.ticket', '.ev-row'] },
-      })
-      .from(idoc.body)
-      .save();
-    toastMsg('PDF baixado.');
-  } finally {
-    try {
-      mount.remove();
-    } catch (_) {}
-  }
-}
-
 function _exportCardsWithCss(cardEls, opts, appCss, printCss) {
   opts = opts || {};
+  // PDF = LÓGICA DO V1 (shell 81): impressão NATIVA do navegador sobre o relatório
+  // HTML — vetorial, leve, quebras de página pelo @media print. O html2pdf
+  // (rasterização html2canvas) foi removido: gerava PDFs quebrados de 40+ páginas
+  // (fatias JPEG + pagebreak avoid num card de vários metros).
+  if (opts.format === 'pdf') opts.autoPrint = true;
   const built = buildExportHtml(cardEls, opts, appCss, printCss);
   const { html, now } = built;
   const baseName = _exportFileSlug(cardEls, opts, now);
@@ -290,17 +235,20 @@ function _exportCardsWithCss(cardEls, opts, appCss, printCss) {
   const url = URL.createObjectURL(blob);
 
   if (opts.format === 'pdf') {
-    toastMsg('Gerando PDF…');
-    _downloadPdfOneClick(html, baseName)
-      .catch((err) => {
-        console.warn('PDF one-click failed, HTML fallback', err);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = baseName + '.html';
-        a.click();
-        toastMsg('PDF indisponível — baixei HTML. Abra e use Ctrl+P → Salvar como PDF.');
-      })
-      .finally(() => setTimeout(() => URL.revokeObjectURL(url), 120000));
+    // abre o relatório numa aba; o script autoPrint chama window.print() no load —
+    // um clique em "Salvar como PDF" e pronto. Popup bloqueado → baixa o HTML
+    // (que tem o botão "Salvar como PDF" no topo).
+    const w = window.open(url, '_blank');
+    if (w) {
+      toastMsg('Relatório aberto — escolha "Salvar como PDF" na impressão.');
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = baseName + '.html';
+      a.click();
+      toastMsg('Popup bloqueado — baixei o HTML. Abra e clique em "Salvar como PDF".');
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
     return;
   }
 

@@ -139,8 +139,10 @@ assert(parsed.cartoes_faltas.eventos.length >= 7, 'finalize pads cartoes to 7');
 
 // --- export / shell files ---
 const reportSrc = fs.readFileSync(path.join(ROOT, 'js/export/report.js'), 'utf8');
-assert(reportSrc.includes('assets/vendor/html2pdf'), 'pdf uses local vendor not CDN');
-assert(fs.existsSync(path.join(ROOT, 'assets/vendor/html2pdf.bundle.min.js')), 'html2pdf vendored');
+// Shell 81: PDF = impressão nativa (lógica v1); html2pdf (raster) removido — gerava 40+ págs quebradas
+assert(reportSrc.includes('window.print') && reportSrc.includes('autoPrint'), 'pdf via native print (v1 logic)');
+assert(!reportSrc.includes('html2pdf.bundle') && !reportSrc.includes('window.html2pdf'), 'html2pdf rasterizer removed');
+assert(reportSrc.includes('rep-print-pdf') && reportSrc.includes('Salvar como PDF'), 'report carries its own print button');
 assert(fs.existsSync(path.join(ROOT, 'css/print-report.css')), 'print-report.css exists');
 
 const renderSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
