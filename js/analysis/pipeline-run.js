@@ -325,7 +325,7 @@ async function conversationalFallback(query,apiKey,reqHeaders,signal){
     headers:reqHeaders,
     body:JSON.stringify({model:globalThis.currentModel,max_tokens:3500,
       system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
-      messages:[{role:'user',content:`DATA: ${_h('currentDateFull')()}${ctx?`\n\nContexto do torneio:\n${ctx}`:''}\n\n${query}\n\n(Formato desta resposta: TEXTO CORRIDO analítico, sem JSON — este é o modo simplificado.)`}],
+      messages:[{role:'user',content:`DATA: ${_h('currentDateFull')()}${ctx?`\n\nContexto do torneio:\n${ctx}`:''}\n\n${query}\n\n(Formato desta resposta: TEXTO CORRIDO analítico, sem JSON — este é o modo simplificado. Escreva em VERSÃO FINAL revisada: sem autocorreções no meio da frase, sem hesitação, sem raciocínio em voz alta.)`}],
       ...(_noThinkModel(globalThis.currentModel)?{thinking:{type:'disabled'}}:{}),
       stream:true}),
     signal
@@ -640,13 +640,14 @@ async function runAnalysis(){
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
       if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson((_retryPrefill?'{':'')+retryR.text);}
-      // RESGATE FINAL (shell 79): modelo sem prefill (Sonnet 5) insistiu em prosa →
-      // Haiku 4.5 COM prefill monta o card (JSON por construção). Melhor um relatório
-      // de 7 abas do Haiku do que o modo simplificado.
+      // RESGATE FINAL (shell 79→80): modelo sem prefill (Sonnet 5) insistiu em prosa →
+      // OPUS 4.8 COM prefill monta o card (JSON por construção). Opus é o tier ACIMA
+      // do Sonnet — o resgate nunca rebaixa a qualidade da análise (exigência do
+      // usuário; caminho raríssimo pós-fix MODEL_PRICE, custo pontual aceito).
       if(!parsed&&!_retryPrefill){
-        _h('updateThinkingToks')({status:'Montando card (resgate)…',phase:2});
+        _h('updateThinkingToks')({status:'Montando card (resgate Opus)…',phase:2});
         const rescueMessages=[...retryMessages,{role:'assistant',content:'{'}];
-        const rescueBody={...baseBody,model:'claude-haiku-4-5-20251001',messages:rescueMessages};
+        const rescueBody={...baseBody,model:'claude-opus-4-8',messages:rescueMessages};
         delete rescueBody.tools;delete rescueBody.thinking;delete rescueBody.temperature;
         rescueBody.max_tokens=Math.max(rescueBody.max_tokens||0,9000);
         const rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);

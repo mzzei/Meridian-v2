@@ -418,7 +418,11 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc3.includes('function _prefillOk'), 'prefill gated by model');
   assert(runSrc3.includes('_prefillOk(globalThis.currentModel)'), 'prefill checks current model');
   assert(runSrc3.includes("/prefill/i.test(e2.message") && runSrc3.includes('messages.pop();_prefill=false'), 'prefill auto-cure in F2 loop');
-  assert(runSrc3.includes('RESGATE FINAL') && runSrc3.includes("model:'claude-haiku-4-5-20251001',messages:rescueMessages"), 'haiku rescue with prefill');
+  assert(runSrc3.includes('RESGATE FINAL') && runSrc3.includes("model:'claude-opus-4-8',messages:rescueMessages"), 'rescue uses Opus (never downgrade quality)');
+  // Shell 80: escrita em versão final — sem autocorreção/monólogo no texto livre
+  const promptsSrc4 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert((promptsSrc4.match(/VERSÃO FINAL, SEM RASCUNHO|ESCRITA EM VERSÃO FINAL/g) || []).length >= 3, 'no-self-correction rule in F2 prompts + chat persona');
+  assert(runSrc3.includes('sem autocorreções no meio da frase'), 'fallback demands final-version prose');
   // BUG LATENTE (achado no 79): const MODEL_PRICE em classic não chega ao window;
   // pipeline-run (ESM) lê globalThis.MODEL_PRICE → toda análise crashava pós-Fase 2
   assert(/var MODEL_PRICE\s*=/.test(appSrc), 'MODEL_PRICE is var (reaches window)');
