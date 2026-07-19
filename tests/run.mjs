@@ -156,6 +156,13 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   assert(runSrc4.includes("stage:'fase1-error'"), 'fase1 API error recorded');
   assert(runSrc4.includes('_fallbackDiagLine,'), '_fallbackDiagLine exposed');
   assert(renderSrc.includes("d._coletaOk===false&&typeof _fallbackDiagLine==='function'"), 'escalacao empty-state shows diag');
+  // Shell 84: hardening da coleta — as 2 causas de rawFacts nulo achadas por código:
+  // (a) stop max_tokens descartava JSON quase completo (break); (b) parse ingênuo sem repair.
+  assert(factsSrc3.includes("data.stop_reason==='end_turn'||data.stop_reason==='max_tokens'"), 'fase1 salva JSON truncado no max_tokens');
+  assert(factsSrc3.includes('rawFacts=parseAnalysisJson(txt)'), 'fase1 usa parse robusto (fences + repairJson)');
+  assert(!/txt\.match\(\/\\\{\[/.test(factsSrc3), 'parse ingênuo removido da fase1');
+  assert(factsSrc3.includes('async function _p1JsonRescue'), 'retry de forma da fase1 existe');
+  assert(/_p1JsonRescue\([^)]*\)[\s\S]{0,3000}?claude-haiku-4-5-20251001/.test(factsSrc3.slice(factsSrc3.indexOf('async function _p1JsonRescue'))), 'rescue F1 roda no Haiku (prefill ok; nunca Sonnet 5)');
 }
 // Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
 assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');

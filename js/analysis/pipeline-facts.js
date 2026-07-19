@@ -185,7 +185,8 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
   let _soP1=true;
   for(let i=0;i<5;i++){
     if(signal.aborted)throw new Error('cancelled');
-    const mkBody=()=>JSON.stringify({model:_useModel,max_tokens:3000,system:SP,messages:msgs,tools:[{type:_useTool,name:'web_search',max_uses:_maxUses}],...(_soP1?{output_config:{format:{type:'json_schema',schema:FACTS_SCHEMA}}}:{})});
+    // 5000 (era 3000): schema com onze+banco+métricas truncava no teto → rawFacts nulo (shell 84)
+    const mkBody=()=>JSON.stringify({model:_useModel,max_tokens:5000,system:SP,messages:msgs,tools:[{type:_useTool,name:'web_search',max_uses:_maxUses}],...(_soP1?{output_config:{format:{type:'json_schema',schema:FACTS_SCHEMA}}}:{})});
     let res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:mkBody(),signal});
     // Auto-cura em 400: desliga structured outputs (flag local) e repete no caminho provado.
     if(res.status===400&&_soP1){
@@ -201,13 +202,23 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
         b.content.forEach(r=>{if(r&&r.title)_evi.push(r.title);if(r&&r.url)_evi.push(r.url);});
     });}catch(_){}
     onUpdate({inTokens:accIn,outTokens:accOut,status:'Pesquisando dados…',phase:1});
-    if(data.stop_reason==='end_turn'){
+    // HARDENING shell 84: max_tokens (truncou no teto) também é terminal — antes caía no
+    // `break` e jogava fora um JSON quase completo; agora tenta salvar via repairJson.
+    if(data.stop_reason==='end_turn'||data.stop_reason==='max_tokens'){
       const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-      const m=txt.match(/\{[\s\S]*\}/);
-      let rawFacts=null;try{if(m)rawFacts=JSON.parse(m[0]);}catch{}
+      // Parse ROBUSTO (mesmo caminho da F2): strip de cercas markdown + repairJson p/
+      // truncamento — o match/JSON.parse ingênuo era causa direta de fase1-parse.
+      let rawFacts=parseAnalysisJson(txt);
+      if(!rawFacts&&!signal.aborted){
+        // RETRY DE FORMA (1 chamada, Haiku SEM tools, prefill '{' — Haiku aceita prefill,
+        // inv. 30): reescreve a resposta anterior como JSON puro. Espelha o retry da F2.
+        onUpdate({inTokens:accIn,outTokens:accOut,status:'Reformatando coleta…',phase:1});
+        const r2=await _p1JsonRescue(txt,SP,apiKey,signal).catch(()=>null);
+        if(r2){accIn+=r2.inTokens;accOut+=r2.outTokens;if(r2.rawFacts)rawFacts=r2.rawFacts;}
+      }
       // Diagnóstico Fase 1 (shell 83): coleta terminou sem JSON → registra amostra
       // (a análise segue "direto do modelo" e a aba Escalação fica sem mapa).
-      if(!rawFacts){try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-parse',model:_useModel,sample:String(txt||'').slice(0,400)};console.warn('[analysis-fail] fase1-parse',globalThis._lastAnalysisFail);}catch{}}
+      if(!rawFacts){try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-parse',model:_useModel,sample:'[stop='+data.stop_reason+', retry de forma falhou] '+String(txt||'').slice(0,360)};console.warn('[analysis-fail] fase1-parse',globalThis._lastAnalysisFail);}catch{}}
       // Anexa o corpus de evidência (dados da API + títulos/URLs de busca), minúsculo, p/ o
       // portão anti-alucinação. Não-enumerável: não polui o JSON exibido nem a persistência.
       if(rawFacts&&typeof rawFacts==='object'){
@@ -233,6 +244,22 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
   // Loop esgotado (5 iterações sem end_turn) — também é falha de Fase 1
   try{globalThis._lastAnalysisFail={ts:Date.now(),stage:'fase1-loop',model:_useModel,msg:'coleta não convergiu em 5 iterações (tool_use/pause sem end_turn)'};console.warn('[analysis-fail] fase1-loop');}catch{}
   return{rawFacts:null,inTokens:accIn,outTokens:accOut,sources:_ctx.sources||null,statusHuman:_ctx.statusHuman||'',coverage:_covOut};
+}
+// RETRY DE FORMA da Fase 1 (shell 84): a coleta terminou em prosa/JSON quebrado →
+// 1 chamada Haiku SEM tools com prefill '{' (Haiku aceita prefill; NUNCA usar em
+// Sonnet 5 — inv. 30) reescrevendo a resposta anterior como JSON puro do schema.
+async function _p1JsonRescue(prevText,SP,apiKey,signal){
+  const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:5000,system:SP,
+    messages:[
+      {role:'user',content:'Sua resposta anterior NÃO veio como JSON válido. Reescreva-a agora APENAS como o objeto JSON do schema pedido, começando com { e terminando com }, sem markdown e sem texto fora do objeto. Use somente as informações da resposta anterior; campos sem informação ficam vazios/"" (não invente).\n\nRESPOSTA ANTERIOR:\n'+String(prevText||'').slice(0,6000)},
+      {role:'assistant',content:'{'}
+    ]});
+  const res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body,signal});
+  if(!res.ok)return null;
+  const data=await res.json();
+  const u=data.usage||{};
+  const txt='{'+(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  return{rawFacts:parseAnalysisJson(txt),inTokens:u.input_tokens||0,outTokens:u.output_tokens||0};
 }
 // Fecha chaves/colchetes pendentes e aspas abertas → recupera JSON cortado no max_tokens.
 function repairJson(s){
@@ -339,7 +366,7 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
       const data=await res.json();const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;
       if(data.stop_reason==='end_turn'){
         const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-        const m=txt.match(/\{[\s\S]*\}/);let patch=null;try{if(m)patch=JSON.parse(m[0]);}catch{}
+        const patch=parseAnalysisJson(txt); // robusto: fences + repairJson (shell 84)
         if(patch){if(Array.isArray(patch.jogadores))_mergePlayerPatch(rawFacts,patch.jogadores);if(Array.isArray(patch.times))_mergeTeamPatch(rawFacts,patch.times);}
         break;
       }
@@ -412,7 +439,7 @@ async function verifyLineupNames(rawFacts,apiKey,signal,onUpdate){
       const data=await res.json();const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;
       if(data.stop_reason==='end_turn'){
         const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-        const m=txt.match(/\{[\s\S]*\}/);try{if(m)verif=JSON.parse(m[0]);}catch{}
+        verif=parseAnalysisJson(txt); // robusto: fences + repairJson (shell 84)
         break;
       }
       if(data.stop_reason==='tool_use'){
@@ -470,7 +497,7 @@ async function verifyAnalysis(parsed,rawFacts,apiKey,signal,onUpdate){
     if(!res.ok)return null;
     const data=await res.json();const u=data.usage||{};
     const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    const m=txt.match(/\{[\s\S]*\}/);let v=null;try{if(m)v=JSON.parse(m[0]);}catch{}
+    const v=parseAnalysisJson(txt); // robusto: fences + repairJson (shell 84)
     if(v)_applyAudit(parsed,v);
     return{inTokens:u.input_tokens||0,outTokens:u.output_tokens||0};
   }catch(e){if(e&&(e.name==='AbortError'||e.message==='cancelled'))throw e;return null;}
