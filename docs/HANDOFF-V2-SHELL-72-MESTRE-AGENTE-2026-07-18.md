@@ -3,7 +3,8 @@
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
 **SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência:** `195da5d` (docs mestre revisado) · `f0e957a` (código shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)
+**HEAD de referência (código):** `f0e957a` (shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)  
+**Docs mestre:** tip de `main` (revisão consistência shell 84: commits `195da5d`+)
 
 **Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 84**.
 
