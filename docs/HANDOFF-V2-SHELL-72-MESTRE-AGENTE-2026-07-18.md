@@ -1,12 +1,14 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 87)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 88)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `87` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência (código):** `d0cec90` (shell 87 — PARTE X: escalação honesta + match-day/live) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX) · `f0e957a` (84)  
-**Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87) — proveniência + refresh lineup match-day/live**
+**SHELL_VERSION:** `88` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência (código):** `3b9abb8` (shell 88 — chat prosa sucinta; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
+**Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 87**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 88**.
+
+**Série dos "assassinos silenciosos" da decomposição do monólito (bugs onde um símbolo perdido derrubava um caminho inteiro):** MODEL_PRICE `const` classic (79), prefill Sonnet 5 (79), `ctSideSection`/`ctVanTag` (82), `_lvKey` em lineup.js (85), **`chatCardFrom`/`renderChatCard`/`cardToPlain` no chat (88)**. Mitigação estrutural no 88: teste de fumaça varre TODA `_h('x')` do pipeline-run e falha se a função não existir em nenhum classic/ESM.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -692,6 +694,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **85** | PARTE IX paridade coleta — **FEITO** (`f24db4e`) |
 | **86** | SW network-first para JS (staleness ESM) — **FEITO** (`6099fda`) |
 | **87** | **PARTE X FEITA** — proveniência por time (api>pesquisa>modelo>inferida) + chip de formação honesto; elenco CONFIRMADO match-day (AF>ESPN) via lineup-confirmed.js; botão/auto-poll "Atualizar escalação" (zero LLM); live.js sem default 4-3-3. Ver PARTE X §0 |
+| **88** | **Chat = conversa em TEXTO sucinta** — 5º assassino silencioso: `chatCardFrom`/`renderChatCard`/`cardToPlain` foram removidos na decomposição (26fbf9e) mas `runChat` os chamava via `_h()` (que LANÇA) → toda pergunta de chat morria com "host missing: chatCardFrom". Removido o caminho de CARD do chat (prosa, como o usuário quer); diretiva `MODO CONVERSA` no system do chat (1–4 frases, sem overthink/autocorreção/alucinação). Teste de fumaça novo varre TODA `_h('x')` do pipeline-run. |
 
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras):** mapa de Escalação **volta a aparecer**, mas ambos em `4-2-3-1` e elenco **especulativo** (Sofascore/previsão). Receio correto: **não** é default hardcode do app na aba de análise, mas também **não** é XI/formação confirmados do dia de jogo como no V1 com AF lineups. Rodapé “prováveis da pesquisa” é honesto — e insuficiente se o usuário espera o elenco **real** no match day.
 
