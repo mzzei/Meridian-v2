@@ -1,12 +1,12 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 84)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 85)
 
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2) — **próximo trabalho planejado: shell 85+ (paridade coleta V1)**  
-**HEAD de referência (código):** `f0e957a` (shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)  
-**Docs mestre:** tip de `main` · **PARTE IX = plano de paridade de coleta V1→V2 (a implementar no Claude)**
+**SHELL_VERSION:** `85` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência (código):** `f24db4e` (shell 85 — PARTE IX implementada) · `f0e957a` (84) · `11ed7c3` (83) · `5e08d8b` (82)  
+**Docs mestre:** tip de `main` · **PARTE IX = paridade de coleta V1→V2 — IMPLEMENTADA no shell 85 (P0–P3)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 84 + plano 85**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 85**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -689,7 +689,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | Shell | Entrega |
 |-------|---------|
 | 80–84 | Resgate Opus, PDF nativo, ct*, diag F1, hardening parse F1 — **FEITO** |
-| **85+** | **Paridade de coleta V1→V2** — **PLANEJADO (PARTE IX)** · implementar no Claude |
+| **85** | **Paridade de coleta V1→V2 IMPLEMENTADA (PARTE IX P0–P3)** — cascata AF-first adaptativa + afSeasonBlocked; coverNote duro + lineup gaps + floor 2 buscas; _lineups também da F2 com fonte honesta; **4º assassino: _lvKey em lineup.js** (Escalação vazia MESMO com dados) corrigido com _luKey local. Ver PARTE IX §0 |
 
 **Diagnóstico de produto (por que V2 coleta pior que V1):** ver PARTE IX §1. Resumo: domínio multi-liga + AF Free bloqueada + cascata que **evita** AF + Escalação amarrada só a rawFacts F1 + migração com bugs (já mitigados). V1 = Copa + AF-first + monólito estável.
 
@@ -786,7 +786,7 @@ Implemente agora P0–P3. Ao final: resumo + hash do commit + confirmação de p
 |---|------|--------|
 | 1–6 | Shells 80–84 (Opus, PDF, ct*, diag F1, parse F1) | **FEITO** |
 | 7 | Validação de campo pós-84 | aberto (manual) |
-| **8** | **Paridade coleta V1→V2 (PARTE IX, shell 85+)** | **PRÓXIMO — Claude** |
+| **8** | **Paridade coleta V1→V2 (PARTE IX)** | **FEITO** shell 85 (`f24db4e`) |
 | 9 | UI senha avançada | aberto |
 | 10 | Pages `?v=` | FEITO (serve main) |
 | 11 | Secrets AF/FD / rate-limit Worker | aberto |
@@ -794,9 +794,27 @@ Implemente agora P0–P3. Ao final: resumo + hash do commit + confirmação de p
 
 ---
 
-# PARTE IX — Plano de paridade de coleta V1 → V2 (implementar)
+# PARTE IX — Plano de paridade de coleta V1 → V2 (IMPLEMENTADO — shell 85, `f24db4e`)
 
-**Status:** planejado (docs only até shell 84). **Implementação:** prompt da PARTE VIII no Claude → shell **85+**.  
+**Status:** **IMPLEMENTADO no shell 85** (P0–P3 abaixo viraram código; este texto permanece como especificação/racional).
+
+## 0. O que o shell 85 entregou (resumo de implementação)
+
+| Fase | Entregue |
+|------|----------|
+| **P0** | Cascata ADAPTATIVA em `_phase1CascadeLayerA`: **AF full primeiro** quando `afReady()` e `!afSeasonBlocked(comp)` (com `afEnrichCoachLineup` no caminho, espírito V1) → FD → ESPN (rede de segurança imutável). `afSeasonBlocked`/`_afMarkSeasonBlocked` em football-apis (mem + sessionStorage; `var`, inv. 31), marcada pelo próprio `fetchAf` quando o Free devolve "not have access to this season" — não re-gasta cota na mesma sessão. Throttle `AF_MIN_GAP_MS` intacto. Camada B (minimal/coach-only) inalterada. |
+| **P1** | coverNote DURO (paridade V1): tecnico+formacao+onze(11)+banco+desfalques dos DOIS times = prioridade máxima; vazio = falha de busca; proibido inventar nome. `fillDataGaps` agora tem `_teamLineupGaps` (dispara com técnico vazio OU onze<11 OU banco vazio), schema do patch com tecnico/formacao/onze_provavel/banco, merge via `_TEAM_LINEUP_FILL`, `max_tokens` 2500. Floor de 2 buscas na F1 quando o perfil pede 1 e cobertura B/C baixa (`_bcLow`). |
+| **P2** | `attachAnalysisDerived`: onze/banco também do **JSON F2** (preferência rawFacts F1 > F2 > vazio; nunca inventa). `parsed._lineupsFonte` = `'pesquisa'`\|`'modelo'`; render mostra o mapa com disclaimer "Estimativa do modelo…" quando fonte=modelo, em vez de empty injusto. Empty + diag continua quando NINGUÉM trouxe onze. |
+| **P2-bug** | **4º ASSASSINO SILENCIOSO:** `lineup.js` referenciava `_lvKey` (que vive no MÓDULO pipeline-facts, não no global) → `normalizeLineupTeam` **SEMPRE** lançava ReferenceError → try/catch do attach engolia → `_lineups` **nunca** era montado → **aba Escalação vazia MESMO com dados** (explica os prints dos shells 83–84!). Fix: `_luKey` local em lineup.js. Série completa: MODEL_PRICE (79), prefill (79), ctSideSection (82), _lvKey (85). |
+| **P3** | Status F1 já listava fontes (`Fontes: … · API-Football (técnico/escalação)`). 15 asserts novos em tests/run.mjs (cascata AF-first, flag season, coverNote, floor, lineup gaps, onze F2, fonte, _luKey local). Shell 85; ALL PASSED; validado e2e no preview (F2-only → mapa fonte 'modelo'; rawFacts → 'pesquisa'). |
+
+**Atenção pós-85 (staleness de SW):** imports ESM internos (lineup.js etc.) NÃO carregam `?v=` — o SW antigo pode servir módulo velho após o deploy. No preview foi preciso `?resetsw=1` para o fix do _lvKey aparecer. Se comportamento estranho após update: hard reload / `?resetsw=1` antes de debugar.
+
+---
+
+Especificação original (mantida como referência):
+
+**Implementação:** prompt da PARTE VIII no Claude → shell **85+**.  
 **V1:** só leitura em `C:\Users\Gabriel\.claude\projects\Agente Copa 2026\index.html`. **Nunca** mergear v1 no v2.
 
 ## 1. Por que o V1 “coletava impecável” e o V2 não
