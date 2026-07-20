@@ -5,9 +5,9 @@
 **Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
 
 1. Localize e leia o handoff **mestre do agente** (prioridade máxima):
-   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; conteúdo até shell 84** — prefill, MODEL_PRICE, resgate Opus, PDF nativo, ctSideSection, diag Fase1/Escalação, hardening coleta `parseAnalysisJson`/`_p1JsonRescue`, dual-mode).
+   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; shell 84 + PARTE IX plano paridade coleta V1→V2** — prefill, MODEL_PRICE, resgate Opus, PDF, ct*, diag F1, `_p1JsonRescue`, dual-mode).
    - Se existir `*MESTRE*` com número de shell **maior** no nome, preferir esse.
-   - Não pular: dual-mode, Sonnet 5, budget 0, prefill/`_prefillOk`, resgate Opus (nunca Haiku na F2), `var MODEL_PRICE`, `_coletaOk`/fase1-*, F1 max_tokens 5000 + rescue, Worker.
+   - Não pular: dual-mode, Sonnet 5, budget 0, prefill/`_prefillOk`, resgate Opus (nunca Haiku na F2), `var MODEL_PRICE`, `_coletaOk`/fase1-*, F1 max_tokens 5000 + rescue, **PARTE IX se a tarefa for coleta**, Worker.
 2. Se a tarefa for pontual de uma sessão antiga, complemente com `docs/HANDOFF-V2-SHELL-*.md` do shell relevante (65 Worker, 67 allowlist, etc.).
 3. Confira `js/version.js` (`SHELL_VERSION`) e alinhe com o handoff; se divergirem, confiar no **código + git log** e avisar o usuário.
 4. Só então atenda o pedido do usuário.

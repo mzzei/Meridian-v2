@@ -2,11 +2,11 @@
 
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**SHELL_VERSION:** `84` (`js/version.js` = `sw.js` = `index.html ?v=` ×2) — **próximo trabalho planejado: shell 85+ (paridade coleta V1)**  
 **HEAD de referência (código):** `f0e957a` (shell 84) · `11ed7c3` (83) · `5e08d8b` (82) · `cb89318` (81) · `932e290` (80)  
-**Docs mestre:** tip de `main` (revisão consistência shell 84: commits `195da5d`+)
+**Docs mestre:** tip de `main` · **PARTE IX = plano de paridade de coleta V1→V2 (a implementar no Claude)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 84**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 84 + plano 85**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -517,13 +517,15 @@ Deploy: `cd worker && npx.cmd wrangler deploy` (PowerShell: `npx.cmd`, não `npx
 | Capacidade | Realidade |
 |------------|-----------|
 | Tabela/jogos temporada atual | **ESPN** + **FD** (Worker) |
-| AF standings/fixtures 2026 | **Bloqueado no Free** |
+| AF standings/fixtures 2026 | **Bloqueado no Free** (clubes) — ver PARTE IX P0 |
 | Técnico determinístico | **AF free** via search teams+coachs |
-| Escalação confirmada | **web_search** (Free AF) |
+| Escalação confirmada | **web_search** (Free AF) — P2: fallback JSON F2 no mapa |
 | Métricas EPL | **FPL** (Worker) + busca |
 | xG outras ligas | **web_search** |
 | Histórico evento | StatsBomb Open se ano na query |
 | Sem Anthropic | Sem análise/chat LLM completo |
+
+**Paridade com V1 (próximo):** PARTE IX — cascata AF adaptativa + coverNote duro + `_lineups` de F2.
 
 ---
 
@@ -674,78 +676,259 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **84** em `js/version.js` = `sw.js` = `index.html ?v=` ×2  
-- [ ] HEAD ≥ `f0e957a` (código 84) / docs mestre atualizado · ler **este** handoff (+ 65/67 se Worker)  
-- [ ] `node tests/run.mjs` (asserts F1: `parseAnalysisJson`, `_p1JsonRescue` Haiku, max_tokens terminal)  
+- [ ] `git pull` · `SHELL_VERSION` **84** (ou **85+** se paridade já mergeada) em version/sw/index  
+- [ ] HEAD ≥ `f0e957a` (código 84) · ler **este** handoff completo, **especialmente PARTE IX**  
+- [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
 - [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
-- [ ] Análise prévia (qualquer A×B) → **7 abas**, não prosa  
-- [ ] Rodapé / empty-state carimba **`shell 84`** (se mostrar 83 ou menos → hard reload / limpar SW)  
-- [ ] Se **modo simplificado**: `shell 84 · diagnóstico [parse|error|fase1-*]: …`  
-- [ ] Se card ok mas **Escalação vazia**: deve mostrar `diagnóstico [fase1-…]: [stop=…, retry de forma falhou] …`  
-- [ ] Sonnet 5: prefill off; thinking disabled; prosa no retry → resgate **Opus 4.8** (nunca Haiku no F2)  
-- [ ] Dual-mode: `A x B` → análise; opinião vaga → chat/popup  
-- [ ] Print/PDF: fluxo nativo (shell 81), sem html2pdf no caminho principal  
+- [ ] Dual-mode / prefill / resgate Opus / PDF nativo intactos  
+- [ ] Se implementar paridade: seguir P0→P3 da PARTE IX; bump shell; asserts; handoff+push  
 
-## Estado atual (revisão 2026-07-19 · shell 84)
-
-**Linha do produto do agente (últimos shells):**
+## Estado atual (revisão 2026-07-19)
 
 | Shell | Entrega |
 |-------|---------|
-| 80 | Resgate F2 = **Opus 4.8**; anti-monólogo nos prompts |
-| 81 | PDF = impressão nativa v1 (sem html2pdf) |
-| 82 | `ctSideSection`/`ctVanTag` restauradas (crash de card) |
-| 83 | Escalação empty deixa de ser muda — stages `fase1-*` |
-| 84 | Coleta F1: parse robusto + salvage `max_tokens` + `_p1JsonRescue` |
+| 80–84 | Resgate Opus, PDF nativo, ct*, diag F1, hardening parse F1 — **FEITO** |
+| **85+** | **Paridade de coleta V1→V2** — **PLANEJADO (PARTE IX)** · implementar no Claude |
 
-**Print histórico (`siufghisughuishg.png`, era shell 83):** card 7 abas + Escalação empty = `_coletaOk false` (F1 `rawFacts` nulo). Isso **não** é bug de render da aba tática.
+**Diagnóstico de produto (por que V2 coleta pior que V1):** ver PARTE IX §1. Resumo: domínio multi-liga + AF Free bloqueada + cascata que **evita** AF + Escalação amarrada só a rawFacts F1 + migração com bugs (já mitigados). V1 = Copa + AF-first + monólito estável.
 
-**Pós-84:** as causas de código (JSON truncado descartado, parse seco, prosa sem retry de forma) estão **mitigadas**. Validação de campo pendente: hard reload **shell 84** e reanalisar; se Escalação ainda falhar, a amostra do diag é o input da próxima correção.
+**Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, mexer no V1/`meridian-proxy`.
 
-**Não reabrir** (já no código): resgate Haiku na F2, monólogo no card, html2pdf no fluxo PDF, badge A/B/C no dock, thinking budget > 0 na F2.
-
-## Prompt pronto (colar na próxima sessão)
+## Prompt pronto — sessão genérica
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84, HEAD f0e957a+docs).
-
-Leia OBRIGATORIAMENTE:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-(canônico até shell 84 — §7.5 prefill/MODEL_PRICE/resgate Opus/PDF/ct*/diag F1 + hardening coleta)
-
-Estado:
-- F2: Sonnet 5 default; prefill só se _prefillOk; resgate Opus 4.8; thinking disabled; budget 0.
-- F1: Haiku + web_search; max_tokens 5000 terminal; parseAnalysisJson; _p1JsonRescue (Haiku+prefill).
-- Escalação empty = _coletaOk false; diag fase1-parse|loop|error (amostra com stop= e retry).
-- Pages: mzzei.github.io/Meridian-v2 serve main (?v= acompanha push).
-
-Já FEITO: shells 80–84 (não reabrir). Abertos: senha avançada UI, rate-limit Worker,
-secrets AF/FD se zelo, thinking F2 só com schema ok, amostra residual pós-84 se houver.
-
-Regras: inv. 1–33; dual-mode; v1 intocável; handoff+commit+push no fim; node tests/run.mjs.
-
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84+).
+Leia docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md (até PARTE IX).
+Regras: inv. 1–33; dual-mode; v1 intocável; handoff+commit+push; tests.
 Quero: [OBJETIVO]
 ```
 
-## Próximos passos ainda abertos (produto)
+## Prompt pronto — **IMPLEMENTAR paridade de coleta (Claude)** ← USAR ESTE
+
+Cole **inteiro** na sessão Claude Code / Claude. É o pedido canônico.
+
+```text
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main).
+
+Leia OBRIGATORIAMENTE na íntegra:
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
+Foque em: PARTE III (fontes), §7.5 (F1/F2), PARTE IX (plano paridade coleta V1→V2).
+
+Contexto: o dono quer a coleta do Meridian v2 tão sólida quanto a do Meridian v1
+(Copa monólito). V1 não era mágica — era AF-first + 1 competição + enrich técnico/lineup.
+V2 multi-liga no Free + cascata FD→ESPN→AF last deixa camada B/C fraca e Escalação
+vazia quando rawFacts da F1 falha (mesmo com card tático ok).
+
+TAREFA: implementar a PARTE IX na ordem P0 → P1 → P2 → P3 (não pular; não só docs).
+
+P0 — Cascata e AF (phase1-context.js + football-apis.js):
+1) Cascata adaptativa: se afReady() E a última AF não reportou "no access to this season"
+   para a liga ativa, tentar AF full (standings+fixtures + afEnrichCoachLineup) ANTES ou
+   em paralelo útil com ESPN — espelhar espírito V1 (AF preferida quando útil).
+2) Se AF full falhar por plano Free / season: NÃO silenciar — cair em ESPN/FD e SEMPRE
+   rodar afEnrichCoachLineupMinimal + _afCoachOnlyFallback (já existe).
+3) Detectar e cachear flag por liga: afSeasonBlocked[compId] quando erro típico Free,
+   para não gastar cota em standings inúteis na mesma sessão.
+4) Manter throttle AF_MIN_GAP_MS; não estourar Free.
+
+P1 — Profundidade da Fase 1 (pipeline-facts.js):
+5) Endurecer _coverNote da coleta no espírito V1: técnico + formacao + onze_provavel
+   (11) + banco = prioridade máxima; vazio = falha de busca, não lacuna legítima
+   (sem inventar nomes — grounding/evidence continua).
+6) Aumentar utilidade de fillDataGaps: se rawFacts existe mas onze_provavel de um dos
+   times tem <11 ou técnico vazio, forçar passagem de gap (já existe skeleton — garantir
+   que dispara e mergeia).
+7) Opcional seguro: se modelProfile().searches===1 e cobertura B/C baixa, permitir
+   floor de 2 buscas na F1 para partidas multi-liga (não reativar effort UI).
+
+P2 — Escalação não morre só porque F1 falhou (normalize.js + render.js + lineup.js):
+8) attachAnalysisDerived: além de rawFacts, se parsed (JSON F2) tiver
+   mandante/visitante.onze_provavel ou escalacao, DERIVAR _lineups dali.
+9) Ordem de preferência: AF confirmada (bloco API) > rawFacts F1 > JSON F2 >
+   empty + diag. Nunca inventar nomes.
+10) Empty-state Escalação: se _coletaOk false mas F2 trouxe onze, NÃO mostrar
+    "pesquisa não pôde ser concluída" — mostrar o mapa com disclaimer "estimativa F2".
+
+P3 — Telemetria, testes, shell, handoff:
+11) Status F1 humano deve listar o que entrou: "Fontes: espn+af_b coach" etc.
+12) Asserts em tests/run.mjs: cascata tenta AF quando ready; attachAnalysisDerived
+    aceita onze da F2; strings críticas do plano não regrediram.
+13) Bump SHELL_VERSION 84→85 (version.js = sw.js = index.html ?v= ×2).
+14) node tests/run.mjs ALL PASSED.
+15) Atualizar ESTE handoff mestre: shell 85, o que mudou, o que resta; commit + push origin main.
+
+PROIBIDO:
+- Tocar pasta/código do Meridian v1 / WorldCupAgent / worker meridian-proxy.
+- Reativar budget>0 na F2, prefill em Sonnet 5, resgate Haiku na F2.
+- allowed_domains no web_search.
+- Badge A/B/C no dock.
+- Inventar jogadores sem lastro.
+- Commit sem testes; push sem handoff atualizado.
+
+Referência V1 (só LEITURA, se precisar copiar lógica):
+C:\Users\Gabriel\.claude\projects\Agente Copa 2026\index.html
+  — gatherFacts ~4827 (cascata AF→FD→ESPN), afEnrichCoachLineup ~3623, _coverNote ~4890.
+NÃO copiar monólito inteiro; NÃO misturar repositórios.
+
+Critério de aceite:
+- Com Worker+AF: técnico dos 2 times aparece com frequência alta na F1 (bloco API ou rawFacts).
+- Aba Escalação: se F1 ou F2 trouxe onze_provavel, o mapa renderiza (não empty injusto).
+- Sem AF: ESPN+web_search continua; diag fase1-* permanece se rawFacts nulo E F2 sem onze.
+- tests verdes; shell 85 no rodapé.
+
+Implemente agora P0–P3. Ao final: resumo + hash do commit + confirmação de push.
+```
+
+## Próximos passos (produto)
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Anti-monólogo / autocorreção no card | **FEITO** shell 80 |
-| 2 | Resgate F2 **Opus 4.8** + prefill (nunca Haiku) | **FEITO** shell 80 |
-| 3 | PDF export nativo (v1), não html2pdf | **FEITO** shell 81 |
-| 4 | `ctSideSection` / `ctVanTag` no render | **FEITO** shell 82 |
-| 5 | Diagnóstico Fase 1 na aba Escalação | **FEITO** shell 83 |
-| 6 | Causas de código da F1 nula (max_tokens / parse / prosa) | **FEITO** shell 84 |
-| 7 | Validação de campo pós-84 (Escalação volta na prática) | **ABERTO** — hard reload + reanalisar; se falhar, colar amostra |
-| 8 | UI troca de senha avançada | aberto |
-| 9 | Pages com `?v=` atual | **FEITO** (serve `main`; rechecar só se push não refletir ~2 min) |
-| 10 | Regenerar secrets AF/FD se zelo | aberto |
-| 11 | Rate-limit Worker | aberto |
-| 12 | Thinking Fase 2 só com schema/structured outputs ok | aberto (budget 0 mantido) |
+| 1–6 | Shells 80–84 (Opus, PDF, ct*, diag F1, parse F1) | **FEITO** |
+| 7 | Validação de campo pós-84 | aberto (manual) |
+| **8** | **Paridade coleta V1→V2 (PARTE IX, shell 85+)** | **PRÓXIMO — Claude** |
+| 9 | UI senha avançada | aberto |
+| 10 | Pages `?v=` | FEITO (serve main) |
+| 11 | Secrets AF/FD / rate-limit Worker | aberto |
+| 12 | Thinking F2 + schema | aberto (budget 0) |
 
 ---
 
-**Fim do handoff mestre (shell 84; arquivo `…SHELL-72-MESTRE…`).**  
-Quem não souber: dual-mode, prefill Sonnet 5, resgate **Opus**, `var MODEL_PRICE`, `ctSideSection`, PDF nativo, `_coletaOk`/fase1-*, `parseAnalysisJson`/`_p1JsonRescue` — **não leu este arquivo**.
+# PARTE IX — Plano de paridade de coleta V1 → V2 (implementar)
+
+**Status:** planejado (docs only até shell 84). **Implementação:** prompt da PARTE VIII no Claude → shell **85+**.  
+**V1:** só leitura em `C:\Users\Gabriel\.claude\projects\Agente Copa 2026\index.html`. **Nunca** mergear v1 no v2.
+
+## 1. Por que o V1 “coletava impecável” e o V2 não
+
+| Fator | V1 (Copa) | V2 (multi-liga) hoje |
+|-------|-----------|----------------------|
+| Escopo | 1 torneio | 5 ligas de clubes |
+| Cascata A | **AF → FD → ESPN** | **FD → ESPN → AF full só se A vazia** |
+| AF season 2026 | Útil na Copa | Free costuma **bloquear** season de clubes |
+| Técnico/lineup | `afEnrichCoachLineup` no caminho AF | Minimal / coach-only; lineup raro |
+| Buscas F1 | tópicos WC densos + coverNote duro | 1–3 buscas; coverNote mais brando |
+| Escalação UI | alimentada por rawFacts AF+busca | `_lineups` **só** de rawFacts F1 (`attachAnalysisDerived`) — F2 com onze não salva a aba se F1 nula |
+| Código | monólito estável | modular + regressões 79–84 (mitigadas) |
+
+**Conclusão:** gap principal não é “Haiku pior”; é **fonte determinística B fraca** + **mapa de Escalação sem fallback F2** + cascata que **economiza AF** demais.
+
+## 2. Objetivo de produto (aceitação)
+
+1. Quando AF estiver útil (chave/Worker e season acessível): **técnico ± lineup** no bloco API com frequência próxima do V1.  
+2. Quando AF Free bloquear season: **coach via `/teams`+`/coachs`** sempre tentado; ESPN garante A; web_search cobre resto.  
+3. Aba **Escalação** renderiza se **qualquer** de: AF lineups, rawFacts F1, ou onze no JSON F2 (com disclaimer honesto).  
+4. Empty Escalação só se **ninguém** trouxe onze — com diag se F1 falhou.  
+5. Sem regressão dual-mode / F2 Opus rescue / PDF / tests.
+
+## 3. Arquivos a tocar (implementação)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `js/data/phase1-context.js` | Cascata adaptativa AF; flag season blocked; status human |
+| `js/data/football-apis.js` | Detecção erro season Free; enrich sempre que possível; cache flag |
+| `js/analysis/pipeline-facts.js` | coverNote duro; floor searches; fillDataGaps mais agressivo |
+| `js/analysis/normalize.js` | `_lineups` também do JSON F2 |
+| `js/analysis/render.js` | empty-state só se sem lineups de verdade; disclaimer fonte |
+| `js/analysis/lineup.js` | helpers se precisar derivar pitch do F2 |
+| `tests/run.mjs` | asserts P0–P2 |
+| `js/version.js` + `sw.js` + `index.html` | shell **85** |
+| este handoff | pós-implementação |
+
+## 4. Fases (ordem obrigatória)
+
+### P0 — Cascata / AF (maior ROI)
+
+**Hoje** (`phase1-context.js`):
+
+```
+FD → ESPN → AF full só se !fdCtx
+(+ em paralelo free registry)
+(+ AF layer B minimal se cascade ≠ af)
+```
+
+**Alvo (espírito V1, multi-liga safe):**
+
+```
+1. free registry (paralelo, como hoje)
+2. Se afReady && !afSeasonBlocked[comp]:
+     tentar AF standings+fixtures
+     se texto útil → source=af + afEnrichCoachLineup (full)
+3. Se A ainda fraca/vazia → FD (se ready)
+4. Se A ainda fraca/vazia → ESPN (rede de segurança)
+5. Se source ≠ af full → afEnrichCoachLineupMinimal (coach+lineup perto do jogo)
+   senão se fixtures vazias por Free → _afCoachOnlyFallback
+6. Se AF retornar erro de season → set afSeasonBlocked[comp]=true (session/localStorage curto)
+```
+
+**Regras:**
+
+- Não chamar standings AF em loop se blocked.  
+- Throttle `AF_MIN_GAP_MS` intacto.  
+- ESPN **nunca** deixa de ser fallback.  
+- Anti-fantasma: silent ≠ lacuna.
+
+### P1 — Fase 1 LLM mais completa
+
+Em `gatherFacts` / system prompt F1:
+
+- Prioridade máxima: `tecnico`, `formacao`, `onze_provavel` (11), `banco`, desfalques.  
+- Texto no espírito V1: vazio nesses campos = **falha de busca** se a página tinha o dado; **proibido inventar nome**.  
+- `fillDataGaps`: disparar quando técnico vazio **ou** onze com length &lt; 11 em qualquer time.  
+- Floor de buscas: se `effort.searches < 2` e cobertura B ou C baixa pré-busca, usar `max(searches, 2)` (só F1; sem UI de esforço).
+
+### P2 — Escalação resiliente
+
+`attachAnalysisDerived(parsed, rawFacts)` hoje monta `_lineups` **só** de `rawFacts`.
+
+**Alvo:**
+
+```
+_lineups =
+  fromAfBlock se existir
+  || fromRawFacts(rawFacts.mandante/visitante)
+  || fromParsedF2(parsed.mandante/visitante)  // NOVO
+  || null
+```
+
+Render:
+
+- Se `_lineups` ok → mapa (disclaimer: “API confirmada” vs “pesquisa F1” vs “estimativa do modelo F2”).  
+- Se null e `_coletaOk===false` → empty + `_fallbackDiagLine`.  
+- Se null e coleta ok → empty “sem cobertura de imprensa” (como hoje).
+
+### P3 — Testes, shell, handoff
+
+- Asserts de string/fluxo (cascata, derived F2, proibições).  
+- Shell 85.  
+- Atualizar PARTE VIII/IX status → FEITO onde couber.  
+- commit + push.
+
+## 5. O que NÃO fazer nesta feature
+
+- Plano pago AF obrigatório (código deve **aproveitar** se existir, degradar se Free).  
+- Copiar monólito V1.  
+- `allowed_domains`.  
+- Thinking budget F2.  
+- Mentir cobertura (anti-fantasma).
+
+## 6. Critérios de teste manual (dono / Claude)
+
+1. Hard reload shell 85.  
+2. `Flamengo x Palmeiras` (brsa) com Worker+AF: ver status F1 com fontes; aba Escalação com mapa **ou** diag honesto.  
+3. Mesmo jogo sem AF key: ESPN + busca; não crash.  
+4. Caso F1 falhe parse mas F2 JSON tenha onze: **mapa deve aparecer** (P2).  
+5. `node tests/run.mjs` PASS.
+
+## 7. Estimativa de shells
+
+| Shell | Conteúdo sugerido |
+|-------|-------------------|
+| **85** | P0+P1+P2+P3 mínimos (paridade utilizável) |
+| 86 | (se precisar) telemetria/UI “fonte da escalação” / polish coverNote |
+| depois | senha avançada, rate-limit Worker |
+
+---
+
+**Fim do handoff mestre (shell 84 + plano paridade IX; arquivo `…SHELL-72-MESTRE…`).**  
+Quem não souber dual-mode, F1/F2, `_coletaOk`, **ou o plano de paridade PARTE IX** — **não leu este arquivo**.
