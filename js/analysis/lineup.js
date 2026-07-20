@@ -55,8 +55,25 @@ function normalizeLineupTeam(t){
     rows=_rowsFromOnze(onze,formacao);
   }
   const banco=_filterOutCoach((Array.isArray(t.banco)?t.banco:[]).map(x=>({nome:typeof x==='string'?x:(x&&x.nome)||textFrom(x),posicao:''})),coach).map(p=>p.nome).filter(Boolean);
+  // Proveniência (PARTE X / shell 87): fonte dos DADOS do time e da FORMAÇÃO (número),
+  // propagada até o badge do pitch. Ordem de confiança: api > pesquisa > modelo > inferida.
+  const fonte=t.fonte||'inferida';               // de onde veio o XI/escalação do time
+  const formacaoFonte=t.formacaoFonte||(formacao?fonte:'inferida'); // de onde veio o "4-2-3-1"
   // Se montou linhas, o render usa rows (onze vazio evita o path de 4 buckets).
-  return{nome:t.nome||'',formacao,tecnico:coach,banco,escalacao_str,onze:rows?[]:onze,rows};
+  return{nome:t.nome||'',formacao,tecnico:coach,banco,escalacao_str,onze:rows?[]:onze,rows,fonte,formacaoFonte};
+}
+// Metadados de proveniência para UI (badge + chip de formação).
+const _LU_FONTE_META={
+  api:{label:'confirmada',cls:'pitch-src-api'},
+  pesquisa:{label:'pesquisa',cls:'pitch-src-pesq'},
+  modelo:{label:'estimativa',cls:'pitch-src-mod'},
+  inferida:{label:'inferida',cls:'pitch-src-inf'}
+};
+// Ranking de confiança (maior = melhor) — usado no pior-nível do rodapé.
+const _LU_FONTE_RANK={api:3,pesquisa:2,modelo:1,inferida:0};
+function _luWorseFonte(a,b){
+  const ra=_LU_FONTE_RANK[a]??0,rb=_LU_FONTE_RANK[b]??0;
+  return ra<=rb?(a||'inferida'):(b||'inferida');
 }
 function _stripCoachFromLineupText(text){
   // Remove "Técnico: Nome", "Treinador - Nome" e trechos similares do texto da escalação
@@ -244,8 +261,18 @@ function _pitchTeam(t){
     body=`<div class="pitch-fallback" style="color:var(--muted)">Onze provável não coletado nesta análise.</div>`;
   }
   const banco=Array.isArray(L.banco)?L.banco:[];
+  // Badge de proveniência por time (PARTE X): api|pesquisa|modelo|inferida.
+  const fonte=L.fonte||'inferida';
+  const fMeta=_LU_FONTE_META[fonte]||_LU_FONTE_META.inferida;
+  const srcBadge=`<span class="pitch-src ${fMeta.cls}" title="Origem da escalação">${fMeta.label}</span>`;
+  // Chip de formação HONESTO: número só quando veio de fonte confiável (api/pesquisa).
+  // 'modelo' → mostra mas marcado "não confirmada"; 'inferida' → sem chip (não inventar "4-2-3-1").
+  const ff=L.formacaoFonte||'inferida';
+  let formChip='';
+  if(L.formacao&&(ff==='api'||ff==='pesquisa'))formChip=`<span class="pitch-form">${esc(L.formacao)}</span>`;
+  else if(L.formacao&&ff==='modelo')formChip=`<span class="pitch-form pitch-form-unconf" title="Formação estimada pelo modelo, não confirmada por fonte">${esc(L.formacao)} · não confirmada</span>`;
   return `<div class="pitch-team">
-    <div class="pitch-hd"><div class="tname" style="margin-bottom:0">${nome}</div>${L.formacao?`<span class="pitch-form">${esc(L.formacao)}</span>`:''}</div>
+    <div class="pitch-hd"><div class="tname" style="margin-bottom:0">${nome}</div>${srcBadge}${formChip}</div>
     ${body}
     ${coach?`<div class="pitch-meta">👔 Técnico: <b>${esc(coach)}</b></div>`:''}
     ${banco.length?`<div class="pitch-meta">🪑 Banco: ${banco.map(esc).join(' · ')}</div>`:''}
@@ -285,6 +312,8 @@ expose({
   _lineupRowsFromText,
   _pitchTeam,
   _posBucket,
+  _luWorseFonte,
+  _LU_FONTE_META,
 });
 export {
   buildPitchModel,
@@ -294,4 +323,6 @@ export {
   _lineupRowsFromText,
   _pitchTeam,
   _posBucket,
+  _luWorseFonte,
+  _LU_FONTE_META,
 };

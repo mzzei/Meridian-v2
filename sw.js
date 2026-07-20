@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '86';
+const SHELL_VERSION = '87';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -46,6 +46,7 @@ const SHELL = [
   './js/data/source-health.js?v=' + SHELL_VERSION,
   './js/data/schedule.js?v=' + SHELL_VERSION,
   './js/data/live.js?v=' + SHELL_VERSION,
+  './js/data/lineup-confirmed.js?v=' + SHELL_VERSION,
   './js/data/history.js?v=' + SHELL_VERSION,
   './js/ui/featured.js?v=' + SHELL_VERSION,
   './js/ui/library.js?v=' + SHELL_VERSION,

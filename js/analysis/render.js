@@ -98,10 +98,46 @@ function ctSideSection(s,hn,an,atkN,defN){
     '</div>';
 }
 
+// ── Aba Escalação (PARTE X) — builder isolado: reusado pelo render inicial E pelo
+// refresh ao vivo (refreshAnalysisLineups patch-a só este painel, sem re-rodar F2). ──
+// Disclaimer honesto pelo PIOR nível dos dois times; botão "Atualizar escalação" quando
+// o jogo tem âncora ESPN (match-day/live) — o poll/patch é 100% determinístico (zero LLM).
+function buildEscalacaoTab(d,cardId){
+  const lu=d._lineups;
+  if(!(lu&&(lu.mandante||lu.visitante))){
+    const msg=(typeof _abaVaziaMsg==='function')?_abaVaziaMsg(d._featLineups,d._coletaOk,'Escalações não disponíveis — esta análise foi gerada antes do recurso. Rode uma nova análise para obtê-las.','A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo. Rode novamente para tentar coletar as escalações.','Dados de escalação não encontrados na coleta desta partida — pode ser um confronto com pouca cobertura de imprensa. Rode uma nova análise para tentar novamente.'):'Escalações não disponíveis.';
+    const diag=(d._coletaOk===false&&typeof _fallbackDiagLine==='function')?_fallbackDiagLine():'';
+    return `<div class="tab-s"><p class="tab-body" style="color:var(--muted)">${msg}${diag}</p>${_escRefreshBtn(d,cardId)}</div>`;
+  }
+  const worst=d._lineupsFonte||'pesquisa';
+  const SRC_TXT={
+    api:'Escalações CONFIRMADAS (API-Football / ESPN) — XI oficial do dia do jogo',
+    pesquisa:'Escalações prováveis coletadas na pesquisa — podem mudar até o apito inicial',
+    modelo:'Estimativa do modelo — a pesquisa estruturada não trouxe escalação; NÃO confirmadas',
+    inferida:'Disposição inferida (sem formação de fonte confiável) — meramente ilustrativa'
+  };
+  return `<div class="tab-s">
+      <div class="tab-h">Escalações${worst==='api'?' Confirmadas':' Prováveis'}</div>
+      <div class="teams-full">${_pitchTeam(lu.mandante)}${_pitchTeam(lu.visitante)}</div>
+      <div class="pstat-src">${SRC_TXT[worst]||SRC_TXT.pesquisa}</div>
+      ${_escRefreshBtn(d,cardId)}
+    </div>`;
+}
+// Botão de atualização de escalação — só quando há evento ESPN ancorado (match-day/live).
+function _escRefreshBtn(d,cardId){
+  if(!d._espnEventId)return '';
+  const live=d._matchWindow?' · ao vivo':'';
+  return `<div class="esc-refresh"><button type="button" class="chip chip-cta" onclick="refreshAnalysisLineups('${esc(d._hid||'')}',${cardId||0})">↻ Atualizar escalação${live}</button></div>`;
+}
+if(typeof window!=='undefined'){window.buildEscalacaoTab=buildEscalacaoTab;}
+
 function renderResults(d,opts){
   opts=opts||{};
   _cardCount++;
   const id=_cardCount;
+  // hid ANTES de montar as abas: a aba Escalação usa d._hid no botão de refresh.
+  const hid=opts.hid||('h'+Date.now().toString(36)+id);
+  d._hid=hid;
   const now=new Date();
   const ts=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const lmh=d.lambda?.home_mid||1.5,lma=d.lambda?.away_mid||1.0;
@@ -247,17 +283,8 @@ function renderResults(d,opts){
     </div>`:''}`
   :(typeof featureEmptyHtml==='function'?featureEmptyHtml(d._featEscanteios,d._coletaOk,'escanteios',ecStats?`<div class="tab-s"><div class="tab-h">Escanteios por Jogo · Coletados</div><div class="teams-full">${ecStats}</div></div>`:''):`<div class="tab-s"><p class="tab-body" style="color:var(--muted)">${_abaVaziaMsg(d._featEscanteios,d._coletaOk,'Análise de escanteios não disponível — esta análise foi gerada antes do recurso. Rode uma nova análise para obtê-la.','A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo. Rode novamente para tentar coletar escanteios.','Dados de escanteios não encontrados na coleta desta partida — pode ser um confronto com pouca cobertura de imprensa. Rode uma nova análise para tentar novamente.')}</p></div>${ecStats?`<div class="tab-s"><div class="tab-h">Escanteios por Jogo · Coletados</div><div class="teams-full">${ecStats}</div></div>`:''}`);
 
-  // ── Tab: Escalação (mapa de campo — dados da Fase 1 via _lineups, sem re-digitação) ──
-  const lu=d._lineups;
-  const tabEscalacao=(lu&&(lu.mandante||lu.visitante))?`
-    <div class="tab-s">
-      <div class="tab-h">Escalações Prováveis</div>
-      <div class="teams-full">${_pitchTeam(lu.mandante)}${_pitchTeam(lu.visitante)}</div>
-      <div class="pstat-src">${d._lineupsFonte==='modelo'
-        ?'Estimativa do modelo — a pesquisa estruturada desta partida falhou; escalações NÃO confirmadas'
-        :'Escalações prováveis coletadas na pesquisa — podem mudar até o apito inicial'}</div>
-    </div>`
-  :`<div class="tab-s"><p class="tab-body" style="color:var(--muted)">${_abaVaziaMsg(d._featLineups,d._coletaOk,'Escalações não disponíveis — esta análise foi gerada antes do recurso. Rode uma nova análise para obtê-las.','A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo. Rode novamente para tentar coletar as escalações.','Dados de escalação não encontrados na coleta desta partida — pode ser um confronto com pouca cobertura de imprensa. Rode uma nova análise para tentar novamente.')}${d._coletaOk===false&&typeof _fallbackDiagLine==='function'?_fallbackDiagLine():''}</p></div>`;
+  // ── Tab: Escalação (mapa de campo — via _lineups; builder reusado no refresh ao vivo) ──
+  const tabEscalacao=buildEscalacaoTab(d,id);
 
   // ── Tab: Avançado ──
   const tabAvancado=`
@@ -312,7 +339,6 @@ function renderResults(d,opts){
     ${shell.panels}
   </div>`;
   const cardEl=el.firstElementChild;
-  const hid=opts.hid||('h'+Date.now().toString(36)+id);
   cardEl.dataset.hid=hid;
   document.getElementById('conversation').appendChild(cardEl);
   // Animate bars from 0→value and init tab pill

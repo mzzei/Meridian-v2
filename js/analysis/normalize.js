@@ -185,29 +185,41 @@ function attachAnalysisDerived(parsed, rawFacts) {
 
   try {
     if (typeof normalizeLineupTeam === 'function') {
+      const nonEmptyArr = (a) => Array.isArray(a) && a.length;
       const mkLineup = (teamKey, tecKey) => {
         const rf = rawFacts && rawFacts[teamKey],
           p2 = parsed[teamKey],
           tec2 = parsed[tecKey];
         const nome = (rf && rf.nome) || (p2 && p2.nome) || '';
-        const formacao = (rf && rf.formacao) || (tec2 && tec2.formacao) || '';
+        // PARTE X (shell 87): proveniência POR TIME. rawFacts confirmado (match-day
+        // ESPN/AF) = 'api'; rawFacts web_search = 'pesquisa'; só F2 = 'modelo'; nada = 'inferida'.
+        const rfConfirmed = !!(rf && rf._confirmed);
+        const rfHasXI = rf && (nonEmptyArr(rf.onze_provavel) || rf.escalacao_provavel);
+        const p2HasXI = p2 && (nonEmptyArr(p2.onze_provavel) || p2.escalacao);
+        let fonte = 'inferida';
+        if (rfConfirmed && rfHasXI) fonte = 'api';
+        else if (rfHasXI) fonte = 'pesquisa';
+        else if (p2HasXI) fonte = 'modelo';
+        // Fonte da FORMAÇÃO (número) — separada do XI: evita rotular "4-2-3-1" como oficial.
+        const rfForm = rf && rf.formacao,
+          p2Form = tec2 && tec2.formacao;
+        let formacaoFonte = 'inferida';
+        if (rfConfirmed && rfForm) formacaoFonte = 'api';
+        else if (rfForm) formacaoFonte = 'pesquisa';
+        else if (p2Form) formacaoFonte = 'modelo';
+        const formacao = rfForm || p2Form || '';
         const tecnico = (rf && rf.tecnico) || (tec2 && tec2.nome) || '';
-        // PARTE IX P2 (shell 85): F2 também alimenta o mapa — preferência rawFacts F1 >
-        // JSON F2 > vazio. Nunca inventa: só materializa o que algum dos dois trouxe.
+        // Preferência rawFacts F1 (ou confirmado) > JSON F2 > vazio. Nunca inventa.
         const bancoSrc =
-          (rf && Array.isArray(rf.banco) && rf.banco.length ? rf.banco : null) ||
-          (p2 && Array.isArray(p2.banco) && p2.banco.length ? p2.banco : []);
+          (rf && nonEmptyArr(rf.banco) ? rf.banco : null) ||
+          (p2 && nonEmptyArr(p2.banco) ? p2.banco : []);
         const banco = bancoSrc
           .map((x) => (typeof textFrom === 'function' ? textFrom(x) : String(x || '')))
           .filter(Boolean);
         const escalacao_str = (rf && rf.escalacao_provavel) || (p2 && p2.escalacao) || '';
         const onzeSrc =
-          (rf && Array.isArray(rf.onze_provavel) && rf.onze_provavel.length
-            ? rf.onze_provavel
-            : null) ||
-          (p2 && Array.isArray(p2.onze_provavel) && p2.onze_provavel.length
-            ? p2.onze_provavel
-            : []);
+          (rf && nonEmptyArr(rf.onze_provavel) ? rf.onze_provavel : null) ||
+          (p2 && nonEmptyArr(p2.onze_provavel) ? p2.onze_provavel : []);
         const onze = onzeSrc
           .map((p) => (typeof p === 'string' ? { nome: p, posicao: '' } : p))
           .filter((p) => p && p.nome);
@@ -219,6 +231,8 @@ function attachAnalysisDerived(parsed, rawFacts) {
           escalacao_str,
           onze,
           rows: null,
+          fonte,
+          formacaoFonte,
         });
       };
       const lm = mkLineup('mandante', 'tecnico_mandante');
@@ -233,9 +247,15 @@ function attachAnalysisDerived(parsed, rawFacts) {
           x.formacao);
       if (has(lm) || has(lv)) {
         parsed._lineups = { mandante: lm, visitante: lv };
-        // Fonte do mapa (P2): com rawFacts = pesquisa F1 (+API); sem = estimativa do
-        // modelo F2 — o render mostra o mapa com disclaimer honesto em vez de empty injusto.
-        parsed._lineupsFonte = rawFacts ? 'pesquisa' : 'modelo';
+        // Rodapé (PARTE X Q0.4): fonte GLOBAL = PIOR nível entre os dois times, para o
+        // disclaimer não vender "confirmada" quando só um lado é confirmado.
+        const worse =
+          typeof _luWorseFonte === 'function'
+            ? _luWorseFonte(lm.fonte, lv.fonte)
+            : rawFacts
+              ? 'pesquisa'
+              : 'modelo';
+        parsed._lineupsFonte = worse;
       }
     }
   } catch (_) {}

@@ -161,7 +161,8 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'PRIORIDADE DE BUSCA: o que a cobertura C/B marcar como baixa — tipicamente xG, métricas, desfalques, escalação se B não for alta.\n'
     +'ESCALAÇÃO — PRIORIDADE MÁXIMA (paridade V1): tecnico + formacao + onze_provavel (11 {nome,posicao}) + banco + desfalques DOS DOIS TIMES. '
     +'Deixar esses campos vazios = FALHA DE BUSCA (a imprensa publica provável escalação na véspera — refaça a busca focada no time faltante), não lacuna legítima. '
-    +'PROIBIDO inventar nome: só o que dados/busca trouxerem; jogador incerto = "A confirmar" na posição.\n'
+    +'PROIBIDO inventar nome: só o que dados/busca trouxerem; jogador incerto = "A confirmar" na posição. '
+    +'FORMAÇÃO por time SEPARADA: NUNCA copie a mesma formação (ex.: 4-2-3-1) para os dois só porque é comum — cada "formacao" precisa de lastro na busca DAQUELE time; se só um time tem formação com fonte, deixe a do outro VAZIA ("") em vez de espelhar.\n'
     +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+'.\n'
     +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (não "fonte X ausente").\n'
     +_activeNote+_covNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
@@ -382,7 +383,7 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
     onUpdate&&onUpdate({status:'Completando dados faltantes…',phase:1});
     const partes=[];
     const _clGap=compLabel(state.activeCompId);
-    if(luGaps.length)partes.push('ESCALAÇÕES (PRIORIDADE MÁXIMA — a imprensa publica provável escalação na véspera; busque "[time] escalação provável" na imprensa/Sofascore; NUNCA invente nome — sem fonte, deixe vazio):\n'+luGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
+    if(luGaps.length)partes.push('ESCALAÇÕES (PRIORIDADE MÁXIMA — a imprensa publica provável escalação na véspera; busque "[time] escalação provável" na imprensa/Sofascore; NUNCA invente nome — sem fonte, deixe vazio; FORMAÇÃO de cada time precisa de lastro próprio, NÃO espelhe a mesma nos dois):\n'+luGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(teamGaps.length)partes.push('CLUBES (posição na tabela de '+_clGap+' é pública — ex.: "5º · 28 pts"):\n'+teamGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(gaps.length)partes.push('JOGADORES:\n'+gaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (escalação provável/tabela · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":"","tecnico":"","formacao":"","onze_provavel":[{"nome":"","posicao":""}],"banco":[]}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/""/[] quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;

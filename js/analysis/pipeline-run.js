@@ -670,7 +670,22 @@ async function runAnalysis(){
     if(_va){globalThis.tokenState.sessionIn+=_va.inTokens;globalThis.tokenState.sessionOut+=_va.outTokens;}
     // Rede de segurança de eventos (cartões/escanteios) — após auditoria
     finalizeAnalysisPads(parsed);
+    // PARTE X (shell 87): escalação CONFIRMADA de dia de jogo — determinística, ZERO LLM.
+    // Na janela (−6h…FT) substitui o XI especulativo pelo oficial (AF>ESPN) e liga o
+    // botão/poll de refresh. Fora da janela: só ancora o eventId (botão manual). Nunca
+    // bloqueia a entrega do card.
+    try{
+      const _cl=_h('applyConfirmedLineups');
+      if(typeof _cl==='function')await _cl(parsed,{compId:state.activeCompId,query:state.pendingQuery||query});
+    }catch(_){}
     _h('renderResults')(parsed);
+    // Auto-poll da escalação enquanto o jogo estiver na janela (para em FT).
+    try{
+      if(parsed._matchWindow&&parsed._espnEventId){
+        const _sp=_h('startLineupAutoPoll');
+        if(typeof _sp==='function')_sp(parsed._hid,globalThis._cardCount);
+      }
+    }catch(_){}
     // Memória: registra a análise estruturada no fio do chat para que perguntas de
     // acompanhamento ("e se a Bósnia abrir o placar?") sejam fundamentadas pela análise
     // já feita — e não apenas por uma nova consulta rasa à ESPN. Resumo condensado

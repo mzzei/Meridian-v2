@@ -164,6 +164,48 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   assert(factsSrc3.includes('async function _p1JsonRescue'), 'retry de forma da fase1 existe');
   assert(/_p1JsonRescue\([^)]*\)[\s\S]{0,3000}?claude-haiku-4-5-20251001/.test(factsSrc3.slice(factsSrc3.indexOf('async function _p1JsonRescue'))), 'rescue F1 roda no Haiku (prefill ok; nunca Sonnet 5)');
 }
+// Shell 87: PARTE X — escalação honesta (proveniência) + elenco match-day/live
+{
+  const luSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
+  const normSrc6 = fs.readFileSync(path.join(ROOT, 'js/analysis/normalize.js'), 'utf8');
+  const rendSrc6 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  const lcSrc = fs.readFileSync(path.join(ROOT, 'js/data/lineup-confirmed.js'), 'utf8');
+  const liveSrc = fs.readFileSync(path.join(ROOT, 'js/data/live.js'), 'utf8');
+  const mainSrc2 = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
+  const swSrc2 = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  const runSrc7 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  const factsSrcX = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  // Q0: proveniência por time + precedência api>pesquisa>modelo>inferida
+  assert(luSrc2.includes('_LU_FONTE_RANK') && /api:\s*3[\s\S]{0,40}inferida:\s*0/.test(luSrc2), 'ranking de fonte api>pesquisa>modelo>inferida');
+  assert(luSrc2.includes("ff==='api'||ff==='pesquisa'"), 'chip de formação só para fonte confiável');
+  assert(luSrc2.includes('pitch-form-unconf'), 'formação do modelo marcada como não confirmada');
+  assert(luSrc2.includes('function _luWorseFonte'), 'worst-of helper existe');
+  assert(normSrc6.includes("fonte = 'api'") && normSrc6.includes('rfConfirmed'), 'normalize deriva fonte por time (api p/ confirmado)');
+  assert(normSrc6.includes('_luWorseFonte(lm.fonte, lv.fonte)'), 'rodapé usa pior nível entre os dois times');
+  // Q0.3: prompt proíbe espelhar a mesma formação nos dois times
+  assert(factsSrcX.includes('NÃO espelhe') || factsSrcX.includes('NUNCA copie a mesma formação'), 'coverNote proíbe espelhar formação');
+  // Q1/Q2: confirmado match-day + refresh determinístico
+  assert(lcSrc.includes('function applyConfirmedLineups') && lcSrc.includes('function espnStartersFromSummary'), 'helpers de escalação confirmada existem');
+  assert(lcSrc.includes('function refreshAnalysisLineups'), 'refresh de escalação existe');
+  assert(!lcSrc.includes('/v1/messages') && !lcSrc.includes('getReqHeaders') && !lcSrc.includes('currentModel'), 'refresh/enrich NÃO chama Anthropic (determinístico)');
+  assert(lcSrc.includes('fetchEspn') && lcSrc.includes('getAfLineups'), 'confirmado usa ESPN summary + AF lineups');
+  // precedência AF > ESPN na escolha por time (dentro de _lcPickConfirmed)
+  {
+    const pickBody = lcSrc.slice(lcSrc.indexOf('function _lcPickConfirmed'), lcSrc.indexOf('function applyConfirmedLineups'));
+    assert(pickBody.indexOf('if(af&&af.teams)') > -1 && pickBody.indexOf('if(af&&af.teams)') < pickBody.indexOf('if(espnSides)'), 'AF confirmada tem precedência sobre ESPN');
+  }
+  assert(runSrc7.includes("_h('applyConfirmedLineups')"), 'runAnalysis aplica escalação confirmada antes do render');
+  // Q2 UI
+  assert(rendSrc6.includes('function buildEscalacaoTab') && rendSrc6.includes('_espnEventId'), 'aba escalação isolada + botão só com evento ancorado');
+  assert(rendSrc6.includes('refreshAnalysisLineups'), 'botão chama refresh');
+  // Q3: live.js sem default '4-3-3' enganoso + DRY
+  assert(!liveSrc.includes("formation)||'4-3-3'") && !liveSrc.includes("formation||'4-3-3'"), "live.js sem default 4-3-3 enganoso");
+  assert(liveSrc.includes('espnStartersFromSummary'), 'live.js reusa o helper compartilhado (DRY)');
+  assert(liveSrc.includes("'n/d'") || liveSrc.includes('||\'n/d\''), 'live.js mostra n/d sem formação');
+  // wiring do novo classic
+  assert(mainSrc2.includes('js/data/lineup-confirmed.js'), 'lineup-confirmed no boot classic');
+  assert(swSrc2.includes('lineup-confirmed.js'), 'lineup-confirmed no precache do SW');
+}
 // Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
 assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');
 // toda função chamada no render deve estar definida em algum classic/ESM (fumaça anti-regressão)

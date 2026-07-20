@@ -546,8 +546,17 @@ html[data-theme="verde"] .wp-icon .wp-logo-img{filter:drop-shadow(0 6px 18px rgb
 .pstat-src{font-size:10px;color:var(--muted);font-style:italic;margin-top:.5rem;text-align:center}
 /* Escalação provável: mapa de campo (meio-campo vertical, ataque para cima) */
 .pitch-team{display:flex;flex-direction:column;gap:7px;min-width:0}
-.pitch-hd{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.pitch-hd{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap}
 .pitch-form{font-size:11px;font-weight:700;color:var(--terra);font-variant-numeric:tabular-nums}
+/* PARTE X (shell 87): proveniência da escalação por time + formação não confirmada */
+.pitch-src{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:6px;border:1px solid transparent;white-space:nowrap}
+.pitch-src-api{color:#2e8b57;background:rgba(46,139,87,.14);border-color:rgba(46,139,87,.32)}
+.pitch-src-pesq{color:var(--terra);background:rgba(200,86,60,.12);border-color:rgba(200,86,60,.28)}
+.pitch-src-mod{color:var(--muted);background:rgba(160,160,160,.12);border-color:rgba(160,160,160,.26)}
+.pitch-src-inf{color:var(--dim,#8a8a8a);background:rgba(120,120,120,.1);border-color:rgba(120,120,120,.22)}
+.pitch-form-unconf{color:var(--muted);font-weight:600;opacity:.85}
+.esc-refresh{margin-top:10px;display:flex;justify-content:center}
+.esc-refresh button{cursor:pointer}
 .pitch{position:relative;aspect-ratio:3/3.8;background:linear-gradient(180deg,rgba(46,128,76,.30),rgba(18,64,38,.42));border:1.5px solid rgba(255,255,255,.16);border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;padding:16px 4px 8px;overflow:hidden}
 .pitch::before{content:'';position:absolute;left:50%;top:0;transform:translate(-50%,-58%);width:38%;aspect-ratio:1;border:1.5px solid rgba(255,255,255,.18);border-radius:50%}
 .pitch::after{content:'';position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:58%;height:15%;border:1.5px solid rgba(255,255,255,.18);border-bottom:none;border-radius:5px 5px 0 0}

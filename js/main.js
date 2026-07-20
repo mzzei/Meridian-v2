@@ -40,6 +40,7 @@ const CLASSIC = [
   'js/data/source-health.js',
   'js/data/schedule.js',
   'js/data/live.js',
+  'js/data/lineup-confirmed.js',
   'js/ui/featured.js',
   'js/ui/library.js',
   'js/app.js',

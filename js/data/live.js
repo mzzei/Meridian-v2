@@ -80,8 +80,17 @@ function _renderLiveTab(){
   else if(_liveTab==='h2h'){body.innerHTML='<div class="lp-loading"><span class="ldot" style="margin:4px"></span> Buscando H2H…</div>';_lv_h2hHTML(d.h,d.a,d.hn,d.an,d.hc,d.ac).then(function(html){var b=document.getElementById('lp-body');if(b&&_liveTab==='h2h')b.innerHTML=html;});}
 }
 
-function _lv_formPositions(formation,isHome,FW,halfFH){
-  var lines=(formation||'4-3-3').split('-').map(Number).filter(function(n){return n>0;});
+// Linhas da formação para geometria. Sem formação de fonte, NÃO inventa "4-3-3" como
+// rótulo (Q3) — distribui os titulares numa disposição neutra só para desenhar os pontos.
+function _lv_lines(formation,count){
+  var lines=String(formation||'').split('-').map(Number).filter(function(n){return n>0;});
+  if(lines.length>=2&&lines.reduce(function(a,b){return a+b;},0)>=9)return lines;
+  var out=Math.max(3,(count||11)-1);
+  var d=Math.round(out*0.4),m=Math.round(out*0.3),f=out-d-m;
+  return [d,m,f].filter(function(n){return n>0;});
+}
+function _lv_formPositions(formation,isHome,FW,halfFH,count){
+  var lines=_lv_lines(formation,count);
   var pts=[];
   pts.push([FW/2,isHome?halfFH-14:14]);
   var totalL=lines.length;
@@ -115,13 +124,14 @@ function _lv_playerSvg(p,x,y,color,nameAbove){
 }
 
 function _lv_formationHTML(summary,h,a,hn,an,hc,ac){
-  var rosters=(summary&&summary.rosters)||[];
-  var hRoster=rosters.find(function(r){return r.home===true;})||rosters[0]||null;
-  var aRoster=rosters.find(function(r){return r.home===false;})||rosters[1]||null;
-  var hFormation=(hRoster&&hRoster.formation)||'4-3-3';
-  var aFormation=(aRoster&&aRoster.formation)||'4-3-3';
-  var hPlayers=(hRoster&&hRoster.roster||[]).filter(function(p){return p.starter;}).sort(function(x,y){return(x.formationPlace==null?99:x.formationPlace)-(y.formationPlace==null?99:y.formationPlace);});
-  var aPlayers=(aRoster&&aRoster.roster||[]).filter(function(p){return p.starter;}).sort(function(x,y){return(x.formationPlace==null?99:x.formationPlace)-(y.formationPlace==null?99:y.formationPlace);});
+  // Helper compartilhado (Q3 DRY): mesma extração que o card de análise usa.
+  var sides=(typeof espnStartersFromSummary==='function')?espnStartersFromSummary(summary):null;
+  var hSide=sides&&sides.home,aSide=sides&&sides.away;
+  var hRoster=hSide&&hSide.raw,aRoster=aSide&&aSide.raw;
+  var hFormation=(hSide&&hSide.formation)||'';   // vazio = não veio da fonte (mostra "n/d")
+  var aFormation=(aSide&&aSide.formation)||'';
+  var hPlayers=(hSide&&hSide.starters)||[];
+  var aPlayers=(aSide&&aSide.starters)||[];
   if(!hPlayers.length&&!aPlayers.length){
     return'<div class="lp-form"><div class="lp-empty">Escalação ainda não disponível.<br>Os dados aparecem assim que a partida começar.</div></div>';
   }
@@ -146,10 +156,10 @@ function _lv_formationHTML(summary,h,a,hn,an,hc,ac){
   svg+='<circle cx="'+(PW/2)+'" cy="'+(M+pbH*.72)+'" r="1.5" fill="rgba(255,255,255,.38)"/>';
   svg+='<circle cx="'+(PW/2)+'" cy="'+(PH-M-pbH*.72)+'" r="1.5" fill="rgba(255,255,255,.38)"/>';
   var al=_lv_abbr(an).toUpperCase().slice(0,3),hl=_lv_abbr(hn).toUpperCase().slice(0,3);
-  svg+='<text x="'+(PW/2)+'" y="'+(M+9)+'" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.28)" font-family="system-ui">'+esc(al)+' '+esc(aFormation)+'</text>';
-  svg+='<text x="'+(PW/2)+'" y="'+(PH-M-3)+'" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.28)" font-family="system-ui">'+esc(hl)+' '+esc(hFormation)+'</text>';
-  var hPos=_lv_formPositions(hFormation,true,FW,hfH);
-  var aPos=_lv_formPositions(aFormation,false,FW,hfH);
+  svg+='<text x="'+(PW/2)+'" y="'+(M+9)+'" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.28)" font-family="system-ui">'+esc(al)+' '+esc(aFormation||'n/d')+'</text>';
+  svg+='<text x="'+(PW/2)+'" y="'+(PH-M-3)+'" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.28)" font-family="system-ui">'+esc(hl)+' '+esc(hFormation||'n/d')+'</text>';
+  var hPos=_lv_formPositions(hFormation,true,FW,hfH,hPlayers.length);
+  var aPos=_lv_formPositions(aFormation,false,FW,hfH,aPlayers.length);
   aPlayers.forEach(function(p,i){if(i>=aPos.length)return;var pos=aPos[i];svg+=_lv_playerSvg(p,M+pos[0],M+pos[1],ac,false);});
   hPlayers.forEach(function(p,i){if(i>=hPos.length)return;var pos=hPos[i];svg+=_lv_playerSvg(p,M+pos[0],PH/2+pos[1],hc,true);});
   svg+='</svg>';
