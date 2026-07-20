@@ -1,9 +1,9 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 85)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 86)
 
 **Data:** 2026-07-19 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `85` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência (código):** `f24db4e` (shell 85 — PARTE IX implementada) · `f0e957a` (84) · `11ed7c3` (83) · `5e08d8b` (82)  
+**SHELL_VERSION:** `86` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência (código):** `6099fda` (shell 86 — SW network-first JS) · `f24db4e` (85 — PARTE IX) · `f0e957a` (84) · `11ed7c3` (83) · `5e08d8b` (82)  
 **Docs mestre:** tip de `main` · **PARTE IX = paridade de coleta V1→V2 — IMPLEMENTADA no shell 85 (P0–P3)**
 
 **Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 85**.
@@ -808,7 +808,7 @@ Implemente agora P0–P3. Ao final: resumo + hash do commit + confirmação de p
 | **P2-bug** | **4º ASSASSINO SILENCIOSO:** `lineup.js` referenciava `_lvKey` (que vive no MÓDULO pipeline-facts, não no global) → `normalizeLineupTeam` **SEMPRE** lançava ReferenceError → try/catch do attach engolia → `_lineups` **nunca** era montado → **aba Escalação vazia MESMO com dados** (explica os prints dos shells 83–84!). Fix: `_luKey` local em lineup.js. Série completa: MODEL_PRICE (79), prefill (79), ctSideSection (82), _lvKey (85). |
 | **P3** | Status F1 já listava fontes (`Fontes: … · API-Football (técnico/escalação)`). 15 asserts novos em tests/run.mjs (cascata AF-first, flag season, coverNote, floor, lineup gaps, onze F2, fonte, _luKey local). Shell 85; ALL PASSED; validado e2e no preview (F2-only → mapa fonte 'modelo'; rawFacts → 'pesquisa'). |
 
-**Atenção pós-85 (staleness de SW):** imports ESM internos (lineup.js etc.) NÃO carregam `?v=` — o SW antigo pode servir módulo velho após o deploy. No preview foi preciso `?resetsw=1` para o fix do _lvKey aparecer. Se comportamento estranho após update: hard reload / `?resetsw=1` antes de debugar.
+**Staleness de SW — RESOLVIDO no shell 86 (`6099fda`):** os imports ESM internos (lineup.js etc.) não carregam `?v=` e o cache-first servia módulo VELHO na transição de SW — caso real: o fix do `_lvKey` (85) não chegou ao usuário (print Coritiba x Palmeiras 23:49, Escalação ainda vazia) até `?resetsw=1`. Fix definitivo: `networkFirstJs` no sw.js — **todo `.js` é network-first** (online = fresco; offline = cache, PWA preservado); demais assets seguem cache-first. Uma última recarga dupla pode ser necessária para o PRÓPRIO sw.js 86 assumir; daí em diante a classe de bug morre. Nota: "PRÉVIA" no card Coritiba x Palmeiras estava CORRETO (ESPN: jogo 22/07, status pre).
 
 ---
 
