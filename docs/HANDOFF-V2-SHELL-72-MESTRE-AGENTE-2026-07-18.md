@@ -1,12 +1,12 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 86)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 87)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `86` (`js/version.js` = `sw.js` = `index.html ?v=` ×2) — **próximo: shell 87+ PARTE X (escalação honesta + elenco ao vivo em dia de jogo)**  
-**HEAD de referência (código):** `6099fda` (shell 86 — SW network-first JS) · `f24db4e` (85 — PARTE IX) · `f0e957a` (84) · `11ed7c3` (83) · `5e08d8b` (82)  
-**Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X PLANEJADA (87+) — proveniência + refresh lineup match-day/live**
+**SHELL_VERSION:** `87` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência (código):** `d0cec90` (shell 87 — PARTE X: escalação honesta + match-day/live) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX) · `f0e957a` (84)  
+**Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87) — proveniência + refresh lineup match-day/live**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 86 + plano X**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 87**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -646,6 +646,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 31. Globais de classic lidos via `globalThis` pelo ESM devem ser `var`/`function`/`expose()` — **`const`/`let` de script classic NÃO chegam ao window** (bug MODEL_PRICE, shell 79: derrubava toda análise pós-Fase 2). Ao criar ponte classic↔ESM, teste `typeof globalThis.X`.  
 32. **Escalação empty com card completo ≠ bug de render tático**: significa `_coletaOk === false` (Fase 1 sem `rawFacts`). Diagnóstico obrigatório via `_lastAnalysisFail` stages `fase1-parse` \| `fase1-loop` \| `fase1-error` no empty-state (shell 83) — nunca silenciar a causa da coleta.  
 33. **Todo parse de JSON vindo de LLM usa `parseAnalysisJson`** (fences + `repairJson`) — nunca `txt.match(/\{…\}/)` + `JSON.parse` seco (assert proíbe). `stop_reason:'max_tokens'` na F1 é terminal com salvage, não `break`. Retry de forma da F1 = `_p1JsonRescue` (Haiku + prefill `{`, sem tools) — shell 84.  
+34. **Escalação = proveniência HONESTA (shell 87)**: precedência AF(api) > ESPN starters(api) > rawFacts(pesquisa) > F2(modelo) > geometria(inferida) > empty. Chip de formação só com fonte confiável — nunca rotular "4-2-3-1" de modelo/inferida como oficial; nunca **espelhar** a mesma formação nos dois times sem lastro próprio. Elenco confirmado de dia de jogo (`applyConfirmedLineups`/`refreshAnalysisLineups`) é **determinístico** — ZERO chamada Anthropic no enrich/poll. `live.js` nunca inventa `4-3-3` (mostra `n/d`).  
 
 ---
 
@@ -676,7 +677,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **86** (ou **87+** se PARTE X mergeada) em version/sw/index  
+- [ ] `git pull` · `SHELL_VERSION` **87** em version/sw/index (HEAD ≥ `d0cec90`)  
 - [ ] HEAD ≥ `6099fda` (código 86) · ler **este** handoff · **PARTE X se a tarefa for escalação/ao vivo**  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
@@ -690,7 +691,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | 80–84 | Resgate Opus, PDF, ct*, diag F1, parse F1 — **FEITO** |
 | **85** | PARTE IX paridade coleta — **FEITO** (`f24db4e`) |
 | **86** | SW network-first para JS (staleness ESM) — **FEITO** (`6099fda`) |
-| **87+** | **PARTE X — proveniência da formação + elenco match-day/live refresh** — **PLANEJADO** |
+| **87** | **PARTE X FEITA** — proveniência por time (api>pesquisa>modelo>inferida) + chip de formação honesto; elenco CONFIRMADO match-day (AF>ESPN) via lineup-confirmed.js; botão/auto-poll "Atualizar escalação" (zero LLM); live.js sem default 4-3-3. Ver PARTE X §0 |
 
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras):** mapa de Escalação **volta a aparecer**, mas ambos em `4-2-3-1` e elenco **especulativo** (Sofascore/previsão). Receio correto: **não** é default hardcode do app na aba de análise, mas também **não** é XI/formação confirmados do dia de jogo como no V1 com AF lineups. Rodapé “prováveis da pesquisa” é honesto — e insuficiente se o usuário espera o elenco **real** no match day.
 
@@ -822,7 +823,7 @@ Só referência. Código em `f24db4e`. Não reimplementar do zero. O prompt long
 | 1–6 | Shells 80–84 | **FEITO** |
 | 7 | PARTE IX paridade coleta | **FEITO** shell 85 |
 | 8 | SW network-first JS | **FEITO** shell 86 |
-| **9** | **PARTE X — proveniência + elenco match-day/live** | **PRÓXIMO — Claude** |
+| **9** | **PARTE X — proveniência + elenco match-day/live** | **FEITO** shell 87 (`d0cec90`) |
 | 10 | UI senha avançada | aberto |
 | 11 | Pages `?v=` | FEITO (serve main) |
 | 12 | Secrets AF/FD / rate-limit Worker | aberto |
@@ -985,9 +986,28 @@ Render:
 
 ---
 
-# PARTE X — Escalação honesta + elenco match-day / ao vivo (PLANEJADO · shell 87+)
+# PARTE X — Escalação honesta + elenco match-day / ao vivo (FEITO · shell 87, `d0cec90`)
 
-**Status:** **PLANEJADO** (docs only até shell 86). Implementar com o prompt da PARTE VIII.  
+**Status:** **IMPLEMENTADO no shell 87** (Q0–Q4). Texto abaixo mantido como especificação/racional.
+
+## 0. O que o shell 87 entregou
+
+| Fase | Entregue |
+|------|----------|
+| **Q0** | Proveniência POR TIME (`api`>`pesquisa`>`modelo`>`inferida`). `normalize.attachAnalysisDerived` calcula `fonte` + `formacaoFonte` de cada time (rawFacts confirmado=api · rawFacts web=pesquisa · só F2=modelo · nada=inferida); `parsed._lineupsFonte` = **pior** dos dois (`_luWorseFonte` em lineup.js). `_pitchTeam`: badge de fonte (`.pitch-src-*`) + chip de formação HONESTO — número só com fonte confiável; `modelo` → "4-2-3-1 · não confirmada"; `inferida` → **sem chip** (não inventa número). coverNote F1 + fillDataGaps proíbem **espelhar** a mesma formação nos dois times sem lastro próprio. |
+| **Q1/Q2** | `js/data/lineup-confirmed.js` (novo classic, **ZERO Anthropic**): `espnStartersFromSummary(summary)` + `getAfLineups(fixtureId)`; precedência **AF confirmada > ESPN starters > especulativo**; banco da fonte confirmada. `isMatchDayWindow` = −6h…FT+2.5h ou status ESPN `in`. `applyConfirmedLineups(parsed)` roda no `runAnalysis` **após** attach e **antes** do render (determinístico); TTL curto 45s na janela, 15min fora. `refreshAnalysisLineups(hid,cardId)`: botão "↻ Atualizar escalação" + **auto-poll 75s** (para em FT), re-render SÓ da aba via `buildEscalacaoTab` isolado, persiste no history. **Nunca** reabre F1/F2. |
+| **Q3** | `live.js`: removido o default enganoso `'4-3-3'` (mostra `n/d` quando a fonte não traz formação); reusa `espnStartersFromSummary` (DRY); geometria neutra (`_lv_lines`) só p/ desenhar os pontos, sem rotular formação fantasma. |
+| **Q4** | 20 asserts novos; SHELL_VERSION 86→87; novo classic no boot (main.js CLASSIC), no precache (sw.js SHELL). Validado e2e no preview: mandante pesquisa + visitante modelo → rodapé modelo, chip "não confirmada"; AF>ESPN comprovado; janela live/futuro OK; console limpo. |
+
+**Precedência final do mapa (invariante nova 34):** AF lineups (`fonte:api`) > ESPN starters (`fonte:api`) > rawFacts F1 (`pesquisa`) > JSON F2 (`modelo`) > geometria (`inferida`) > empty+diag. Nunca inventar nome para completar 11; API com 11 vence rawFacts.
+
+**Aviso:** o botão/poll só aparece quando `parsed._espnEventId` foi ancorado (evento no scoreboard ESPN). Fora da janela o botão faz refresh manual; na janela, auto-poll.
+
+---
+
+Especificação original (referência):
+
+**Implementar com o prompt da PARTE VIII.**  
 **Pedido do dono (2026-07-20):** (1) não confiar em formação “padrão” sem fonte; (2) em **dia de jogo** o elenco deve **atualizar** e deixar de ser só especulativo Sofascore; (3) coleta/refresh **ao vivo** no card de análise.
 
 ## 1. Problema (print `suigsuigns.png`)
