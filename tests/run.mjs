@@ -222,6 +222,11 @@ assert(!/budget:\s*[1-9]\d*/.test(appSrc.match(/var MODEL_PROFILES[\s\S]*?\n\};/
   const luSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
   assert(luSrc.includes('function _luKey'), 'lineup.js tem chave normalizada LOCAL');
   assert(!luSrc.replace(/\/\/.*$/gm, '').includes('_lvKey'), 'lineup.js não referencia _lvKey de outro módulo (fora de comentário)');
+  // Shell 86: JS network-first no SW — imports ESM sem ?v= não podem ficar presos em cache
+  // velho (staleness servia lineup.js com o bug _lvKey mesmo após o fix do shell 85).
+  const swSrc = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  assert(swSrc.includes('function networkFirstJs'), 'sw tem network-first para JS');
+  assert(/\\\.js\(\\\?\|\$\)/.test(swSrc) && swSrc.includes('networkFirstJs(req)'), 'fetch handler roteia .js para network-first');
 }
 // Shell 72: Sonnet 4.6 → Sonnet 5. CRÍTICO: Sonnet 5 liga adaptive thinking quando o
 // campo `thinking` é OMITIDO (no 4.6 omitir = sem thinking) → todo body com currentModel

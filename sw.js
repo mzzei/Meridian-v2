@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '85';
+const SHELL_VERSION = '86';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -199,6 +199,24 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// NETWORK-FIRST para JS (shell 86): os imports ESM internos (lineup.js, normalize.js…)
+// não carregam ?v= — com cache-first, um SW em transição servia MÓDULO VELHO depois do
+// deploy (caso real: fix do _lvKey no shell 85 não chegava ao usuário sem ?resetsw=1 e a
+// aba Escalação continuava vazia). Online = módulo sempre fresco; offline = cache (PWA ok).
+async function networkFirstJs(req) {
+  try {
+    const res = await fetch(req, { cache: 'no-cache' });
+    if (res && res.ok) {
+      const cache = await caches.open(CACHE_VERSION);
+      await cache.put(req, res.clone());
+      return res;
+    }
+  } catch (_) {}
+  const cached = await matchCache(req);
+  if (cached) return cached;
+  return new Response('', { status: 504, statusText: 'Offline' });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -212,6 +230,10 @@ self.addEventListener('fetch', (event) => {
 
   if (isNav(req)) {
     event.respondWith(networkFirstNav(req));
+    return;
+  }
+  if (/\.js(\?|$)/.test(url.pathname + url.search)) {
+    event.respondWith(networkFirstJs(req));
     return;
   }
   event.respondWith(cacheFirstAsset(req));
