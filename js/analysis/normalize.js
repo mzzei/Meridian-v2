@@ -192,11 +192,23 @@ function attachAnalysisDerived(parsed, rawFacts) {
         const nome = (rf && rf.nome) || (p2 && p2.nome) || '';
         const formacao = (rf && rf.formacao) || (tec2 && tec2.formacao) || '';
         const tecnico = (rf && rf.tecnico) || (tec2 && tec2.nome) || '';
-        const banco = (rf && Array.isArray(rf.banco) ? rf.banco : [])
+        // PARTE IX P2 (shell 85): F2 também alimenta o mapa — preferência rawFacts F1 >
+        // JSON F2 > vazio. Nunca inventa: só materializa o que algum dos dois trouxe.
+        const bancoSrc =
+          (rf && Array.isArray(rf.banco) && rf.banco.length ? rf.banco : null) ||
+          (p2 && Array.isArray(p2.banco) && p2.banco.length ? p2.banco : []);
+        const banco = bancoSrc
           .map((x) => (typeof textFrom === 'function' ? textFrom(x) : String(x || '')))
           .filter(Boolean);
         const escalacao_str = (rf && rf.escalacao_provavel) || (p2 && p2.escalacao) || '';
-        const onze = (rf && Array.isArray(rf.onze_provavel) ? rf.onze_provavel : [])
+        const onzeSrc =
+          (rf && Array.isArray(rf.onze_provavel) && rf.onze_provavel.length
+            ? rf.onze_provavel
+            : null) ||
+          (p2 && Array.isArray(p2.onze_provavel) && p2.onze_provavel.length
+            ? p2.onze_provavel
+            : []);
+        const onze = onzeSrc
           .map((p) => (typeof p === 'string' ? { nome: p, posicao: '' } : p))
           .filter((p) => p && p.nome);
         return normalizeLineupTeam({
@@ -219,7 +231,12 @@ function attachAnalysisDerived(parsed, rawFacts) {
           (x.banco && x.banco.length) ||
           x.tecnico ||
           x.formacao);
-      if (has(lm) || has(lv)) parsed._lineups = { mandante: lm, visitante: lv };
+      if (has(lm) || has(lv)) {
+        parsed._lineups = { mandante: lm, visitante: lv };
+        // Fonte do mapa (P2): com rawFacts = pesquisa F1 (+API); sem = estimativa do
+        // modelo F2 — o render mostra o mapa com disclaimer honesto em vez de empty injusto.
+        parsed._lineupsFonte = rawFacts ? 'pesquisa' : 'modelo';
+      }
     }
   } catch (_) {}
 

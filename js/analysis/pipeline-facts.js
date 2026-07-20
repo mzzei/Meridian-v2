@@ -129,7 +129,14 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
       _skipNote=filtered.skipNote||'';
     }
   }catch{}
-  const _maxUses=Math.max(1,Math.min(maxSearches??topics.length,topics.length));
+  let _maxUses=Math.max(1,Math.min(maxSearches??topics.length,topics.length));
+  // Floor de buscas (shell 85 / PARTE IX P1): perfil pede 1 busca (Haiku) mas a cobertura
+  // B ou C está baixa pré-busca → sobe para 2 SÓ na F1 (não reativa UI de esforço).
+  try{
+    const _lvl=x=>String((x&&x.level)||'').toLowerCase();
+    const _bcLow=!_cov||_lvl(_cov.B)!=='high'||_lvl(_cov.C)!=='high';
+    if(_maxUses<2&&topics.length>=2&&_bcLow)_maxUses=2;
+  }catch{}
   const _dir=topics.slice(0,_maxUses).map((s,i)=>`${'①②③④'[i]} ${s}`).join('\n');
   // Fontes hiperconfiáveis: TEXTO-GUIA no prompt (orienta o modelo a buscar/priorizar nelas).
   // NÃO usar como allowed_domains — a allowlist por domínio já degradou a coleta e quebrou o
@@ -152,7 +159,9 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'PLACARES: números exatos dos blocos ativos. Nunca "resultado inferido".\n'
     +'MEMÓRIA LOCAL (se no repertoire): reutilize técnico/xG do MESMO time; não é memória de treino.\n'
     +'PRIORIDADE DE BUSCA: o que a cobertura C/B marcar como baixa — tipicamente xG, métricas, desfalques, escalação se B não for alta.\n'
-    +'ESCALAÇÃO: formacao + onze_provavel (11 {nome,posicao}) + banco; nomes só dos dados/busca.\n'
+    +'ESCALAÇÃO — PRIORIDADE MÁXIMA (paridade V1): tecnico + formacao + onze_provavel (11 {nome,posicao}) + banco + desfalques DOS DOIS TIMES. '
+    +'Deixar esses campos vazios = FALHA DE BUSCA (a imprensa publica provável escalação na véspera — refaça a busca focada no time faltante), não lacuna legítima. '
+    +'PROIBIDO inventar nome: só o que dados/busca trouxerem; jogador incerto = "A confirmar" na posição.\n'
     +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+'.\n'
     +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (não "fonte X ausente").\n'
     +_activeNote+_covNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
@@ -310,7 +319,11 @@ const _PLAYER_FIELDS=['posicao','jogos','minutos','gols','assistencias','finaliz
 // Fatos de TIME públicos e estáveis que NUNCA devem virar lacuna — o portão os
 // busca deterministicamente se a coleta vier vazia (mesmo racional do ranking na regra).
 const _TEAM_CRITICAL=['ranking_fifa'];
-function _pgEmpty(v){return v===null||v===undefined||v==='';}
+// Campos de ESCALAÇÃO do time (shell 85 / PARTE IX P1): técnico/formação/onze/banco vazios
+// disparam a passagem de gap — no V1 esses campos vinham no caminho AF; no Free multi-liga
+// a busca dirigida é quem os garante. Arrays vazios também contam como faltantes.
+const _TEAM_LINEUP_FILL=['tecnico','formacao','onze_provavel','banco'];
+function _pgEmpty(v){return v===null||v===undefined||v===''||(Array.isArray(v)&&v.length===0);}
 function _pgNorm(s){return String(s||'').trim().toLowerCase();}
 function _mergePlayerPatch(rawFacts,patchArr){
   const byName={};patchArr.forEach(p=>{if(p&&p.nome)byName[_pgNorm(p.nome)]=p;});
@@ -329,7 +342,20 @@ function _mergeTeamPatch(rawFacts,timesArr){
     if(!tm||!tm.nome)return;
     const src=byName[_pgNorm(tm.nome)];if(!src)return;
     _TEAM_CRITICAL.forEach(f=>{if(_pgEmpty(tm[f])&&!_pgEmpty(src[f]))tm[f]=src[f];});
+    // Escalação (shell 85): completa técnico/formação/onze/banco vindos da passagem de gap
+    _TEAM_LINEUP_FILL.forEach(f=>{if(_pgEmpty(tm[f])&&!_pgEmpty(src[f]))tm[f]=src[f];});
   });
+}
+// Um time tem escalação "completa" p/ o portão? tecnico + formacao + onze com 11.
+function _teamLineupGaps(tm){
+  if(!tm||!tm.nome)return null;
+  const faltando=[];
+  if(_pgEmpty(tm.tecnico))faltando.push('tecnico');
+  if(_pgEmpty(tm.formacao))faltando.push('formacao');
+  const onze=Array.isArray(tm.onze_provavel)?tm.onze_provavel.filter(p=>p&&(typeof p==='string'?p:p.nome)):[];
+  if(onze.length<11)faltando.push('onze_provavel (faltam '+(11-onze.length)+' de 11)');
+  if(_pgEmpty(tm.banco))faltando.push('banco');
+  return faltando.length?{nome:tm.nome,faltando}:null;
 }
 async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
   try{
@@ -349,18 +375,22 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
       const missing=_TEAM_CRITICAL.filter(f=>_pgEmpty(tm[f]));
       if(missing.length)teamGaps.push({nome:tm.nome,faltando:missing});
     });
-    if(!gaps.length&&!teamGaps.length)return{inTokens:0,outTokens:0}; // completo → custo zero
+    // Escalação faltante (shell 85 / PARTE IX P1): técnico vazio OU onze<11 em QUALQUER
+    // time dispara a passagem — no V1 isso vinha da AF; aqui a busca dirigida garante.
+    const luGaps=[rawFacts.mandante,rawFacts.visitante].map(_teamLineupGaps).filter(Boolean);
+    if(!gaps.length&&!teamGaps.length&&!luGaps.length)return{inTokens:0,outTokens:0}; // completo → custo zero
     onUpdate&&onUpdate({status:'Completando dados faltantes…',phase:1});
     const partes=[];
     const _clGap=compLabel(state.activeCompId);
+    if(luGaps.length)partes.push('ESCALAÇÕES (PRIORIDADE MÁXIMA — a imprensa publica provável escalação na véspera; busque "[time] escalação provável" na imprensa/Sofascore; NUNCA invente nome — sem fonte, deixe vazio):\n'+luGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(teamGaps.length)partes.push('CLUBES (posição na tabela de '+_clGap+' é pública — ex.: "5º · 28 pts"):\n'+teamGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(gaps.length)partes.push('JOGADORES:\n'+gaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
-    const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (tabela/posição · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":""}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/"" quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;
+    const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (escalação provável/tabela · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":"","tecnico":"","formacao":"","onze_provavel":[{"nome":"","posicao":""}],"banco":[]}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/""/[] quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;
     const msgs=[{role:'user',content:`DATA: ${_h('currentDateFull')()}. Busque e preencha os dados faltantes em ${_clGap}:\n${partes.join('\n\n')}`}];
     let accIn=0,accOut=0;
     for(let i=0;i<3;i++){
       if(signal.aborted)break;
-      const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,system:SP,messages:msgs,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}]});
+      const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2500,system:SP,messages:msgs,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}]});
       const res=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body,signal});
       if(!res.ok)break;
       const data=await res.json();const u=data.usage||{};accIn+=u.input_tokens||0;accOut+=u.output_tokens||0;

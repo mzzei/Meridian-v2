@@ -15,6 +15,11 @@ function _posBucket(p){
 }
 function _posShort(p){const s=String(p||'').trim().toUpperCase();return s?esc(s.slice(0,3)):'•';}
 function _pitchPlayer(p){return `<div class="p-player"><div class="p-dot">${_posShort(p.posicao)}</div><div class="p-name" title="${esc(p.nome)}">${esc(p.nome)}</div></div>`;}
+// Chave normalizada local (shell 85): _lvKey vivia no MÓDULO pipeline-facts (não global);
+// a referência nua aqui lançava ReferenceError → normalizeLineupTeam SEMPRE quebrava →
+// try/catch do attachAnalysisDerived engolia → _lineups nunca montado → aba Escalação
+// vazia MESMO com dados (4º assassino silencioso: MODEL_PRICE, prefill, ctSideSection, este).
+function _luKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
 // Técnico NÃO entra no mapa do campo — só em pitch-meta (fora do quadrado).
 function _isCoachLike(nome,pos,coachName){
   const n=String(nome||'').trim(),p=String(pos||'').trim().toLowerCase();
@@ -23,7 +28,7 @@ function _isCoachLike(nome,pos,coachName){
   if(/^\s*(t[eé]cnic[oa]s?|treinador(?:es)?|coach|manager)\b/i.test(n))return true;
   // Igualdade exata de chave (sem includes) — evita apagar jogador homônimo do técnico
   if(coachName){
-    const a=(_lvKey?_lvKey(n):n.toLowerCase()),b=(_lvKey?_lvKey(coachName):String(coachName).toLowerCase());
+    const a=_luKey(n),b=_luKey(coachName);
     if(a&&b&&a===b)return true;
   }
   return false;

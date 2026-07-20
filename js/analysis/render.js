@@ -253,7 +253,9 @@ function renderResults(d,opts){
     <div class="tab-s">
       <div class="tab-h">Escalações Prováveis</div>
       <div class="teams-full">${_pitchTeam(lu.mandante)}${_pitchTeam(lu.visitante)}</div>
-      <div class="pstat-src">Escalações prováveis coletadas na pesquisa — podem mudar até o apito inicial</div>
+      <div class="pstat-src">${d._lineupsFonte==='modelo'
+        ?'Estimativa do modelo — a pesquisa estruturada desta partida falhou; escalações NÃO confirmadas'
+        :'Escalações prováveis coletadas na pesquisa — podem mudar até o apito inicial'}</div>
     </div>`
   :`<div class="tab-s"><p class="tab-body" style="color:var(--muted)">${_abaVaziaMsg(d._featLineups,d._coletaOk,'Escalações não disponíveis — esta análise foi gerada antes do recurso. Rode uma nova análise para obtê-las.','A pesquisa de dados desta partida não pôde ser concluída — a análise saiu direto do modelo. Rode novamente para tentar coletar as escalações.','Dados de escalação não encontrados na coleta desta partida — pode ser um confronto com pouca cobertura de imprensa. Rode uma nova análise para tentar novamente.')}${d._coletaOk===false&&typeof _fallbackDiagLine==='function'?_fallbackDiagLine():''}</p></div>`;
 

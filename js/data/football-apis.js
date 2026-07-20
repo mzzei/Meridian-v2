@@ -189,6 +189,20 @@ function _afThrottled(fn){
   _afQueue=next.catch(()=>{});
   return next;
 }
+// ── Flag por liga: plano Free bloqueou a temporada atual (shell 85 / PARTE IX P0) ──
+// Evita re-gastar cota em standings/fixtures inúteis na MESMA sessão. `var` de propósito
+// (ponte classic↔ESM, inv. 31). sessionStorage: sobrevive a reload, morre com a aba.
+var _afSeasonBlockedMem={};
+function afSeasonBlocked(compId){
+  const id=compId||(typeof _activeCompId!=='undefined'?_activeCompId:'brsa');
+  if(_afSeasonBlockedMem[id])return true;
+  try{return sessionStorage.getItem('meridian_af_season_blocked_'+id)==='1';}catch{return false;}
+}
+function _afMarkSeasonBlocked(compId){
+  const id=compId||(typeof _activeCompId!=='undefined'?_activeCompId:'brsa');
+  _afSeasonBlockedMem[id]=true;
+  try{sessionStorage.setItem('meridian_af_season_blocked_'+id,'1');}catch{}
+}
 async function fetchAf(path,cacheKey,ttl=AF_TTL){
   try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c&&(Date.now()-c.ts)<ttl)return c.data;}catch{}
   const key=getAfKey();
@@ -198,7 +212,13 @@ async function fetchAf(path,cacheKey,ttl=AF_TTL){
     const res=await _afThrottled(()=>fetch(_afUrl(path,key))); // no custom headers — simple GET, no preflight
     if(!res.ok){_afLastError=`Erro ${res.status}`;return null;}
     const data=await res.json();
-    if(data.errors&&Object.keys(data.errors).length){_afLastError=String(Object.values(data.errors)[0]);return null;}
+    if(data.errors&&Object.keys(data.errors).length){
+      _afLastError=String(Object.values(data.errors)[0]);
+      // Free sem temporada atual → marca a liga como bloqueada nesta sessão (inv. 11:
+      // a chave AUTENTICOU; é limitação de plano, não secret inválida).
+      if(/free plans do not have access|not have access to this season/i.test(_afLastError))_afMarkSeasonBlocked();
+      return null;
+    }
     try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),data}));}catch{}
     return data;
   }catch(e){_afLastError=`rede: ${e?.message||'timeout'}`;return null;}

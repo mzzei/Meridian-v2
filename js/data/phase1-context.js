@@ -9,24 +9,46 @@ const PHASE1_CTX_TOTAL = 16000;
 const PHASE1_CTX_EACH = 5000;
 
 /**
- * Camada A: tabela/jogos. Preferir fontes sem gastar cota AF free em standings.
- * AF full (standings+fixtures) só se FD e ESPN falharem.
+ * Camada A: tabela/jogos — CASCATA ADAPTATIVA (shell 85 / PARTE IX P0, espírito V1).
+ * AF PRIMEIRO quando útil (afReady e temporada não bloqueada nesta sessão): é a única
+ * fonte que traz técnico+lineup determinísticos no mesmo caminho (afEnrichCoachLineup).
+ * Se o Free bloquear a temporada, fetchAf marca afSeasonBlocked[comp] e as próximas
+ * análises da sessão nem tentam — caem direto em FD → ESPN (rede de segurança imutável).
+ * A camada B (afEnrichCoachLineupMinimal + _afCoachOnlyFallback) SEMPRE roda quando a
+ * cascata não foi AF full — o técnico via /teams+/coachs não tem trava de temporada.
  */
 async function _phase1CascadeLayerA(query) {
   let fdCtx = '';
   let source = '';
   let fixturesForEnrich = null;
 
-  // 1) football-data.org free (chave local OU secret no Worker) — limpo, free forever
+  // 1) AF full primeiro (V1-style) — só se pronta E temporada não marcada como bloqueada
   try {
-    if (typeof fdReady === 'function' ? fdReady() : typeof getFdKey === 'function' && getFdKey()) {
+    const _afOk = typeof afReady === 'function' ? afReady() : typeof getAfKey === 'function' && getAfKey();
+    const _blocked = typeof afSeasonBlocked === 'function' ? afSeasonBlocked() : false;
+    if (_afOk && !_blocked) {
+      const [standings, fixtures] = await Promise.all([getAfStandings(), getAfFixtures()]);
+      fixturesForEnrich = fixtures;
+      fdCtx = formatAfContext(standings, fixtures);
+      if (fdCtx && typeof afEnrichCoachLineup === 'function') {
+        fdCtx += await afEnrichCoachLineup(query, fixtures);
+      }
+      if (fdCtx) source = 'af';
+      // vazio (Free bloqueou / sem dados): fetchAf já marcou afSeasonBlocked — NÃO
+      // silenciar: segue para FD/ESPN e a camada B ainda tenta o coach-only fallback.
+    }
+  } catch {}
+
+  // 2) football-data.org free (chave local OU secret no Worker) — limpo, free forever
+  try {
+    if (!fdCtx && (typeof fdReady === 'function' ? fdReady() : typeof getFdKey === 'function' && getFdKey())) {
       const [standings, matches] = await Promise.all([getFdStandings(), getFdMatches()]);
       fdCtx = formatFdContext(standings, matches);
       if (fdCtx) source = 'fd';
     }
   } catch {}
 
-  // 2) ESPN — base ao vivo multi-liga, sem chave
+  // 3) ESPN — rede de segurança multi-liga, sem chave (NUNCA deixa de ser fallback)
   try {
     if (!fdCtx && typeof getEspnStandings === 'function') {
       const [standings, scoreboard] = await Promise.all([
@@ -35,19 +57,6 @@ async function _phase1CascadeLayerA(query) {
       ]);
       fdCtx = formatEspnContext(standings, scoreboard);
       if (fdCtx) source = 'espn';
-    }
-  } catch {}
-
-  // 3) AF full só como último recurso da camada A (quando não há A)
-  try {
-    if (!fdCtx && (typeof afReady === 'function' ? afReady() : typeof getAfKey === 'function' && getAfKey())) {
-      const [standings, fixtures] = await Promise.all([getAfStandings(), getAfFixtures()]);
-      fixturesForEnrich = fixtures;
-      fdCtx = formatAfContext(standings, fixtures);
-      if (fdCtx && typeof afEnrichCoachLineup === 'function') {
-        fdCtx += await afEnrichCoachLineup(query, fixtures);
-      }
-      if (fdCtx) source = 'af';
     }
   } catch {}
 

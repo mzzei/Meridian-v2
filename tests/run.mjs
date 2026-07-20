@@ -194,6 +194,35 @@ assert(runSrc.includes('globalThis.modelProfile()'), 'pipeline-run uses modelPro
 // Fase 2 responder em prosa em vez de JSON (schema via prompt-contrato, não structured
 // outputs) e toda análise caía no modo simplificado. NÃO reintroduzir budget>0 aqui.
 assert(!/budget:\s*[1-9]\d*/.test(appSrc.match(/var MODEL_PROFILES[\s\S]*?\n\};/)?.[0] || ''), 'no model profile has thinking budget > 0');
+// Shell 85: PARIDADE DE COLETA V1→V2 (PARTE IX P0–P2)
+{
+  const p1Ctx = fs.readFileSync(path.join(ROOT, 'js/data/phase1-context.js'), 'utf8');
+  const apiSrc = fs.readFileSync(path.join(ROOT, 'js/data/football-apis.js'), 'utf8');
+  const factsSrc5 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  const normSrc5 = fs.readFileSync(path.join(ROOT, 'js/analysis/normalize.js'), 'utf8');
+  const rendSrc5 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  // P0: cascata tenta AF PRIMEIRO quando ready e temporada não bloqueada; FD/ESPN seguem como fallback
+  assert(p1Ctx.includes('afSeasonBlocked'), 'cascata consulta flag de temporada bloqueada');
+  assert(p1Ctx.indexOf('AF full primeiro') > -1 && p1Ctx.indexOf('AF full primeiro') < p1Ctx.indexOf('football-data.org free'), 'cascata AF-first (espírito V1), FD depois');
+  assert(p1Ctx.includes('getEspnStandings'), 'ESPN permanece rede de segurança');
+  assert(apiSrc.includes('function afSeasonBlocked') && apiSrc.includes('_afMarkSeasonBlocked'), 'flag season blocked existe e é marcada');
+  assert(/not have access to this season[\s\S]{0,120}_afMarkSeasonBlocked/.test(apiSrc), 'erro Free de season marca a flag');
+  assert(apiSrc.includes('AF_MIN_GAP_MS'), 'throttle AF intacto');
+  // P1: coverNote duro + floor de buscas + portão de escalação
+  assert(factsSrc5.includes('PRIORIDADE MÁXIMA (paridade V1)'), 'coverNote duro de escalação');
+  assert(factsSrc5.includes('_bcLow') && factsSrc5.includes('_maxUses=2'), 'floor de 2 buscas com B/C baixa');
+  assert(factsSrc5.includes('function _teamLineupGaps') && factsSrc5.includes('luGaps'), 'fillDataGaps cobre técnico/onze/banco');
+  assert(factsSrc5.includes('_TEAM_LINEUP_FILL'), 'merge da passagem de gap preenche escalação');
+  // P2: _lineups também do JSON F2 + fonte honesta no render
+  assert(normSrc5.includes('p2.onze_provavel'), 'attachAnalysisDerived aceita onze da F2');
+  assert(normSrc5.includes('_lineupsFonte'), 'fonte do mapa registrada (pesquisa|modelo)');
+  assert(rendSrc5.includes('Estimativa do modelo'), 'render mostra disclaimer quando mapa vem da F2');
+  // 4º assassino silencioso: lineup.js referenciava _lvKey (módulo pipeline-facts, não global)
+  // → normalizeLineupTeam SEMPRE lançava → _lineups nunca montado → Escalação vazia com dados.
+  const luSrc = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
+  assert(luSrc.includes('function _luKey'), 'lineup.js tem chave normalizada LOCAL');
+  assert(!luSrc.replace(/\/\/.*$/gm, '').includes('_lvKey'), 'lineup.js não referencia _lvKey de outro módulo (fora de comentário)');
+}
 // Shell 72: Sonnet 4.6 → Sonnet 5. CRÍTICO: Sonnet 5 liga adaptive thinking quando o
 // campo `thinking` é OMITIDO (no 4.6 omitir = sem thinking) → todo body com currentModel
 // precisa de {type:'disabled'} explícito, senão a Fase 2 volta a cair no modo simplificado.
