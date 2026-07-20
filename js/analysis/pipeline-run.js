@@ -137,8 +137,19 @@ async function runChat(){
     // monologue não pode vazar na bolha). Profundidade por modelo é só da análise padrão.
     const _chatBase=(atts.length||liveData||scoreFacts)?4500:3200;
     const _searchUses=scoreFacts?2:(hasAnchor?4:2);
+    // MODO CONVERSA (shell 88): resposta SUCINTA em texto, sem card/tickets/listões e
+    // sem overthink. O usuário pediu conversa direta — responder só o que foi perguntado.
+    const _CHAT_BREVITY='MODO CONVERSA — RESPOSTA SUCINTA E DIRETA:\n'
+      +'- Responda em TEXTO CORRIDO curto (1–4 frases; no máx. um parágrafo). Vá direto ao ponto.\n'
+      +'- Responda SÓ o que foi perguntado. NÃO gere card, tickets, tabela, JSON, seções numeradas nem listas longas.\n'
+      +'- NÃO repita dados que o usuário não pediu; nada de "raciocínio em voz alta" ou autocorreção — entregue a versão final.\n'
+      +'- Fundamente no que já está na conversa/dados; se faltar um dado essencial, diga em UMA linha em vez de inventar.\n'
+      +'- Sem alucinação: fatos voláteis (placar, escalação, lesões) só se vierem dos dados desta conversa.';
     const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase,
-      system:[{type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}}],
+      system:[
+        {type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}},
+        {type:'text',text:_CHAT_BREVITY}
+      ],
       messages:reqMessages,stream:true,
       tools:[{type:'web_search_20250305',name:'web_search',max_uses:_searchUses}]};
     // Sonnet 5 liga adaptive thinking quando `thinking` é OMITIDO (mudança vs 4.6,
@@ -225,45 +236,28 @@ async function runChat(){
       _h('openContextPromptPopup')(_ctxP,lastUser);
       _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},400);
     }else{
-      let _card=_h('chatCardFrom')(text);
-      // Segurança: pergunta vaga + card de jogo específico = suposição → popup, não análise
-      const presup=_card?_h('cardPresupposedVagueMatch')(_card,query):null;
-      if(presup){
-        const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-        globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-        _h('openContextPromptPopup')(presup,query);
-        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},400);
-      }else if(_card){
-        const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-        const painted=_h('renderChatCard')(_card);
-        if(!painted){
-          // card oco/quebrado — nunca mostrar casca vazia (print do bug)
-          const err=_h('showAgentBubble')('A análise veio incompleta (card sem conteúdo substantivo). Peça de novo com times, placar e foco — ex.: <em>"Inglaterra x Argentina FT — análise tática e gols"</em>.');
-          globalThis._chatThread.push({role:'assistant',content:'[card incompleto — pedido de reenvio]'});
-        }else{
-          globalThis._chatThread.push({role:'assistant',content:_h('cardToPlain')(_card)||'…'});
-        }
-        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
-      }else{
-        const clean=_h('stripInternalReasoning')(text||'');
-        if(!clean||_h('isInternalModelNoise')(clean)){
-          // fallback: se o modelo só vomitou raciocínio, pede contexto em vez de mostrar lixo
-          if(isVagueMatchQuery(query)||needsScore){
-            const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
-            globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
-            await _h('openMatchPickerPopup')(query,espnIds);
-          }else{
-            _revealAgent();
-            bubble.innerHTML=_h('simpleMd')('Não consegui montar uma resposta limpa. Reformule com times e competição (ex.: "Flamengo x Palmeiras hoje").');
-            globalThis._chatThread.push({role:'assistant',content:'[resposta sanitizada — pedido de reformulação]'});
-          }
+      // CHAT = CONVERSA em TEXTO (shell 88): sem "card" espalhafatoso. O caminho de card
+      // estruturado (chatCardFrom/renderChatCard/cardToPlain) foi removido na decomposição
+      // do monólito (26fbf9e) e derrubava o chat com "host missing: chatCardFrom" — e, além
+      // do bug, o card não é o que o usuário quer aqui: resposta sucinta em prosa é o certo.
+      const clean=_h('stripInternalReasoning')(text||'');
+      if(!clean||_h('isInternalModelNoise')(clean)){
+        // fallback: se o modelo só vomitou raciocínio, pede contexto em vez de mostrar lixo
+        if(isVagueMatchQuery(query)||needsScore){
+          const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
+          globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+          await _h('openMatchPickerPopup')(query,espnIds);
         }else{
           _revealAgent();
-          bubble.innerHTML=_h('simpleMd')(clean);
-          globalThis._chatThread.push({role:'assistant',content:clean});
+          bubble.innerHTML=_h('simpleMd')('Não consegui montar uma resposta limpa. Reformule com times e competição (ex.: "Flamengo x Palmeiras hoje").');
+          globalThis._chatThread.push({role:'assistant',content:'[resposta sanitizada — pedido de reformulação]'});
         }
-        _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
+      }else{
+        _revealAgent();
+        bubble.innerHTML=_h('simpleMd')(clean);
+        globalThis._chatThread.push({role:'assistant',content:clean});
       }
+      _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
     }
   }catch(e){
     _h('stopThinking')(false);

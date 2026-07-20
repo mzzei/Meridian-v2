@@ -164,6 +164,34 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   assert(factsSrc3.includes('async function _p1JsonRescue'), 'retry de forma da fase1 existe');
   assert(/_p1JsonRescue\([^)]*\)[\s\S]{0,3000}?claude-haiku-4-5-20251001/.test(factsSrc3.slice(factsSrc3.indexOf('async function _p1JsonRescue'))), 'rescue F1 roda no Haiku (prefill ok; nunca Sonnet 5)');
 }
+// Shell 88: chat = conversa em texto sucinta (5º assassino silencioso: chatCardFrom/
+// renderChatCard/cardToPlain foram removidos na decomposição e _h() lança se faltar →
+// "host missing: chatCardFrom" derrubava TODA pergunta de chat).
+{
+  const runSrc8 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  const noHelper = (fn) => assert(!runSrc8.includes("_h('" + fn + "')"), 'chat não chama _h(' + fn + ') removido');
+  ['chatCardFrom', 'renderChatCard', 'cardToPlain'].forEach(noHelper);
+  assert(runSrc8.includes('MODO CONVERSA') && runSrc8.includes('_CHAT_BREVITY'), 'chat tem diretiva de brevidade');
+  // toda função _h('x') do pipeline-run deve existir em algum classic/ESM (anti-host-missing)
+  const hostCalls = [...runSrc8.matchAll(/_h\('([a-zA-Z0-9_]+)'\)/g)].map((m) => m[1]);
+  const uniq = [...new Set(hostCalls)];
+  const searchDirs = ['js/analysis', 'js/data', 'js/ui', 'js/lib', 'js', 'js/export', 'js/comp'];
+  const allSrc = searchDirs
+    .flatMap((d) => {
+      const abs = path.join(ROOT, d);
+      try {
+        return fs.readdirSync(abs).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(abs, f), 'utf8'));
+      } catch {
+        return [];
+      }
+    })
+    .join('\n');
+  uniq.forEach((fn) => {
+    const defined = new RegExp('(function\\s+' + fn + '\\b|\\b' + fn + '\\s*[:=]\\s*(function|\\())').test(allSrc)
+      || new RegExp("['\"]" + fn + "['\"]").test(allSrc);
+    assert(defined, 'host fn resolvível: ' + fn);
+  });
+}
 // Shell 87: PARTE X — escalação honesta (proveniência) + elenco match-day/live
 {
   const luSrc2 = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
