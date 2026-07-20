@@ -676,7 +676,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **84** (ou **85+** se paridade já mergeada) em version/sw/index  
+- [ ] `git pull` · `SHELL_VERSION` **85** em version/sw/index (HEAD ≥ `f24db4e`)  
 - [ ] HEAD ≥ `f0e957a` (código 84) · ler **este** handoff completo, **especialmente PARTE IX**  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
