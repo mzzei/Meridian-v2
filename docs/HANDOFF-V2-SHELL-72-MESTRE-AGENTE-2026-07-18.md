@@ -1,12 +1,12 @@
 # HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 86)
 
-**Data:** 2026-07-19 (canônico atual)  
+**Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `86` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**SHELL_VERSION:** `86` (`js/version.js` = `sw.js` = `index.html ?v=` ×2) — **próximo: shell 87+ PARTE X (escalação honesta + elenco ao vivo em dia de jogo)**  
 **HEAD de referência (código):** `6099fda` (shell 86 — SW network-first JS) · `f24db4e` (85 — PARTE IX) · `f0e957a` (84) · `11ed7c3` (83) · `5e08d8b` (82)  
-**Docs mestre:** tip de `main` · **PARTE IX = paridade de coleta V1→V2 — IMPLEMENTADA no shell 85 (P0–P3)**
+**Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X PLANEJADA (87+) — proveniência + refresh lineup match-day/live**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 85**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 86 + plano X**.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -676,121 +676,157 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **85** em version/sw/index (HEAD ≥ `f24db4e`)  
-- [ ] HEAD ≥ `f0e957a` (código 84) · ler **este** handoff completo, **especialmente PARTE IX**  
+- [ ] `git pull` · `SHELL_VERSION` **86** (ou **87+** se PARTE X mergeada) em version/sw/index  
+- [ ] HEAD ≥ `6099fda` (código 86) · ler **este** handoff · **PARTE X se a tarefa for escalação/ao vivo**  
 - [ ] `node tests/run.mjs`  
 - [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
-- [ ] Console: `typeof globalThis.MODEL_PRICE === 'object'`  
-- [ ] Dual-mode / prefill / resgate Opus / PDF nativo intactos  
-- [ ] Se implementar paridade: seguir P0→P3 da PARTE IX; bump shell; asserts; handoff+push  
+- [ ] Dual-mode / prefill / resgate Opus / PDF / SW network-first JS intactos  
+- [ ] Se implementar PARTE X: Q0→Q4; bump shell **87+**; asserts; handoff+push  
 
-## Estado atual (revisão 2026-07-19)
+## Estado atual (revisão 2026-07-20)
 
 | Shell | Entrega |
 |-------|---------|
-| 80–84 | Resgate Opus, PDF nativo, ct*, diag F1, hardening parse F1 — **FEITO** |
-| **85** | **Paridade de coleta V1→V2 IMPLEMENTADA (PARTE IX P0–P3)** — cascata AF-first adaptativa + afSeasonBlocked; coverNote duro + lineup gaps + floor 2 buscas; _lineups também da F2 com fonte honesta; **4º assassino: _lvKey em lineup.js** (Escalação vazia MESMO com dados) corrigido com _luKey local. Ver PARTE IX §0 |
+| 80–84 | Resgate Opus, PDF, ct*, diag F1, parse F1 — **FEITO** |
+| **85** | PARTE IX paridade coleta — **FEITO** (`f24db4e`) |
+| **86** | SW network-first para JS (staleness ESM) — **FEITO** (`6099fda`) |
+| **87+** | **PARTE X — proveniência da formação + elenco match-day/live refresh** — **PLANEJADO** |
 
-**Diagnóstico de produto (por que V2 coleta pior que V1):** ver PARTE IX §1. Resumo: domínio multi-liga + AF Free bloqueada + cascata que **evita** AF + Escalação amarrada só a rawFacts F1 + migração com bugs (já mitigados). V1 = Copa + AF-first + monólito estável.
+**Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras):** mapa de Escalação **volta a aparecer**, mas ambos em `4-2-3-1` e elenco **especulativo** (Sofascore/previsão). Receio correto: **não** é default hardcode do app na aba de análise, mas também **não** é XI/formação confirmados do dia de jogo como no V1 com AF lineups. Rodapé “prováveis da pesquisa” é honesto — e insuficiente se o usuário espera o elenco **real** no match day.
 
-**Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, mexer no V1/`meridian-proxy`.
+**Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
 ## Prompt pronto — sessão genérica
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 84+).
-Leia docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md (até PARTE IX).
-Regras: inv. 1–33; dual-mode; v1 intocável; handoff+commit+push; tests.
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 86+).
+Leia docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md (PARTE IX feita; PARTE X se escalação/live).
+Regras: dual-mode; v1 intocável; handoff+commit+push; tests.
 Quero: [OBJETIVO]
 ```
 
-## Prompt pronto — **IMPLEMENTAR paridade de coleta (Claude)** ← USAR ESTE
+## Prompt pronto — **IMPLEMENTAR PARTE X (Claude)** ← **USAR ESTE AGORA**
 
-Cole **inteiro** na sessão Claude Code / Claude. É o pedido canônico.
+Cole **inteiro** no Claude Code. Pedido canônico do dono (2026-07-20).
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 86+).
 
-Leia OBRIGATORIAMENTE na íntegra:
+Leia OBRIGATORIAMENTE:
 docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-Foque em: PARTE III (fontes), §7.5 (F1/F2), PARTE IX (plano paridade coleta V1→V2).
+Foque em: PARTE X (plano escalação honesta + elenco match-day/live).
+Também: lineup.js, normalize.js attachAnalysisDerived, render.js tab Escalação,
+football-apis.js (getAfLineups / afEnrich*), live.js (ESPN summary rosters, LV_REFRESH),
+pipeline-facts.js coverNote, phase1-context.js.
 
-Contexto: o dono quer a coleta do Meridian v2 tão sólida quanto a do Meridian v1
-(Copa monólito). V1 não era mágica — era AF-first + 1 competição + enrich técnico/lineup.
-V2 multi-liga no Free + cascata FD→ESPN→AF last deixa camada B/C fraca e Escalação
-vazia quando rawFacts da F1 falha (mesmo com card tático ok).
+Contexto do dono (print suigsuigns.png):
+- Escalação agora APARECE (shell 85/86 ok).
+- Mas receio de formação "padrão" (ex. 4-2-3-1 nos dois times) e elenco truncado/
+  especulativo tipo Sofascore previsão — não o elenco REAL do dia de jogo.
+- No V1, perto do apito, AF devolvia ESCALAÇÕES CONFIRMADAS (formation + XI).
+- No V2 Free a prévia usa web_search; em dia de jogo o usuário quer a coleta
+  ATUALIZAR ao vivo e SUBSTITUIR especulativo por confirmado.
 
-TAREFA: implementar a PARTE IX na ordem P0 → P1 → P2 → P3 (não pular; não só docs).
+TAREFA: implementar a PARTE X na ordem Q0 → Q1 → Q2 → Q3 → Q4 (não pular; não só docs).
 
-P0 — Cascata e AF (phase1-context.js + football-apis.js):
-1) Cascata adaptativa: se afReady() E a última AF não reportou "no access to this season"
-   para a liga ativa, tentar AF full (standings+fixtures + afEnrichCoachLineup) ANTES ou
-   em paralelo útil com ESPN — espelhar espírito V1 (AF preferida quando útil).
-2) Se AF full falhar por plano Free / season: NÃO silenciar — cair em ESPN/FD e SEMPRE
-   rodar afEnrichCoachLineupMinimal + _afCoachOnlyFallback (já existe).
-3) Detectar e cachear flag por liga: afSeasonBlocked[compId] quando erro típico Free,
-   para não gastar cota em standings inúteis na mesma sessão.
-4) Manter throttle AF_MIN_GAP_MS; não estourar Free.
+Q0 — Proveniência honesta (UI + dados) — shell 87 mínimo:
+1) Cada pitch-team mostra badge de FONTE da formação/XI, por time:
+   - api / confirmada (AF lineups ou ESPN summary starters com formation)
+   - pesquisa (rawFacts F1 / web_search)
+   - modelo (só JSON F2)
+   - inferida (geometria fallback 1-4-3-3 ou buckets sem formacao na fonte)
+2) Se formacao NÃO veio de fonte confiável, NÃO exibir label "4-2-3-1" como se fosse oficial.
+   Preferir: omitir o chip OU "formação não confirmada" + linhas por posição.
+3) Proibir no prompt F1/fillDataGaps: copiar a MESMA formação nos dois times sem
+   lastro explícito por time na busca. Se só um time tiver formação na fonte, o outro
+   fica vazio/inferida — não espelhar.
+4) Disclaimer do rodapé Escalação deve refletir o PIOR nível entre os dois times
+   (se um é api e outro modelo → texto do mais fraco, ou dual).
 
-P1 — Profundidade da Fase 1 (pipeline-facts.js):
-5) Endurecer _coverNote da coleta no espírito V1: técnico + formacao + onze_provavel
-   (11) + banco = prioridade máxima; vazio = falha de busca, não lacuna legítima
-   (sem inventar nomes — grounding/evidence continua).
-6) Aumentar utilidade de fillDataGaps: se rawFacts existe mas onze_provavel de um dos
-   times tem <11 ou técnico vazio, forçar passagem de gap (já existe skeleton — garantir
-   que dispara e mergeia).
-7) Opcional seguro: se modelProfile().searches===1 e cobertura B/C baixa, permitir
-   floor de 2 buscas na F1 para partidas multi-liga (não reativar effort UI).
+Q1 — Match-day: preferir XI confirmado sobre especulativo:
+5) Detectar "janela de jogo": kickoff −6h até FT+30min (ESPN scoreboard status
+   pre/in/post + data do confronto da análise).
+6) Nessa janela, na coleta (gatherFacts / collectPhase1Context / enrich):
+   a) ESPN: summary?event= (mesmo path de live.js) → rosters starters + formation
+      se disponíveis; montar bloco === ESCALAÇÕES CONFIRMADAS (ESPN) ===.
+   b) AF: getAfLineups(fixtureId) SE afReady e fixtures da season acessíveis
+      (já existe _afLineupWorthFetch <36h — ALARGAR ou alinhar à janela −6h…FT).
+   c) Precedência ao montar rawFacts / _lineups:
+      AF confirmada > ESPN starters > rawFacts web_search prévio > F2 modelo.
+7) Banco: se a fonte confirmada trouxer reserves/bench, PREENCHER banco completo
+   (não deixar truncado em 1 suplente especulativo se a API trouxe lista).
+8) Nunca inventar nomes para completar 11 se a API trouxe 11; se API trouxe 11 e
+   rawFacts tinha outros, API vence.
 
-P2 — Escalação não morre só porque F1 falhou (normalize.js + render.js + lineup.js):
-8) attachAnalysisDerived: além de rawFacts, se parsed (JSON F2) tiver
-   mandante/visitante.onze_provavel ou escalacao, DERIVAR _lineups dali.
-9) Ordem de preferência: AF confirmada (bloco API) > rawFacts F1 > JSON F2 >
-   empty + diag. Nunca inventar nomes.
-10) Empty-state Escalação: se _coletaOk false mas F2 trouxe onze, NÃO mostrar
-    "pesquisa não pôde ser concluída" — mostrar o mapa com disclaimer "estimativa F2".
+Q2 — Refresh ao vivo no CARD de análise (não só painel live.js):
+9) Se o card da análise for do jogo "de hoje"/em andamento (âncora agenda ou
+   scoreboard match), oferecer/atualizar aba Escalação sem re-rodar F2 inteira:
+   - Botão "Atualizar escalação" no tab Escalação OU auto-poll a cada 60–90s
+     enquanto status ESPN = pre (próximo) ou in (ao vivo), parar em FT.
+   - Função tipo refreshAnalysisLineups(cardId|parsed):
+        fetch ESPN summary (+ AF lineups se ready) → patch parsed._lineups
+        + _lineupsFonte + formacao → re-render só a aba / card.
+10) Cache curto (TTL ≤ 45–60s) para summary/lineups na janela live; fora da janela
+    manter cache longo (não gastar cota).
+11) NÃO reabrir pipeline LLM (F1/F2) no poll — só fontes determinísticas.
+    Opcional (fase 2 do Q2): um único re-gatherFacts se o user clicar
+    "Reanalisar com dados ao vivo" (explícito, gasta tokens).
 
-P3 — Telemetria, testes, shell, handoff:
-11) Status F1 humano deve listar o que entrou: "Fontes: espn+af_b coach" etc.
-12) Asserts em tests/run.mjs: cascata tenta AF quando ready; attachAnalysisDerived
-    aceita onze da F2; strings críticas do plano não regrediram.
-13) Bump SHELL_VERSION 84→85 (version.js = sw.js = index.html ?v= ×2).
-14) node tests/run.mjs ALL PASSED.
-15) Atualizar ESTE handoff mestre: shell 85, o que mudou, o que resta; commit + push origin main.
+Q3 — Painel live.js alinhado (consistência):
+12) live.js hoje defaulta formation||'4-3-3' — REMOVER default enganoso:
+    se roster sem formation, mostrar "—" / "n/d", não inventar 4-3-3.
+13) Quando o painel live tiver starters, garantir que o mesmo helper de
+    conversão roster→_lineups seja reutilizado pelo card de análise (DRY).
+
+Q4 — Testes, shell, handoff:
+14) Asserts: precedência api>pesquisa>modelo; sem label formacao se só inferida;
+    live.js sem default '4-3-3' enganoso; refresh não chama Anthropic;
+    strings do bloco ESCALAÇÕES CONFIRMADAS.
+15) Bump SHELL_VERSION 86→87 (ou 87+88 se quiser fatiar Q0 vs Q1–Q2).
+    version.js = sw.js = index.html ?v= ×2.
+16) node tests/run.mjs ALL PASSED.
+17) Atualizar handoff mestre: PARTE X status FEITO onde couber; commit + push origin main.
 
 PROIBIDO:
-- Tocar pasta/código do Meridian v1 / WorldCupAgent / worker meridian-proxy.
-- Reativar budget>0 na F2, prefill em Sonnet 5, resgate Haiku na F2.
+- Tocar Meridian v1 / WorldCupAgent / meridian-proxy.
+- budget>0 F2, prefill Sonnet 5, resgate Haiku F2.
 - allowed_domains no web_search.
-- Badge A/B/C no dock.
-- Inventar jogadores sem lastro.
-- Commit sem testes; push sem handoff atualizado.
+- Inventar jogadores ou formação "porque é comum".
+- Poll LLM no loop ao vivo (custo).
+- Mentir badge api se a fonte for só modelo.
 
-Referência V1 (só LEITURA, se precisar copiar lógica):
-C:\Users\Gabriel\.claude\projects\Agente Copa 2026\index.html
-  — gatherFacts ~4827 (cascata AF→FD→ESPN), afEnrichCoachLineup ~3623, _coverNote ~4890.
-NÃO copiar monólito inteiro; NÃO misturar repositórios.
+Referências (LEITURA):
+- V1 AF lineups: Agente Copa 2026 index.html ~getAfLineups / ESCALAÇÕES CONFIRMADAS
+- V2 live: js/data/live.js (_lv_formationHTML, LV_REFRESH=30s, ESPN summary)
+- V2 análise: js/analysis/lineup.js, normalize.js attachAnalysisDerived, render.js
 
 Critério de aceite:
-- Com Worker+AF: técnico dos 2 times aparece com frequência alta na F1 (bloco API ou rawFacts).
-- Aba Escalação: se F1 ou F2 trouxe onze_provavel, o mapa renderiza (não empty injusto).
-- Sem AF: ESPN+web_search continua; diag fase1-* permanece se rawFacts nulo E F2 sem onze.
-- tests verdes; shell 85 no rodapé.
+- Prévia (dias antes): mapa pode ser pesquisa/modelo; badge NÃO diz "confirmada".
+- Match day / live: quando ESPN ou AF publicar XI, aba Escalação do card passa a
+  mostrar esse XI (11 + formação da fonte) e banco da fonte — sem ficar preso no
+  especulativo Sofascore da análise de ontem.
+- Dois times com a mesma formação só se AMBAS as fontes trouxerem essa formação.
+- tests verdes; shell 87+ no rodapé.
 
-Implemente agora P0–P3. Ao final: resumo + hash do commit + confirmação de push.
+Implemente agora Q0–Q4. Ao final: resumo + commits + push.
 ```
+
+## Prompt histórico — PARTE IX (JÁ FEITO no shell 85 — não reexecutar)
+
+Só referência. Código em `f24db4e`. Não reimplementar do zero. O prompt longo antigo da paridade vive no git history se precisar.
 
 ## Próximos passos (produto)
 
 | # | Item | Status |
 |---|------|--------|
-| 1–6 | Shells 80–84 (Opus, PDF, ct*, diag F1, parse F1) | **FEITO** |
-| 7 | Validação de campo pós-84 | aberto (manual) |
-| **8** | **Paridade coleta V1→V2 (PARTE IX)** | **FEITO** shell 85 (`f24db4e`) |
-| 9 | UI senha avançada | aberto |
-| 10 | Pages `?v=` | FEITO (serve main) |
-| 11 | Secrets AF/FD / rate-limit Worker | aberto |
-| 12 | Thinking F2 + schema | aberto (budget 0) |
+| 1–6 | Shells 80–84 | **FEITO** |
+| 7 | PARTE IX paridade coleta | **FEITO** shell 85 |
+| 8 | SW network-first JS | **FEITO** shell 86 |
+| **9** | **PARTE X — proveniência + elenco match-day/live** | **PRÓXIMO — Claude** |
+| 10 | UI senha avançada | aberto |
+| 11 | Pages `?v=` | FEITO (serve main) |
+| 12 | Secrets AF/FD / rate-limit Worker | aberto |
+| 13 | Thinking F2 + schema | aberto (budget 0) |
 
 ---
 
@@ -943,10 +979,147 @@ Render:
 | Shell | Conteúdo sugerido |
 |-------|-------------------|
 | **85** | P0+P1+P2+P3 mínimos (paridade utilizável) |
-| 86 | (se precisar) telemetria/UI “fonte da escalação” / polish coverNote |
+| **86** | SW network-first JS — **FEITO** |
+| **87+** | PARTE X (proveniência + match-day/live) — ver **PARTE X** |
 | depois | senha avançada, rate-limit Worker |
 
 ---
 
-**Fim do handoff mestre (shell 84 + plano paridade IX; arquivo `…SHELL-72-MESTRE…`).**  
-Quem não souber dual-mode, F1/F2, `_coletaOk`, **ou o plano de paridade PARTE IX** — **não leu este arquivo**.
+# PARTE X — Escalação honesta + elenco match-day / ao vivo (PLANEJADO · shell 87+)
+
+**Status:** **PLANEJADO** (docs only até shell 86). Implementar com o prompt da PARTE VIII.  
+**Pedido do dono (2026-07-20):** (1) não confiar em formação “padrão” sem fonte; (2) em **dia de jogo** o elenco deve **atualizar** e deixar de ser só especulativo Sofascore; (3) coleta/refresh **ao vivo** no card de análise.
+
+## 1. Problema (print `suigsuigns.png`)
+
+| Sintoma | Interpretação |
+|---------|----------------|
+| Mapa Escalação **aparece** | Shell 85/86 ok (PARTE IX + SW) |
+| Ambos times `4-2-3-1` | Pode ser real **ou** viés do LLM / fonte de previsão |
+| Banco truncado (1 suplente) | Coleta web **incompleta**, não XI oficial |
+| Rodapé “prováveis da pesquisa” | Honesto, mas **não** é match-day confirmado |
+| Expectativa vs V1 | V1 perto do apito: **AF lineups** (`formation` + XI + coach) |
+
+**O app NÃO hardcoda `4-2-3-1` no card de análise** (`lineup.js` último recurso = geometria 1-4-3-3 sem label oficial).  
+**O painel live.js** ainda faz `formation || '4-3-3'` — default **enganoso** (Q3).
+
+## 2. Objetivo de produto
+
+1. **Prévia (D−n):** mapa pode ser pesquisa/modelo; badge **nunca** “confirmada”.  
+2. **Match day (−6h → FT):** quando ESPN e/ou AF publicarem XI, o card **substitui** o especulativo pelo confirmado (onze + formação + banco da fonte).  
+3. **Ao vivo:** poll determinístico (sem LLM) atualiza a aba Escalação.  
+4. **Formação:** só exibe chip numérico se veio de fonte confiável; senão “não confirmada” / omitido.  
+5. **Mesma formação nos dois times:** só se **ambas** as fontes trouxerem.
+
+## 3. Precedência de fontes (invariante nova)
+
+```
+AF lineups (confirmada)  >
+ESPN summary starters + formation  >
+rawFacts F1 (web_search / Sofascore previsão)  >
+JSON F2 (modelo)  >
+inferida (buckets / 1-4-3-3 sem chip oficial)  >
+empty + diag
+```
+
+Nunca inventar nomes para “completar 11” se a API já trouxe 11.  
+API com 11 **vence** rawFacts especulativo.
+
+## 4. Janela de jogo
+
+| Fase | Critério | Comportamento |
+|------|----------|----------------|
+| Prévia fria | kickoff > 6h no futuro | Só F1/F2; cache longo; badge pesquisa/modelo |
+| Match window | kickoff −6h … FT+30min | Enrich ESPN summary + AF lineups; TTL curto 45–60s |
+| Live | ESPN status `in` / intervalo | Auto-poll 60–90s no card (só Escalação) |
+| FT | status post / FT | Para poll; fixa último XI confirmado |
+
+Helper sugerido: `isMatchDayWindow({kickoffIso, espnStatus})` em `schedule.js` ou `espn.js`.
+
+## 5. Fases de implementação (Q0–Q4)
+
+### Q0 — Proveniência (UI + prompts)
+
+**Arquivos:** `lineup.js`, `normalize.js`, `render.js`, `pipeline-facts.js`
+
+- Por time: `_lineups.mandante.fonte` ∈ `api|pesquisa|modelo|inferida`.  
+- Chip `pitch-form`: só se fonte ∈ `api|pesquisa` **e** string de formação veio da fonte (não do fallback).  
+- coverNote F1: proibir espelhar formação entre mandante/visitante sem lastro.  
+- Rodapé: pior nível dos dois times.
+
+### Q1 — Match-day preferir confirmado
+
+**Arquivos:** `phase1-context.js`, `football-apis.js`, `espn.js`, `pipeline-facts.js`
+
+- Bloco texto: `=== ESCALAÇÕES CONFIRMADAS (ESPN) ===` e/ou AF (já existe AF no V1 path).  
+- `_afLineupWorthFetch`: alinhar à janela −6h…FT (hoje <36h absoluto + live status).  
+- Parse ESPN `summary.rosters` → onze + formation + bench (espelhar lógica de `live.js` em helper compartilhado).  
+- Ao anexar em rawFacts / attachAnalysisDerived: precedência §3.
+
+### Q2 — Refresh no card de análise
+
+**Arquivos:** `pipeline-run.js` ou módulo novo `js/analysis/lineup-refresh.js`, `render.js`, history/card state
+
+- `refreshAnalysisLineups(parsed, {eventId, teams})` — **zero** Anthropic.  
+- UI: botão “Atualizar escalação” + auto-poll se window live.  
+- Patch `parsed._lineups` + re-render aba; persistir no history se o card estiver salvo.  
+- Cache key: `meridian_lu_live_{eventId}` TTL 45–60s.
+
+### Q3 — live.js DRY + sem default mentiroso
+
+**Arquivos:** `live.js`, helper compartilhado
+
+- Remover `formation || '4-3-3'`.  
+- Mesmo conversor roster→lineup do Q1.
+
+### Q4 — Testes / shell / handoff
+
+- Asserts de precedência, default live removido, refresh sem `/v1/messages`.  
+- Shell **87** (ou 87=Q0, 88=Q1–Q2).  
+- Atualizar este mestre + push.
+
+## 6. Arquivos-alvo (checklist)
+
+| Arquivo | Papel X |
+|---------|---------|
+| `js/analysis/lineup.js` | fonte por time; chip formacao; buildPitchModel |
+| `js/analysis/normalize.js` | attachAnalysisDerived precedência + fonte |
+| `js/analysis/render.js` | badge + botão refresh + disclaimer |
+| `js/analysis/lineup-refresh.js` | **novo** (opcional) poll/patch |
+| `js/data/espn.js` | fetch summary multi-liga; format confirmed XI |
+| `js/data/football-apis.js` | lineup window; bench; block text |
+| `js/data/live.js` | sem default 4-3-3; DRY helper |
+| `js/data/phase1-context.js` | inject confirmed block na janela |
+| `js/analysis/pipeline-facts.js` | coverNote anti-espelho; consumir bloco |
+| `tests/run.mjs` | asserts Q0–Q3 |
+| version/sw/index | shell 87+ |
+
+## 7. O que NÃO fazer
+
+- Poll de LLM no loop (custo).  
+- Mentir badge `api`.  
+- Inventar formação “porque 4-2-3-1 é comum”.  
+- Dependência de AF pago (deve degradar para ESPN).  
+- Tocar V1 / `meridian-proxy`.
+
+## 8. Critérios de aceite manual
+
+1. Análise **D−3**: badge pesquisa/modelo; sem “confirmada”.  
+2. **Match day** com ESPN XI: botão/poll → mapa muda para XI da ESPN; banco completo se a API trouxe.  
+3. Dois times: formações diferentes se as fontes diferirem; iguais só se ambas confirmarem.  
+4. live.js: sem formation → “n/d”, não 4-3-3 fantasma.  
+5. Network tab no poll: só ESPN/AF, **zero** `/v1/messages`.  
+6. `node tests/run.mjs` PASS; rodapé shell 87+.
+
+## 9. Relação com shells anteriores
+
+| Shell | Papel |
+|-------|--------|
+| 85 | Mapa aparece (PARTE IX) |
+| 86 | SW serve JS fresco |
+| **87+** | Mapa **confiável** + **atualiza** no dia do jogo (PARTE X) |
+
+---
+
+**Fim do handoff mestre (shell 86 + PARTE IX feita + PARTE X planejada; arquivo `…SHELL-72-MESTRE…`).**  
+Quem não souber dual-mode, F1/F2, `_coletaOk`, PARTE IX, **ou o plano de Escalação match-day PARTE X** — **não leu este arquivo**.
