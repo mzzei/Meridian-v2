@@ -545,14 +545,22 @@ function isInternalModelNoise(text){
 }
 
 /**
- * Se o usuário foi vago e o modelo DEVOLVEU um card de partida específica,
- * isso é suposição inadmissível — converte para popup de confirmação.
+ * Se o usuário foi vago e a RESPOSTA pressupõe uma partida específica, isso é
+ * suposição inadmissível (invariante 18) — converte para popup de confirmação.
+ * Aceita card estruturado OU prosa (shell 89: o chat virou texto no 88 e o gate
+ * havia ficado sem chamador — dead code + brecha de suposição no caminho de prosa).
+ * Em prosa o critério é ESTRITO: só dispara se o texto nomear um confronto/placar
+ * explícito ("A x B", "A 2-1 B"); frase genérica NÃO vira popup.
  */
-function cardPresupposedVagueMatch(card,userQuery){
-  if(!card||!isVagueMatchQuery(userQuery))return null;
-  const title=String(card.titulo||card.subtitulo||'').trim();
-  const sub=String(card.subtitulo||'').trim();
-  const blob=(title+' '+sub+' '+JSON.stringify(card).slice(0,400));
+function cardPresupposedVagueMatch(cardOrText,userQuery){
+  if(!cardOrText||!isVagueMatchQuery(userQuery))return null;
+  const isText=typeof cardOrText==='string';
+  const card=isText?null:cardOrText;
+  const title=isText?'':String(card.titulo||card.subtitulo||'').trim();
+  const sub=isText?'':String(card.subtitulo||'').trim();
+  const blob=isText
+    ?String(cardOrText).slice(0,600)
+    :(title+' '+sub+' '+JSON.stringify(card).slice(0,400));
   // extrai "Time A x Time B" ou placar "A 1-2 B"
   let label='';
   const vs=blob.match(/([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,28}(?:\s+[\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,20}){0,2})\s+(?:x|vs\.?|×)\s+([A-ZÁÉÍÓÚÂÊÔÃÕÀ][\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,28}(?:\s+[\wÁÉÍÓÚÂÊÔÃÕÀáéíóúâêôãõàü.'-]{1,20}){0,2})/i);
@@ -562,6 +570,9 @@ function cardPresupposedVagueMatch(card,userQuery){
     if(sc)label=`${sc[1].trim()} x ${sc[2].trim()}`;
   }
   if(!label&&title)label=title.slice(0,72);
+  // Prosa sem confronto/placar explícito NÃO é suposição — não abrir popup (evita
+  // transformar "acha que vai ser jogo duro?" em pergunta de contexto).
+  if(!label&&isText)return null;
   if(!label)label='o jogo que o agente escolheu sozinho';
   return{
     question:'Não ficou claro qual jogo você quis dizer. Confirma?',

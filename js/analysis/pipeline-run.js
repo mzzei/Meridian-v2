@@ -28,6 +28,25 @@ function _h(name) {
   throw new Error('[pipeline-run] host missing: ' + name);
 }
 
+// Chat = prosa (shell 88). Se o modelo devolver estrutura, NUNCA despejar cru na bolha
+// (shell 89): detecta e tenta extrair um campo de texto legível antes de desistir.
+function _chatLooksJson(s){
+  const t=String(s||'').trim().replace(/^```(?:json)?\s*/i,'');
+  return t.startsWith('{')||t.startsWith('[');
+}
+function _chatJsonToProse(s){
+  try{
+    const t=String(s||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+    const o=JSON.parse(t);
+    if(!o||typeof o!=='object')return '';
+    const KEYS=['resposta','texto','text','mensagem','analise','resumo','conclusao','comentario'];
+    for(const k of KEYS){
+      const v=o[k];
+      if(typeof v==='string'&&v.trim().length>20)return v.trim();
+    }
+  }catch{}
+  return '';
+}
 async function runChat(){
   if(state.running)return; // state.running via bridge
   const apiKey=document.getElementById('api-key-input').value.trim();
@@ -240,7 +259,21 @@ async function runChat(){
       // estruturado (chatCardFrom/renderChatCard/cardToPlain) foi removido na decomposição
       // do monólito (26fbf9e) e derrubava o chat com "host missing: chatCardFrom" — e, além
       // do bug, o card não é o que o usuário quer aqui: resposta sucinta em prosa é o certo.
-      const clean=_h('stripInternalReasoning')(text||'');
+      let clean=_h('stripInternalReasoning')(text||'');
+      // JSON no chat (shell 89): o consumidor de card saiu no 88 — sem isto, um retorno
+      // estruturado era DESPEJADO CRU na bolha. Tenta extrair o campo de texto; se não
+      // der, pede reformulação em vez de mostrar `{...}` para o usuário.
+      if(_chatLooksJson(clean)){
+        const _prose=_chatJsonToProse(clean);
+        clean=_prose||'';
+        if(!_prose){
+          _revealAgent();
+          bubble.innerHTML=_h('simpleMd')('A resposta veio em formato estruturado, não em conversa. Pergunte de novo em uma frase — ex.: "esse jogo tende a ser truncado?".');
+          globalThis._chatThread.push({role:'assistant',content:'[resposta estruturada descartada — pedido de reformulação]'});
+          _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
+          return;
+        }
+      }
       if(!clean||_h('isInternalModelNoise')(clean)){
         // fallback: se o modelo só vomitou raciocínio, pede contexto em vez de mostrar lixo
         if(isVagueMatchQuery(query)||needsScore){
@@ -253,9 +286,19 @@ async function runChat(){
           globalThis._chatThread.push({role:'assistant',content:'[resposta sanitizada — pedido de reformulação]'});
         }
       }else{
-        _revealAgent();
-        bubble.innerHTML=_h('simpleMd')(clean);
-        globalThis._chatThread.push({role:'assistant',content:clean});
+        // Gate de suposição (invariante 18) — restaurado no caminho de PROSA (shell 89):
+        // pergunta vaga + resposta que nomeia um confronto/placar específico = o agente
+        // escolheu o jogo sozinho → popup de confirmação, não renderiza a suposição.
+        const _presup=_h('cardPresupposedVagueMatch')(clean,query);
+        if(_presup){
+          const row=bubble.closest('.msg-agent-chat');if(row)row.remove();else bubble.innerHTML='';
+          globalThis._chatThread.push({role:'assistant',content:'[pedido de contexto via popup]'});
+          _h('openContextPromptPopup')(_presup,query);
+        }else{
+          _revealAgent();
+          bubble.innerHTML=_h('simpleMd')(clean);
+          globalThis._chatThread.push({role:'assistant',content:clean});
+        }
       }
       _h('stopThinking')(true);setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
     }

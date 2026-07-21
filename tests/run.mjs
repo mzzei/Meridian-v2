@@ -172,25 +172,37 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   const noHelper = (fn) => assert(!runSrc8.includes("_h('" + fn + "')"), 'chat não chama _h(' + fn + ') removido');
   ['chatCardFrom', 'renderChatCard', 'cardToPlain'].forEach(noHelper);
   assert(runSrc8.includes('MODO CONVERSA') && runSrc8.includes('_CHAT_BREVITY'), 'chat tem diretiva de brevidade');
-  // toda função _h('x') do pipeline-run deve existir em algum classic/ESM (anti-host-missing)
+  // toda função _h('x') do pipeline-run deve existir em algum classic/ESM (anti-host-missing).
+  // Shell 89: o teste anterior NUNCA podia falhar — allSrc incluía o próprio pipeline-run e
+  // o fallback ['"]fn['"] casava com o call site `_h('fn')`, então `defined` era sempre true.
+  // Fix: (a) excluir o arquivo escaneado; (b) exigir DEFINIÇÃO real (nunca string entre aspas).
   const hostCalls = [...runSrc8.matchAll(/_h\('([a-zA-Z0-9_]+)'\)/g)].map((m) => m[1]);
   const uniq = [...new Set(hostCalls)];
   const searchDirs = ['js/analysis', 'js/data', 'js/ui', 'js/lib', 'js', 'js/export', 'js/comp'];
+  const selfPath = path.join(ROOT, 'js/analysis/pipeline-run.js');
   const allSrc = searchDirs
     .flatMap((d) => {
       const abs = path.join(ROOT, d);
       try {
-        return fs.readdirSync(abs).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(abs, f), 'utf8'));
+        return fs
+          .readdirSync(abs)
+          .filter((f) => f.endsWith('.js'))
+          .map((f) => path.join(abs, f))
+          .filter((p) => p !== selfPath) // <- sem self-match: o call site não "define" nada
+          .map((p) => fs.readFileSync(p, 'utf8'));
       } catch {
         return [];
       }
     })
     .join('\n');
-  uniq.forEach((fn) => {
-    const defined = new RegExp('(function\\s+' + fn + '\\b|\\b' + fn + '\\s*[:=]\\s*(function|\\())').test(allSrc)
-      || new RegExp("['\"]" + fn + "['\"]").test(allSrc);
-    assert(defined, 'host fn resolvível: ' + fn);
-  });
+  const isHostFnDefined = (fn) =>
+    new RegExp('function\\s+' + fn + '\\b').test(allSrc) || // function foo(
+    new RegExp('\\b' + fn + '\\s*[:=]\\s*(async\\s*)?(function|\\()').test(allSrc) || // foo: fn / foo = (
+    new RegExp('(window|globalThis)\\.' + fn + '\\s*=').test(allSrc) || // global explícito
+    new RegExp('[{,\\n]\\s*' + fn + '\\s*[,\\n}]').test(allSrc); // shorthand em expose({...})
+  uniq.forEach((fn) => assert(isHostFnDefined(fn), 'host fn resolvível: ' + fn));
+  // meta-assert: prova que o smoke test TEM dentes (um nome inexistente deve reprovar)
+  assert(!isHostFnDefined('chatCardFromDefinitelyGone'), 'smoke test detecta host fn ausente');
 }
 // Shell 87: PARTE X — escalação honesta (proveniência) + elenco match-day/live
 {
