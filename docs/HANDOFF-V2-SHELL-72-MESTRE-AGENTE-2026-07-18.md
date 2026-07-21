@@ -1,14 +1,14 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 88)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 89)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `88` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência (código):** `3b9abb8` (shell 88 — chat prosa sucinta; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
+**SHELL_VERSION:** `89` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
+**HEAD de referência (código):** `88f7619` (shell 89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 88**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 89**.
 
-**Série dos "assassinos silenciosos" da decomposição do monólito (bugs onde um símbolo perdido derrubava um caminho inteiro):** MODEL_PRICE `const` classic (79), prefill Sonnet 5 (79), `ctSideSection`/`ctVanTag` (82), `_lvKey` em lineup.js (85), **`chatCardFrom`/`renderChatCard`/`cardToPlain` no chat (88)**. Mitigação estrutural no 88: teste de fumaça varre TODA `_h('x')` do pipeline-run e falha se a função não existir em nenhum classic/ESM.
+**Série dos "assassinos silenciosos" da decomposição do monólito (bugs onde um símbolo perdido derrubava um caminho inteiro):** MODEL_PRICE `const` classic (79), prefill Sonnet 5 (79), `ctSideSection`/`ctVanTag` (82), `_lvKey` em lineup.js (85), **`chatCardFrom`/`renderChatCard`/`cardToPlain` no chat (88)**. Mitigação estrutural no 88: teste de fumaça varre TODA `_h('x')` do pipeline-run e falha se a função não existir em nenhum classic/ESM — **corrigido no 89**, porque a 1ª versão do teste era um no-op (self-match: o próprio call site `_h('fn')` satisfazia o regex de "definido"). **Lição (invariante 35):** teste anti-regressão precisa de **meta-assert** provando que ele reprova o caso que deveria pegar — senão vira falsa segurança pior que não ter teste.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
 
@@ -649,6 +649,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 32. **Escalação empty com card completo ≠ bug de render tático**: significa `_coletaOk === false` (Fase 1 sem `rawFacts`). Diagnóstico obrigatório via `_lastAnalysisFail` stages `fase1-parse` \| `fase1-loop` \| `fase1-error` no empty-state (shell 83) — nunca silenciar a causa da coleta.  
 33. **Todo parse de JSON vindo de LLM usa `parseAnalysisJson`** (fences + `repairJson`) — nunca `txt.match(/\{…\}/)` + `JSON.parse` seco (assert proíbe). `stop_reason:'max_tokens'` na F1 é terminal com salvage, não `break`. Retry de forma da F1 = `_p1JsonRescue` (Haiku + prefill `{`, sem tools) — shell 84.  
 34. **Escalação = proveniência HONESTA (shell 87)**: precedência AF(api) > ESPN starters(api) > rawFacts(pesquisa) > F2(modelo) > geometria(inferida) > empty. Chip de formação só com fonte confiável — nunca rotular "4-2-3-1" de modelo/inferida como oficial; nunca **espelhar** a mesma formação nos dois times sem lastro próprio. Elenco confirmado de dia de jogo (`applyConfirmedLineups`/`refreshAnalysisLineups`) é **determinístico** — ZERO chamada Anthropic no enrich/poll. `live.js` nunca inventa `4-3-3` (mostra `n/d`).  
+35. **Teste anti-regressão precisa de META-ASSERT (shell 89)**: todo smoke test que varre o código (ex.: "toda `_h('x')` existe") deve (a) **excluir o arquivo escaneado** da busca — senão o próprio call site "prova" a definição — e (b) trazer um assert que **prova que o teste reprova** um caso inexistente. Sem isso o teste é no-op e dá falsa segurança (a 1ª versão do teste do shell 88 teria passado com `chatCardFrom` removido). No chat: JSON nunca vai cru para a bolha (extrai texto ou pede reformulação), e o gate de suposição (inv. 18) roda no caminho de **prosa** com critério estrito — só confronto/placar explícito abre popup.  
 
 ---
 
@@ -695,6 +696,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **86** | SW network-first para JS (staleness ESM) — **FEITO** (`6099fda`) |
 | **87** | **PARTE X FEITA** — proveniência por time (api>pesquisa>modelo>inferida) + chip de formação honesto; elenco CONFIRMADO match-day (AF>ESPN) via lineup-confirmed.js; botão/auto-poll "Atualizar escalação" (zero LLM); live.js sem default 4-3-3. Ver PARTE X §0 |
 | **88** | **Chat = conversa em TEXTO sucinta** — 5º assassino silencioso: `chatCardFrom`/`renderChatCard`/`cardToPlain` foram removidos na decomposição (26fbf9e) mas `runChat` os chamava via `_h()` (que LANÇA) → toda pergunta de chat morria com "host missing: chatCardFrom". Removido o caminho de CARD do chat (prosa, como o usuário quer); diretiva `MODO CONVERSA` no system do chat (1–4 frases, sem overthink/autocorreção/alucinação). Teste de fumaça novo varre TODA `_h('x')` do pipeline-run. |
+| **89** | **Code-review `/ultra` — 4 achados corrigidos** (`88f7619`): (1) **o smoke test do 88 NUNCA podia falhar** — `allSrc` incluía o próprio `pipeline-run.js` e o fallback `['"]fn['"]` casava com o call site `_h('fn')`, então `defined` era sempre `true` (com `chatCardFrom` removido o teste teria PASSADO). Fix: exclui o arquivo escaneado + exige **definição real** (`function`/atribuição/global/shorthand em `expose`) + **meta-assert** provando que reprova nome inexistente (verificado: `chatCardFrom` → `false`, antes `true`). (2) **JSON despejado cru na bolha** — sem o consumidor de card, um retorno estruturado ia direto para `simpleMd`; agora `_chatLooksJson`/`_chatJsonToProse` extraem o campo de texto e, sem campo útil, pedem reformulação. (3) **gate de suposição (inv. 18) voltou ao caminho de prosa** — pergunta vaga + resposta que nomeia confronto/placar → popup; prosa genérica NÃO abre popup. (4) **`cardPresupposedVagueMatch` estava morto** (0 call sites após o 88) — generalizado para prosa OU card e religado. |
 
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras):** mapa de Escalação **volta a aparecer**, mas ambos em `4-2-3-1` e elenco **especulativo** (Sofascore/previsão). Receio correto: **não** é default hardcode do app na aba de análise, mas também **não** é XI/formação confirmados do dia de jogo como no V1 com AF lineups. Rodapé “prováveis da pesquisa” é honesto — e insuficiente se o usuário espera o elenco **real** no match day.
 
