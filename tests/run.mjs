@@ -245,6 +245,17 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   // wiring do novo classic
   assert(mainSrc2.includes('js/data/lineup-confirmed.js'), 'lineup-confirmed no boot classic');
   assert(swSrc2.includes('lineup-confirmed.js'), 'lineup-confirmed no precache do SW');
+  // Shell 90 — 4 achados do code-review dos shells 87–89:
+  // (1) escalação confirmada NÃO pode marcar _coletaOk=true (mascarava o diag fase1-* de
+  //     todas as abas — invariante 32).
+  assert(!/parsed\._coletaOk\s*=\s*true/.test(lcSrc), 'confirmado não mente sobre _coletaOk (inv. 32)');
+  // (2) parse de LLM no chat via parseAnalysisJson (inv. 33), nunca JSON.parse cru.
+  assert(/_chatJsonToProse[\s\S]{0,400}parseAnalysisJson\(/.test(runSrc7), 'chat usa parseAnalysisJson (inv. 33)');
+  assert(!/_chatJsonToProse[\s\S]{0,400}JSON\.parse\(/.test(runSrc7), 'chat não faz JSON.parse cru em saída de LLM');
+  // (3) botão de refresh nunca fica preso em "Atualizando…".
+  assert(/finally\s*\{[\s\S]{0,400}stuck\.disabled\s*=\s*false/.test(lcSrc), 'refresh restaura o botão no finally');
+  // (4) poll para quando o card sai do DOM (não vira fetch órfão a cada 75s).
+  assert(/!document\.getElementById\(panelId\)[\s\S]{0,60}_lcStopPoll/.test(lcSrc), 'poll encerra sem painel no DOM');
 }
 // Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
 assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');

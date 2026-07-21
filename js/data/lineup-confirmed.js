@@ -177,7 +177,11 @@ async function applyConfirmedLineups(parsed,opts){
     const fm=parsed._lineups.mandante&&parsed._lineups.mandante.fonte;
     const fv=parsed._lineups.visitante&&parsed._lineups.visitante.fonte;
     parsed._lineupsFonte=(typeof _luWorseFonte==='function')?_luWorseFonte(fm,fv):(fm||fv||'pesquisa');
-    parsed._coletaOk=true;
+    // NÃO tocar em _coletaOk (shell 90): ele significa "a Fase 1 devolveu rawFacts" e
+    // alimenta o empty-state + diagnóstico fase1-* de TODAS as abas (invariante 32).
+    // Marcá-lo true aqui só porque a ESPN/AF publicou o XI escondia a falha real da
+    // coleta em Cartões/Escanteios. A escalação confirmada já se anuncia por
+    // _lineupsFonte='api' e pelo badge por time — não precisa mentir sobre a coleta.
   }
   return {changed,source:usedSource,eventId:ev&&ev.eventId,window:inWindow};
 }
@@ -192,21 +196,33 @@ function startLineupAutoPoll(hid,cardId){
 
 /** Botão "Atualizar escalação" / poll ao vivo — re-renderiza SÓ a aba, zero LLM. */
 async function refreshAnalysisLineups(hid,cardId,silent){
+  const panelId='at-escalacao-'+(cardId||0);
+  const btnSel='#'+panelId+' .esc-refresh button';
+  let btnLabel='';
   try{
     const hist=(typeof globalThis!=='undefined'&&Array.isArray(globalThis._history))?globalThis._history:[];
     const entry=hist.find(h=>h&&h.hid===hid);
     const d=entry?entry.data:null;
-    if(!d){_lcStopPoll(hid);return;}
-    const btn=document.querySelector('#at-escalacao-'+cardId+' .esc-refresh button');
-    if(btn&&!silent){btn.disabled=true;btn.textContent='Atualizando…';}
+    // Card fora do DOM (nova análise / conversa limpa) = nada para atualizar. Sem isto o
+    // intervalo virava fetch órfão a cada 75s até o FT, invisível ao usuário (shell 90).
+    if(!d||!document.getElementById(panelId)){_lcStopPoll(hid);return;}
+    const btn=document.querySelector(btnSel);
+    if(btn&&!silent){btnLabel=btn.textContent;btn.disabled=true;btn.textContent='Atualizando…';}
     const res=await applyConfirmedLineups(d,{compId:d.comp_id||_activeCompId,query:(d.partida||''),force:true});
-    const panel=document.getElementById('at-escalacao-'+cardId);
+    const panel=document.getElementById(panelId);
     if(panel&&typeof buildEscalacaoTab==='function')panel.innerHTML=buildEscalacaoTab(d,cardId);
     if(typeof persistHistory==='function'){try{persistHistory();}catch{}}
     // fora da janela / jogo terminado → para o poll (fixa o último XI)
     if(!res.window||d._matchOver)_lcStopPoll(hid);
     if(!res.changed&&!silent&&typeof toast==='function')toast(res.window?'Escalação ainda não publicada — tente novamente perto do apito.':'Escalação confirmada só fica disponível perto do jogo.');
   }catch(e){_lcStopPoll(hid);}
+  finally{
+    // Botão nunca fica preso em "Atualizando…" (shell 90): se o painel NÃO foi
+    // re-renderizado (erro de rede, painel sumiu), restaura o rótulo e o clique.
+    // Quando o painel é re-renderizado, buildEscalacaoTab já cria um botão novo e ativo.
+    const stuck=document.querySelector(btnSel);
+    if(stuck&&stuck.disabled){stuck.disabled=false;stuck.textContent=btnLabel||'↻ Atualizar escalação';}
+  }
 }
 
 if(typeof window!=='undefined'){

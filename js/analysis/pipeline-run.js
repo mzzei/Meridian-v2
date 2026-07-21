@@ -35,16 +35,16 @@ function _chatLooksJson(s){
   return t.startsWith('{')||t.startsWith('[');
 }
 function _chatJsonToProse(s){
-  try{
-    const t=String(s||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
-    const o=JSON.parse(t);
-    if(!o||typeof o!=='object')return '';
-    const KEYS=['resposta','texto','text','mensagem','analise','resumo','conclusao','comentario'];
-    for(const k of KEYS){
-      const v=o[k];
-      if(typeof v==='string'&&v.trim().length>20)return v.trim();
-    }
-  }catch{}
+  // Invariante 33 (shell 90): parse de saída de LLM SEMPRE via parseAnalysisJson
+  // (strip de cercas + repairJson). O `JSON.parse` cru do shell 89 lançava quando o
+  // modelo truncava no max_tokens e DESCARTAVA texto recuperável.
+  const o=parseAnalysisJson(s);
+  if(!o||typeof o!=='object')return '';
+  const KEYS=['resposta','texto','text','mensagem','analise','resumo','conclusao','comentario'];
+  for(const k of KEYS){
+    const v=o[k];
+    if(typeof v==='string'&&v.trim().length>20)return v.trim();
+  }
   return '';
 }
 async function runChat(){
