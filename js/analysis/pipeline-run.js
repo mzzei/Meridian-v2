@@ -11,6 +11,8 @@ import {
   gatherFacts,
   F2_SCHEMA,
   F2_SCHEMA_ID,
+  _f2Unnest,
+  F2_GROUPS,
   hasExplicitMatchAnchor,
   isVagueMatchQuery,
   _chatNeedsLiveData,
@@ -635,6 +637,12 @@ async function runAnalysis(){
       baseBody.output_config={effort:'high',format:{type:'json_schema',schema:F2_SCHEMA}};
       baseBody.max_tokens=15000; // thinking consome do mesmo teto
       delete baseBody.temperature;
+      // O prompt-contrato (prompts.js) descreve o JSON PLANO; com SO ligado a gramática
+      // exige o formato AGRUPADO do shell 97. A gramática vence de qualquer jeito, mas
+      // sem avisar o modelo o texto e a forma brigam — e isso custa qualidade.
+      baseBody.system[0].text+=`\n\nFORMATO DESTA CHAMADA (gramática obrigatória): os campos do JSON acima vêm AGRUPADOS — `
+        +Object.entries(F2_GROUPS).map(([g,ks])=>`"${g}": { ${ks.join(', ')} }`).join(' · ')
+        +`. O conteúdo exigido de cada campo é EXATAMENTE o mesmo descrito acima; só muda o endereço. Nenhum campo pode ficar de fora.`;
     }else if(_noThinkModel(globalThis.currentModel)){
       // default (opt-in OFF): sem thinking; Sonnet 5 exige disabled explícito
       baseBody.thinking={type:'disabled'};
@@ -677,6 +685,9 @@ async function runAnalysis(){
             }catch{}
             _think=false;
             delete baseBody.output_config;delete baseBody.temperature;
+            // devolve o system ao texto original: sem gramática, o contrato volta a ser
+            // o JSON PLANO do prompts.js (caminho provado desde o 77, byte a byte)
+            baseBody.system[0].text=sysText;
             if(_noThinkModel(globalThis.currentModel))baseBody.thinking={type:'disabled'};else delete baseBody.thinking;
             baseBody.max_tokens=9000;
             if(useEnriched&&!_prefill&&_prefillOk(globalThis.currentModel)){_prefill=true;messages.push({role:'assistant',content:'{'});}
@@ -733,7 +744,10 @@ async function runAnalysis(){
     _h('stopThinking')(true);
     setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
     // Extração robusta: aceita blocos markdown e repara JSON truncado.
-    let parsed=parseAnalysisJson(finalText);
+    // _f2Unnest (shell 97): o F2_SCHEMA agrupa os campos de topo para caber na
+    // gramática; aqui o JSON volta ao formato PLANO que normalize/render esperam.
+    // Idempotente — sem opt-in (a esmagadora maioria dos runs) o objeto passa intacto.
+    let parsed=_f2Unnest(parseAnalysisJson(finalText));
     if(!parsed){
       // Re-pedido SEM raciocínio estendido. Thinking ("Leve"/"Médio"+) deixa o modelo
       // conversador → ele responde em prosa ou JSON truncado. Sem thinking, com teto alto
@@ -756,7 +770,7 @@ async function runAnalysis(){
       if(_noThinkModel(globalThis.currentModel))retryBody.thinking={type:'disabled'};
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson((_retryPrefill?'{':'')+retryR.text);}
+      if(retryR){lastOut+=retryR.outTokens||0;parsed=_f2Unnest(parseAnalysisJson((_retryPrefill?'{':'')+retryR.text));}
       // RESGATE FINAL (shell 79→80, corrigido no 95): modelo insistiu em prosa →
       // OPUS 4.8 monta o card. Opus é o tier ACIMA do Sonnet — o resgate nunca
       // rebaixa a qualidade (exigência do usuário). Opus 4.8 NÃO aceita prefill
@@ -776,7 +790,7 @@ async function runAnalysis(){
           delete rescueBody.output_config;
           rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
         }
-        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=parseAnalysisJson(rescueR.text);}
+        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=_f2Unnest(parseAnalysisJson(rescueR.text));}
       }
     }
     if(!parsed){

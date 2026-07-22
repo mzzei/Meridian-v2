@@ -570,28 +570,68 @@ const _soCtSide=()=>_soObj({diagnostico:_soStr,vantagem:_soStr,pontos_exploracao
 // $ref/$defs são suportados pelos structured outputs (doc da API, verificado no 96).
 // Se AINDA estourar, a auto-cura do pipeline-run desliga thinking+SO no mesmo run.
 const _ref=n=>({$ref:'#/$defs/'+n});
+// ── shell 97: AGRUPAMENTO — menos propriedades POR OBJETO ──
+// O $defs do 96 (que reduz o TOTAL de shapes) foi recusado de novo com a mesma
+// mensagem. Hipótese revisada: o custo da gramática é dominado pelo número de
+// propriedades de UM MESMO objeto — a gramática precisa aceitar as chaves em
+// qualquer ordem, o que cresce combinatoriamente. Bate com a nota do shell 93
+// ("só 15 dos 19 campos de topo cabiam"): um teto por objeto, não global.
+// Aqui o topo cai de 19 → 5 propriedades agrupando em cabecalho/times/mercados/
+// leitura/secoes. NENHUM campo é perdido — só mudam de endereço no JSON, e o
+// _f2Unnest devolve o formato plano logo após o parse, então render/normalize e
+// todo o resto do pipeline seguem sem saber que isso existe.
+// ÚLTIMA TENTATIVA: se ainda estourar, o caminho é aposentar o opt-in, não podar
+// campos (podar = additionalProperties:false proibiria a seção e a aba sumiria).
 const F2_SCHEMA={
   ..._soObj({
-    contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr,
-    mandante:_ref('team'),visitante:_ref('team'),
-    tecnico_mandante:_ref('tec'),tecnico_visitante:_ref('tec'),
-    lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
-    eventos_provaveis:{type:'array',items:_ref('evt')},
-    sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})},
-    tendencias:_soStrArr,fatores_decisivos:_soStrArr,
-    incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},
-    confronto_tatico:_soObj({atq_mand_def_vis:_ref('ctSide'),atq_vis_def_mand:_ref('ctSide'),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
-    cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
-    escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},conclusao:_soStr}),
-    lacunas:_soStrArr
+    cabecalho:_soObj({contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr}),
+    times:_soObj({mandante:_ref('team'),visitante:_ref('team'),tecnico_mandante:_ref('tec'),tecnico_visitante:_ref('tec')}),
+    mercados:_soObj({
+      lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
+      eventos_provaveis:{type:'array',items:_ref('evt')},
+      sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})}
+    }),
+    leitura:_soObj({tendencias:_soStrArr,fatores_decisivos:_soStrArr,incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},lacunas:_soStrArr}),
+    secoes:_soObj({
+      confronto_tatico:_soObj({atq_mand_def_vis:_ref('ctSide'),atq_vis_def_mand:_ref('ctSide'),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
+      cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
+      escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},conclusao:_soStr})
+    })
   }),
   $defs:{evt:_soEvt(),team:_soTeamF2(),tec:_soTecF2(),ctSide:_soCtSide()}
 };
+// Grupos do F2_SCHEMA → usado pelo _f2Unnest e pela instrução do prompt.
+const F2_GROUPS={
+  cabecalho:['contexto_analise','partida','fase','grupo','data_hora','sede','contexto_fase','confianca_geral'],
+  times:['mandante','visitante','tecnico_mandante','tecnico_visitante'],
+  mercados:['lambda','eventos_provaveis','sugestoes_ticket'],
+  leitura:['tendencias','fatores_decisivos','incerteza','lacunas'],
+  secoes:['confronto_tatico','cartoes_faltas','escanteios'],
+};
+/**
+ * Achata a resposta agrupada do structured outputs no formato PLANO que o resto do
+ * pipeline (normalize/render/export) espera. Idempotente: JSON já plano — o caminho
+ * sem opt-in, que é a esmagadora maioria — passa intacto. Campo do topo sempre vence
+ * o do grupo (nunca sobrescreve algo que o modelo já entregou no lugar certo).
+ */
+function _f2Unnest(o){
+  if(!o||typeof o!=='object'||Array.isArray(o))return o;
+  let touched=false;
+  const out={...o};
+  for(const g of Object.keys(F2_GROUPS)){
+    const sub=o[g];
+    if(!sub||typeof sub!=='object'||Array.isArray(sub))continue;
+    touched=true;
+    for(const k of F2_GROUPS[g])if(!(k in out)&&k in sub)out[k]=sub[k];
+    delete out[g];
+  }
+  return touched?out:o;
+}
 // Marca de versão da gramática: muda sempre que F2_SCHEMA muda de forma. O
 // pipeline-run usa isso para não repetir, a CADA análise, uma tentativa que já
 // falhou com "grammar too large" neste navegador — e para tentar de novo sozinho
-// quando a gramática for reescrita (como agora, no 96).
-const F2_SCHEMA_ID='96-defs';
+// quando a gramática for reescrita (como agora, no 97).
+const F2_SCHEMA_ID='97-grouped';
 // Fase 2 SEM opt-in: structured outputs NÃO é usado. Testado ao vivo (07/2026):
 // o schema completo da análise (19 campos, confronto_tatico aninhado etc.) excede
 // o limite de gramática compilada da API — erro "The compiled grammar is too large"
@@ -784,6 +824,8 @@ export {
   SOURCE_RULE,
   F2_SCHEMA,
   F2_SCHEMA_ID,
+  _f2Unnest,
+  F2_GROUPS,
   ticketRulesFor,
   gatherFacts,
   repairJson,

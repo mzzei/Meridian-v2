@@ -599,9 +599,24 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
 {
   const PF = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
   assert(PF.F2_SCHEMA && PF.F2_SCHEMA.type === 'object', 'F2_SCHEMA exported');
-  const req = PF.F2_SCHEMA.required || [];
+  // shell 97: os campos agora vivem DENTRO de grupos (cabecalho/times/mercados/...).
+  // O que precisa valer é: todo campo continua exigido em ALGUM lugar do schema —
+  // nenhum painel da UI pode ser podado para a gramática caber.
+  const _reqAll = (n) => {
+    const acc = new Set();
+    const walk = (x) => {
+      if (!x || typeof x !== 'object') return;
+      (x.required || []).forEach((k) => acc.add(k));
+      if (x.properties) Object.values(x.properties).forEach(walk);
+      if (x.$defs) Object.values(x.$defs).forEach(walk);
+      if (x.items) walk(x.items);
+    };
+    walk(n);
+    return acc;
+  };
+  const req = _reqAll(PF.F2_SCHEMA);
   ['contexto_analise','mandante','visitante','confronto_tatico','cartoes_faltas','escanteios','sugestoes_ticket','lacunas'].forEach((k) =>
-    assert(req.includes(k), 'F2_SCHEMA requires ' + k));
+    assert(req.has(k), 'F2_SCHEMA requires ' + k));
   // walker: regras de structured outputs — additionalProperties:false em todo objeto; sem min/max/enum
   {
     let objs = 0, bad = [];
@@ -659,11 +674,44 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   if (factsMod && factsMod.F2_SCHEMA) {
     const S = factsMod.F2_SCHEMA;
     const topo = Object.keys(S.properties);
-    for (const k of ['confronto_tatico', 'cartoes_faltas', 'escanteios', 'sugestoes_ticket', 'eventos_provaveis', 'lambda', 'mandante', 'visitante', 'lacunas'])
-      assert(topo.includes(k), `F2_SCHEMA keeps top-level "${k}" (no panel may be pruned)`);
-    assert(S.required.length === topo.length, 'F2_SCHEMA requires every top-level field');
+    const G = factsMod.F2_GROUPS;
+    // shell 97: o topo agora é só os grupos — os 19 campos vivem dentro deles.
+    assert(topo.length === Object.keys(G).length, `top-level reduced to groups (${topo.length} props — era 19; o limite da gramática é por objeto)`);
+    for (const [g, ks] of Object.entries(G)) {
+      assert(topo.includes(g), `group "${g}" at top level`);
+      const sub = S.properties[g];
+      for (const k of ks) assert(k in sub.properties, `field "${k}" preserved inside "${g}" (no panel may be pruned)`);
+      assert(sub.required.length === Object.keys(sub.properties).length, `group "${g}" requires all its fields`);
+    }
+    // nenhum campo pode ter sumido na reorganização
+    const _flat = Object.values(G).flat();
+    for (const k of ['confronto_tatico', 'cartoes_faltas', 'escanteios', 'sugestoes_ticket', 'eventos_provaveis', 'lambda', 'mandante', 'visitante', 'lacunas', 'contexto_analise', 'partida', 'tendencias', 'fatores_decisivos', 'incerteza'])
+      assert(_flat.includes(k), `F2_SCHEMA keeps "${k}" (no panel may be pruned)`);
+    assert(S.required.length === topo.length, 'F2_SCHEMA requires every top-level group');
     assert(S.$defs && Object.keys(S.$defs).length === 4, 'F2_SCHEMA exposes the 4 shared defs');
-    assert(S.properties.mandante.$ref === '#/$defs/team', 'mandante is a $ref');
+    assert(S.properties.times.properties.mandante.$ref === '#/$defs/team', 'mandante is a $ref');
+    // maior objeto do schema — a métrica que o fix do 97 ataca
+    {
+      let worst = 0;
+      const walk = (n) => {
+        if (!n || typeof n !== 'object') return;
+        if (n.properties) { worst = Math.max(worst, Object.keys(n.properties).length); Object.values(n.properties).forEach(walk); }
+        if (n.$defs) Object.values(n.$defs).forEach(walk);
+        if (n.items) walk(n.items);
+      };
+      walk(S);
+      assert(worst <= 9, `largest object has ${worst} props (era 19 no topo; teto do 97 = 9)`);
+    }
+    // _f2Unnest: agrupado → plano, e idempotente no caminho sem opt-in
+    const nested = { cabecalho: { partida: 'A × B', contexto_analise: 'previa' }, times: { mandante: { nome: 'A' } }, secoes: { escanteios: { analise: 'x' } } };
+    const flat = factsMod._f2Unnest(nested);
+    assert(flat.partida === 'A × B' && flat.mandante.nome === 'A' && flat.escanteios.analise === 'x', '_f2Unnest flattens groups');
+    assert(!('cabecalho' in flat) && !('times' in flat), '_f2Unnest removes group wrappers');
+    const already = { partida: 'X', mandante: { nome: 'M' } };
+    assert(factsMod._f2Unnest(already) === already, '_f2Unnest is a no-op on flat JSON (caminho sem opt-in intacto)');
+    assert(factsMod._f2Unnest(null) === null && factsMod._f2Unnest(undefined) === undefined, '_f2Unnest tolerates parse failure');
+    // campo do topo vence o do grupo (nunca sobrescreve o que o modelo já pôs certo)
+    assert(factsMod._f2Unnest({ partida: 'TOPO', cabecalho: { partida: 'GRUPO' } }).partida === 'TOPO', '_f2Unnest never overwrites a top-level field');
     assert(typeof factsMod.F2_SCHEMA_ID === 'string' && factsMod.F2_SCHEMA_ID.length > 0, 'F2_SCHEMA_ID present (memo key)');
   }
   // memo: só "grammar" é permanente; qualquer 400 é transitório e NÃO desliga o recurso

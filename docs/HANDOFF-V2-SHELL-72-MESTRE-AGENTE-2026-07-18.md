@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 96)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 97)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 96**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 97**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **96** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **97** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 96 · … · classic: 16`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 97 · … · classic: 16`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 96)
+## Estado atual (revisão 2026-07-22 · shell 97)
 
 | Shell | Entrega |
 |-------|---------|
@@ -721,19 +721,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **96** | **Gramática do F2_SCHEMA deduplicada ($defs) + memo da recusa + bug do card**: o 1º run real com o toggle ligado devolveu `The compiled grammar is too large` — a auto-cura funcionou (o card saiu via Sonnet), mas a gramática seguia estourando. Causa: a gramática compila o schema EXPANDIDO e cada `_soEvt()`/`_soTeamF2()`/… inlinava uma cópia nova (evt 3×, team 2×, tec 2×, ctSide 2×). Fix: `$defs`+`$ref` (suportados pelos structured outputs — doc verificado) → cada shape compila 1×, **sem podar nenhum campo** (podar seria pior: `additionalProperties:false` PROIBIRIA o modelo de emitir a seção e a aba sumiria). `F2_SCHEMA_ID=`96-defs`` + memo em `localStorage.meridian_f2_grammar_blocked`: recusa de gramática não é retentada a cada análise (economiza 1 request perdido + latência por run), e gramática nova (ID novo) volta a ser testada sozinha, sem o usuário limpar nada; só erro de **gramática** memoiza (demais 400 podem ser transitórios). **Bug do print (Flamengo × São Paulo):** aba Desempenho mostrava `★ [object Object] · [object Object]` — `jogadores_chave` chega como STRING (contrato F2) ou OBJETO (contrato F1, com nome/posição/stats) e o render mandava o item cru pro `esc()`; `_listLabel`/`_labelList` normalizam (também em `desfalques`). Validado no preview: card sem `[object Object]` (`★ Pedro (Abreu dos Santos) (ATACANTE) · Samuel Lino (EXTREMO)`), run1 tenta SO→recusa→auto-cura→card, run2 já nem tenta, run4 (ID novo) tenta de novo e ✓ |
 
+| **97** | **Gramática por AGRUPAMENTO (última tentativa do opt-in)** — o $defs do 96 foi recusado com a MESMA mensagem, então a hipótese "custo = total de shapes" caiu. Hipótese revisada: o custo é dominado por **propriedades de UM MESMO objeto** (a gramática aceita as chaves em qualquer ordem → cresce combinatoriamente), o que bate com a nota do 93 ("só 15 dos 19 campos de topo cabiam" = teto por objeto, não global). Fix: os 19 campos de topo viraram 5 grupos (`cabecalho`/`times`/`mercados`/`leitura`/`secoes`) — **topo 19→5 props, maior objeto do schema = 9** (`team`). NENHUM campo perdido: só mudam de endereço, e `_f2Unnest` (pipeline-facts) devolve o formato PLANO logo após o parse, nos 3 pontos (principal/retry/resgate), de forma **idempotente** — sem opt-in o objeto passa intacto e o caminho provado segue byte a byte. O system ganha a instrução do formato agrupado só quando SO está ligado, e a auto-cura **restaura o system original**. `F2_SCHEMA_ID=`97-grouped`` → o memo do 96 se retesta sozinho. Validado no preview: modelo devolvendo AGRUPADO → card com as 7 abas, sem modo simplificado, Cartões/Escanteios/Tática com conteúdo real, sem `[object Object]`. **Se ainda estourar no acesso do usuário, o combinado é aposentar o opt-in — não podar campos** |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 96)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 97)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 96).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 97).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 96)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 97)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
@@ -785,7 +787,7 @@ Quero que você: [OBJETIVO AQUI]
 | 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local (na data; o HEAD agora é 95 — reconferir após o push). Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
 | 17 | Freeze ao trocar liga das estatísticas durante a análise | **FEITO** shell 94 (`fromSelector` em `setStatsComp`) |
 | 18 | Contrato da API (adaptive thinking + prefill só Haiku) | **FEITO** shell 95 — inv. 30 e 36 reescritos; 3 caminhos validados no preview (stub) |
-| 19 | "compiled grammar is too large" no F2_SCHEMA | **FEITO** shell 96 ($defs/$ref + memo por F2_SCHEMA_ID). **Reteste ao vivo pendente**: rode uma análise com o toggle ligado — se ✓, thinking+SO passam a valer; se recusar de novo, o memo desliga sozinho e o card continua saindo |
+| 19 | "compiled grammar is too large" no F2_SCHEMA | shell 96 ($defs) **RECUSADO de novo** → shell 97 (agrupamento: topo 19→5 props + _f2Unnest). **Reteste ao vivo pendente**: rode uma análise com o toggle ligado — se ✓, thinking+SO passam a valer; se recusar de novo, o memo desliga sozinho e o card continua saindo |
 | 20 | `★ [object Object]` na aba Desempenho | **FEITO** shell 96 (`_listLabel` em jogadores_chave/desfalques) |
 
 ---
