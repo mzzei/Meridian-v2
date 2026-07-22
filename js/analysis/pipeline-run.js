@@ -10,6 +10,7 @@ import { routeUserIntent } from '../lib/intent.js';
 import {
   gatherFacts,
   F2_SCHEMA,
+  F2_SCHEMA_ID,
   hasExplicitMatchAnchor,
   isVagueMatchQuery,
   _chatNeedsLiveData,
@@ -350,6 +351,20 @@ function showFallbackCard(query){
 // nesses, enviar {type:'disabled'} explícito. Modelos antigos (Haiku 4.5): omitir
 // já significa sem thinking — não enviar o campo (evita 400 em modelos que não o aceitam).
 function _noThinkModel(m){return /claude-sonnet-5/.test(m||'');}
+// ── Memo de "compiled grammar is too large" (shell 96) ──
+// Guarda o F2_SCHEMA_ID recusado por ESTE acesso. Gramática nova = ID novo = testa
+// de novo sozinho. localStorage pode falhar (modo privado) → degrada p/ memória.
+const _F2_GK='meridian_f2_grammar_blocked';
+let _f2GrammarMem=null;
+function _f2GrammarBlockedId(){
+  if(_f2GrammarMem)return _f2GrammarMem;
+  try{return localStorage.getItem(_F2_GK)||'';}catch{return '';}
+}
+function _f2GrammarBlocked(){return _f2GrammarBlockedId()===F2_SCHEMA_ID;}
+function _f2MarkGrammarBlocked(){
+  _f2GrammarMem=F2_SCHEMA_ID;
+  try{localStorage.setItem(_F2_GK,F2_SCHEMA_ID);}catch{}
+}
 // Sonnet 5 REJEITA prefill de assistant (400 real 07/2026: "This model does not
 // support assistant message prefill. The conversation must end with a user
 // message."). Haiku 4.5 / Opus 4.8 aceitam. Há auto-cura no loop da Fase 2 para
@@ -599,6 +614,18 @@ async function runAnalysis(){
     // Se o acesso rejeitar ("compiled grammar is too large" etc.), a auto-cura no
     // loop desliga thinking+SO no MESMO run e volta ao caminho provado.
     let _think=useEnriched&&typeof globalThis.getF2Think==='function'&&globalThis.getF2Think();
+    // MEMO DE GRAMÁTICA (shell 96): se ESTE acesso já recusou ESTA versão do
+    // F2_SCHEMA com "grammar too large", não queima uma requisição perdida (+latência)
+    // a cada análise — pula direto pro caminho provado. O memo é gravado com o
+    // F2_SCHEMA_ID, então uma gramática nova (como a do 96, com $defs) é testada de
+    // novo automaticamente, sem o usuário precisar limpar nada.
+    if(_think&&_f2GrammarBlocked()){
+      _think=false;
+      try{
+        const _st=document.getElementById('f2-think-status');
+        if(_st)_st.textContent='desligado neste navegador: a gramática '+_f2GrammarBlockedId()+' já foi recusada por este acesso (não retentamos a cada análise).';
+      }catch{}
+    }
     if(_think){
       // CONTRATO ATUAL (verificado no doc da API, shell 95): Sonnet 5 / Opus 4.8 usam
       // ADAPTIVE thinking — `{type:'enabled',budget_tokens:N}` é REMOVIDO e devolve 400
@@ -641,6 +668,10 @@ async function runAnalysis(){
             try{
               globalThis._f2ThinkLast={ts:Date.now(),ok:false,model:globalThis.currentModel,msg:String(e2.message||'').slice(0,300)};
               console.warn('[f2-think] auto-cura OFF:',globalThis._f2ThinkLast.msg);
+              // Só a gramática grande demais é PERMANENTE p/ esta versão do schema
+              // (é limite do schema, não do run). Os demais 400 podem ser transitórios
+              // → não memoizamos, para não desligar o recurso por um erro de ocasião.
+              if(/grammar/i.test(e2.message||''))_f2MarkGrammarBlocked();
               const _st=document.getElementById('f2-think-status');
               if(_st)_st.textContent='indisponível neste acesso — auto-cura desligou. Motivo: '+globalThis._f2ThinkLast.msg;
             }catch{}

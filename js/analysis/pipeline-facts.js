@@ -560,20 +560,38 @@ const _soEvt=()=>_soObj({evento:_soStr,probabilidade:_soN(),fundamento:_soStr});
 const _soTeamF2=()=>_soObj({nome:_soStr,ranking_fifa:_soStr,forma_recente:_soStr,xg_marcado:_soN(),xg_sofrido:_soN(),desfalques:_soStrArr,escalacao_status:_soStr,escalacao:_soStr,jogadores_chave:_soStrArr});
 const _soTecF2=()=>_soObj({nome:_soStr,formacao:_soStr,filosofia:_soStr,ajustes_recentes:_soStr,impacto_mercados:_soStr});
 const _soCtSide=()=>_soObj({diagnostico:_soStr,vantagem:_soStr,pontos_exploracao:_soStrArr,bloqueios:_soStrArr});
-const F2_SCHEMA=_soObj({
-  contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr,
-  mandante:_soTeamF2(),visitante:_soTeamF2(),
-  tecnico_mandante:_soTecF2(),tecnico_visitante:_soTecF2(),
-  lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
-  eventos_provaveis:{type:'array',items:_soEvt()},
-  sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})},
-  tendencias:_soStrArr,fatores_decisivos:_soStrArr,
-  incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},
-  confronto_tatico:_soObj({atq_mand_def_vis:_soCtSide(),atq_vis_def_mand:_soCtSide(),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
-  cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_soEvt()},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
-  escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_soEvt()},conclusao:_soStr}),
-  lacunas:_soStrArr
-});
+// ── shell 96: $defs/$ref para os shapes REPETIDOS ──
+// O erro real do usuário no 1º run com thinking foi "The compiled grammar is too
+// large". A gramática é compilada a partir do schema EXPANDIDO: cada chamada de
+// _soEvt()/_soTeamF2()/… inlinava uma cópia nova (evt 3×, team 2×, tec 2×, ctSide
+// 2×) e cada cópia custava gramática de novo. Com $ref, cada shape compila UMA vez
+// — sem perder nenhum campo (podar campo não é opção: additionalProperties:false
+// PROIBIRIA o modelo de emitir a seção podada e a aba sumiria da UI).
+// $ref/$defs são suportados pelos structured outputs (doc da API, verificado no 96).
+// Se AINDA estourar, a auto-cura do pipeline-run desliga thinking+SO no mesmo run.
+const _ref=n=>({$ref:'#/$defs/'+n});
+const F2_SCHEMA={
+  ..._soObj({
+    contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr,
+    mandante:_ref('team'),visitante:_ref('team'),
+    tecnico_mandante:_ref('tec'),tecnico_visitante:_ref('tec'),
+    lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
+    eventos_provaveis:{type:'array',items:_ref('evt')},
+    sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})},
+    tendencias:_soStrArr,fatores_decisivos:_soStrArr,
+    incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},
+    confronto_tatico:_soObj({atq_mand_def_vis:_ref('ctSide'),atq_vis_def_mand:_ref('ctSide'),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
+    cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
+    escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},conclusao:_soStr}),
+    lacunas:_soStrArr
+  }),
+  $defs:{evt:_soEvt(),team:_soTeamF2(),tec:_soTecF2(),ctSide:_soCtSide()}
+};
+// Marca de versão da gramática: muda sempre que F2_SCHEMA muda de forma. O
+// pipeline-run usa isso para não repetir, a CADA análise, uma tentativa que já
+// falhou com "grammar too large" neste navegador — e para tentar de novo sozinho
+// quando a gramática for reescrita (como agora, no 96).
+const F2_SCHEMA_ID='96-defs';
 // Fase 2 SEM opt-in: structured outputs NÃO é usado. Testado ao vivo (07/2026):
 // o schema completo da análise (19 campos, confronto_tatico aninhado etc.) excede
 // o limite de gramática compilada da API — erro "The compiled grammar is too large"
@@ -765,6 +783,7 @@ export {
   GROUNDING_RULE,
   SOURCE_RULE,
   F2_SCHEMA,
+  F2_SCHEMA_ID,
   ticketRulesFor,
   gatherFacts,
   repairJson,

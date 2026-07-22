@@ -612,9 +612,13 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
       if (n.properties) Object.entries(n.properties).forEach(([k, v]) => walk(v, p + '.' + k));
       if (n.items) walk(n.items, p + '[]');
       if (n.anyOf) n.anyOf.forEach((v, i) => walk(v, p + '|' + i));
+      // shell 96: os shapes compartilhados vivem em $defs — as regras de SO valem lá também
+      if (n.$defs) Object.entries(n.$defs).forEach(([k, v]) => walk(v, p + '$defs.' + k));
     };
     walk(PF.F2_SCHEMA, '$');
-    assert(objs >= 15 && bad.length === 0, 'F2_SCHEMA obeys SO constraints (' + objs + ' objs; bad: ' + bad.join(',') + ')');
+    // shell 96: a contagem CAIU (15→13) de propósito — os shapes repetidos viraram $defs
+    // (o objetivo do fix é justamente gramática menor). O que não pode cair é a regra.
+    assert(objs >= 12 && bad.length === 0, 'F2_SCHEMA obeys SO constraints (' + objs + ' objs; bad: ' + bad.join(',') + ')');
   }
   const runSrcT = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
   assert(runSrcT.includes('getF2Think()') && runSrcT.includes("schema:F2_SCHEMA"), 'F2 thinking gated + SO wired');
@@ -638,6 +642,52 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrcT.includes("(!baseBody.thinking||baseBody.thinking.type==='disabled')"), 'prefill still gated by thinking state');
   assert(appSrc.includes('function getF2Think') && appSrc.includes('function setF2Think'), 'F2 think toggle functions');
   assert(indexSrc.includes('id="f2-think-toggle"') && indexSrc.includes('id="f2-think-status"'), 'F2 think toggle UI');
+
+  // ── Shell 96 — gramática deduplicada ($defs) + memo da recusa ──
+  const factsSrcG = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(factsSrcG.includes('$defs:{evt:_soEvt(),team:_soTeamF2(),tec:_soTecF2(),ctSide:_soCtSide()}'), 'F2_SCHEMA declares $defs for repeated shapes');
+  assert(factsSrcG.includes("const _ref=n=>({$ref:'#/$defs/'+n})"), '$ref helper present');
+  // nenhum shape repetido pode continuar inline no corpo do F2_SCHEMA
+  // corpo = do início do F2_SCHEMA até a linha $defs (onde os shapes DEVEM aparecer 1×)
+  const _f2Body = factsSrcG.slice(factsSrcG.indexOf('const F2_SCHEMA='), factsSrcG.indexOf('  $defs:{'));
+  for (const [fn, n] of [['_soEvt()', 3], ['_soTeamF2()', 2], ['_soTecF2()', 2], ['_soCtSide()', 2]]) {
+    const hits = _f2Body.split(fn).length - 1;
+    assert(hits === 0, `${fn} inlined ${hits}× in F2_SCHEMA body (was ${n}× — must be $ref now)`);
+  }
+  // e o schema tem de continuar COMPLETO: podar campo esconderia painel (additionalProperties:false)
+  const factsMod = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href).catch(() => null);
+  if (factsMod && factsMod.F2_SCHEMA) {
+    const S = factsMod.F2_SCHEMA;
+    const topo = Object.keys(S.properties);
+    for (const k of ['confronto_tatico', 'cartoes_faltas', 'escanteios', 'sugestoes_ticket', 'eventos_provaveis', 'lambda', 'mandante', 'visitante', 'lacunas'])
+      assert(topo.includes(k), `F2_SCHEMA keeps top-level "${k}" (no panel may be pruned)`);
+    assert(S.required.length === topo.length, 'F2_SCHEMA requires every top-level field');
+    assert(S.$defs && Object.keys(S.$defs).length === 4, 'F2_SCHEMA exposes the 4 shared defs');
+    assert(S.properties.mandante.$ref === '#/$defs/team', 'mandante is a $ref');
+    assert(typeof factsMod.F2_SCHEMA_ID === 'string' && factsMod.F2_SCHEMA_ID.length > 0, 'F2_SCHEMA_ID present (memo key)');
+  }
+  // memo: só "grammar" é permanente; qualquer 400 é transitório e NÃO desliga o recurso
+  assert(runSrcT.includes('if(/grammar/i.test(e2.message||""))_f2MarkGrammarBlocked();'.replace(/"/g, "'")), 'only grammar errors are memoized');
+  assert(runSrcT.includes('_f2GrammarBlocked()') && runSrcT.includes('F2_SCHEMA_ID'), 'grammar memo keyed by schema id (new grammar retries itself)');
+  assert(runSrcT.includes('try{localStorage.setItem(_F2_GK,F2_SCHEMA_ID);}catch{}'), 'memo tolerates blocked localStorage');
+
+  // ── Shell 96 — "★ [object Object]" no card (print real do usuário) ──
+  // jogadores_chave chega como STRING (contrato F2) ou OBJETO (contrato F1, com
+  // nome/posicao/stats). O render mandava o item cru pro esc() → [object Object].
+  const renderSrcO = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  assert(renderSrcO.includes('function _listLabel'), '_listLabel coercion exists');
+  assert(!/t\.jogadores_chave\.map\(esc\)/.test(renderSrcO), 'jogadores_chave never goes raw into esc()');
+  assert(!/t\.desfalques\.map\(esc\)/.test(renderSrcO), 'desfalques never goes raw into esc()');
+  {
+    // meta-assert: prova que a coerção resolve o caso do print e que o teste reprova o cru
+    const _src = renderSrcO.slice(renderSrcO.indexOf('function _listLabel'), renderSrcO.indexOf('function _labelList'));
+    const _ll = new Function(_src + '; return _listLabel;')();
+    assert(_ll('Pedro') === 'Pedro', 'string item passes through');
+    assert(_ll({ nome: 'Pedro', posicao: 'ATACANTE' }) === 'Pedro (ATACANTE)', 'object item becomes readable label');
+    assert(_ll({ nome: 'Samuel Lino' }) === 'Samuel Lino', 'object without detail = name only');
+    assert(!/\[object Object\]/.test(String(_ll({ nome: 'X', posicao: 'Y' }))), 'no [object Object] (the reported bug)');
+    assert(String({ nome: 'X' }) === '[object Object]', 'meta: raw String() WOULD produce the bug');
+  }
 }
 
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico

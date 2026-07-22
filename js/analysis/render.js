@@ -9,6 +9,20 @@ function calcPoisson(lh,la){
   sc.sort((a,b)=>b.p-a.p);return{home,draw,away,btts,over,under:1-over,top:sc.slice(0,5)};
 }
 
+// Item de lista que pode chegar como STRING (contrato da F2) ou OBJETO (contrato da
+// F1 / structured outputs, com nome+posição+stats). Antes ia cru pro esc() e o card
+// exibia "★ [object Object] · [object Object]" (print do usuário, shell 96).
+function _listLabel(x){
+  if(x===null||x===undefined)return '';
+  if(typeof x==='string')return x;
+  if(typeof x!=='object')return String(x);
+  const nome=x.nome||x.jogador||x.player||x.descricao||'';
+  const det=x.posicao||x.motivo||x.observacao||'';
+  if(!nome)return det||'';
+  return det?`${nome} (${det})`:nome;
+}
+function _labelList(arr){return (Array.isArray(arr)?arr:[]).map(_listLabel).filter(Boolean);}
+
 function tcard(t){
   if(!t)return '';
   return `<div class="tname">${esc(t.nome||'—')}</div>
@@ -16,10 +30,10 @@ function tcard(t){
     <div class="irow"><span class="ilbl">Forma</span><span class="ival" style="font-family:monospace;font-size:11px">${esc(t.forma_recente||'—')}</span></div>
     <div class="irow"><span class="ilbl">xG marc.</span><span class="ival">${esc(t.xg_marcado??'—')}</span></div>
     <div class="irow"><span class="ilbl">xG sofr.</span><span class="ival">${esc(t.xg_sofrido??'—')}</span></div>
-    ${t.desfalques?.length?`<div class="irow"><span class="ilbl">Desf.</span><span class="ival">${t.desfalques.map(esc).join(', ')}</span></div>`:''}
+    ${_labelList(t.desfalques).length?`<div class="irow"><span class="ilbl">Desf.</span><span class="ival">${_labelList(t.desfalques).map(esc).join(', ')}</span></div>`:''}
     <span class="spill ${t.escalacao_status==='confirmada'?'sp-ok':'sp-warn'}">${esc(t.escalacao_status)}</span>
     ${t.escalacao?`<div class="tesc">${esc(t.escalacao)}</div>`:''}
-    ${t.jogadores_chave?.length?`<div class="tkeys">★ ${t.jogadores_chave.map(esc).join(' · ')}</div>`:''}`;
+    ${_labelList(t.jogadores_chave).length?`<div class="tkeys">★ ${_labelList(t.jogadores_chave).map(esc).join(' · ')}</div>`:''}`;
 }
 // ── Card de stats fundamentais de UM jogador (dados estruturados da Fase 1) ──
 function _pstatCard(p){

@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 95)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 96)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 95**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 96**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -652,13 +652,13 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 27. `runAnalysis` infere a competição da query (clube OU keyword) antes da coleta — não confiar só na liga ativa da UI (shell 74).  
 28. Fase 2 nunca pergunta em prosa: ambiguidade = prévia com suposições declaradas no JSON ("ENTREGA OBRIGATÓRIA" nos prompts) — mas o caminho PREFERENCIAL é o gate resolver antes (inv. 29).  
 29. Análise sem âncora em jogo real (agenda/scoreboard) → **popup de contexto ANTES do pipeline** (0 chamadas LLM até o usuário escolher); `[Contexto confirmado:]` e `PARTIDA:` pulam o gate; reenvio pós-popup volta para `runAnalysis` (`_ctxResumeMode`), nunca para o chat (shell 75).  
-30. **Prefill `{` só em Haiku (shell 95)**: `_prefillOk = /claude-haiku/`. Sonnet 5, Sonnet 4.6, Opus 4.6/4.7/**4.8** e Fable 5 devolvem 400 (`does not support assistant message prefill`) — o substituto oficial nos modelos novos é **structured outputs** (`output_config.format`). Fase 2 enriquecida: sem tools, thinking off/disabled quando o opt-in está desligado, `'{'+text` no parse **só** quando o prefill foi realmente enviado. Modelo que insistir em prosa → resgate **Opus 4.8 com structured outputs** (nunca com prefill, nunca Haiku: resgate não rebaixa qualidade). Shells 77/79/80 descreviam o contrato antigo — 95 é o vigente.  
+30. **Prefill `{` só em Haiku (shell 96)**: `_prefillOk = /claude-haiku/`. Sonnet 5, Sonnet 4.6, Opus 4.6/4.7/**4.8** e Fable 5 devolvem 400 (`does not support assistant message prefill`) — o substituto oficial nos modelos novos é **structured outputs** (`output_config.format`). Fase 2 enriquecida: sem tools, thinking off/disabled quando o opt-in está desligado, `'{'+text` no parse **só** quando o prefill foi realmente enviado. Modelo que insistir em prosa → resgate **Opus 4.8 com structured outputs** (nunca com prefill, nunca Haiku: resgate não rebaixa qualidade). Shells 77/79/80 descreviam o contrato antigo — 95 é o vigente.  
 31. Globais de classic lidos via `globalThis` pelo ESM devem ser `var`/`function`/`expose()` — **`const`/`let` de script classic NÃO chegam ao window** (bug MODEL_PRICE, shell 79: derrubava toda análise pós-Fase 2). Ao criar ponte classic↔ESM, teste `typeof globalThis.X`.  
 32. **Escalação empty com card completo ≠ bug de render tático**: significa `_coletaOk === false` (Fase 1 sem `rawFacts`). Diagnóstico obrigatório via `_lastAnalysisFail` stages `fase1-parse` \| `fase1-loop` \| `fase1-error` no empty-state (shell 83) — nunca silenciar a causa da coleta.  
 33. **Todo parse de JSON vindo de LLM usa `parseAnalysisJson`** (fences + `repairJson`) — nunca `txt.match(/\{…\}/)` + `JSON.parse` seco (assert proíbe). `stop_reason:'max_tokens'` na F1 é terminal com salvage, não `break`. Retry de forma da F1 = `_p1JsonRescue` (Haiku + prefill `{`, sem tools) — shell 84.  
 34. **Escalação = proveniência HONESTA (shell 87)**: precedência AF(api) > ESPN starters(api) > rawFacts(pesquisa) > F2(modelo) > geometria(inferida) > empty. Chip de formação só com fonte confiável — nunca rotular "4-2-3-1" de modelo/inferida como oficial; nunca **espelhar** a mesma formação nos dois times sem lastro próprio. Elenco confirmado de dia de jogo (`applyConfirmedLineups`/`refreshAnalysisLineups`) é **determinístico** — ZERO chamada Anthropic no enrich/poll. `live.js` nunca inventa `4-3-3` (mostra `n/d`).  
 35. **Teste anti-regressão precisa de META-ASSERT (shell 89)**: todo smoke test que varre o código (ex.: "toda `_h('x')` existe") deve (a) **excluir o arquivo escaneado** da busca — senão o próprio call site "prova" a definição — e (b) trazer um assert que **prova que o teste reprova** um caso inexistente. Sem isso o teste é no-op e dá falsa segurança (a 1ª versão do teste do shell 88 teria passado com `chatCardFrom` removido). No chat: JSON nunca vai cru para a bolha (extrai texto ou pede reformulação), e o gate de suposição (inv. 18) roda no caminho de **prosa** com critério estrito — só confronto/placar explícito abre popup.  
-36. **Thinking na F2 SÓ com structured outputs** (`F2_SCHEMA` compacto) e SÓ via opt-in `getF2Think()` — NUNCA thinking com JSON por prompt-contrato (desastre do shell 70/71). Auto-cura obrigatória no mesmo run; o **retry** sempre stripa `output_config`; prefill nunca coexiste com thinking (shell 93). **Forma vigente (shell 95, verificada no doc da API):** `thinking:{type:'adaptive'}` — `{type:'enabled',budget_tokens:N}` é **400** nos modelos atuais — profundidade via `output_config.effort`, e **sampling params (temperature/top_p/top_k) são rejeitados** no mesmo caminho, logo `delete baseBody.temperature`. O **resgate** usa `output_config.format` (SO) no lugar do prefill, e só o remove se o 400 anterior tiver sido de gramática.  
+36. **Thinking na F2 SÓ com structured outputs** (`F2_SCHEMA` — desde o shell 96 com `$defs`/`$ref` nos shapes repetidos, porque a gramática compila o schema EXPANDIDO; **nunca podar campo para caber**: com `additionalProperties:false` o modelo ficaria proibido de emitir a seção e a aba sumiria da UI. Recusa de gramática é memoizada por `F2_SCHEMA_ID` — não se retenta a cada análise, e schema novo se retesta sozinho) e SÓ via opt-in `getF2Think()` — NUNCA thinking com JSON por prompt-contrato (desastre do shell 70/71). Auto-cura obrigatória no mesmo run; o **retry** sempre stripa `output_config`; prefill nunca coexiste com thinking (shell 93). **Forma vigente (shell 95, verificada no doc da API):** `thinking:{type:'adaptive'}` — `{type:'enabled',budget_tokens:N}` é **400** nos modelos atuais — profundidade via `output_config.effort`, e **sampling params (temperature/top_p/top_k) são rejeitados** no mesmo caminho, logo `delete baseBody.temperature`. O **resgate** usa `output_config.format` (SO) no lugar do prefill, e só o remove se o 400 anterior tiver sido de gramática.  
 
 ---
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **95** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **96** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 95 · … · classic: 16`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 96 · … · classic: 16`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 95)
+## Estado atual (revisão 2026-07-22 · shell 96)
 
 | Shell | Entrega |
 |-------|---------|
@@ -719,19 +719,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **94** | **BUG DO USUÁRIO: "troquei a liga nas estatísticas durante a análise e travou"** — não era travamento do pipeline (a análise concluía normal): `renderEmptyStateFeatured` esconde o bloco featured quando existe conversa (sidebar vira contexto da partida — by design), e **o seletor de liga vive DENTRO de `#rs-copa-stats`** → ao escolher a liga, `setStatsComp` disparava o repaint que **sumia com o painel E com o próprio seletor**, sem volta até limpar a conversa. Fix: `setStatsComp` marca `fromSelector:true`; com o painel visível, a troca do USUÁRIO **mantém visível e repinta** na liga escolhida (enrich idem). Repaint automático com conversa continua escondendo (design preservado). Reproduzido e validado no preview: antes/durante = Libertadores visível → após troca = **Série A visível e repintado** (era `display:none`) |
 | **95** | **CONTRATO DA API CORRIGIDO (erro real do usuário no toggle do 93)** — a API devolveu `"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`. Verificado no doc oficial (skill `claude-api`): em Sonnet 5 / Opus 4.8 / 4.7 / Fable 5 o `budget_tokens` é **rejeitado com 400** e os **sampling params** (temperature/top_p/top_k) também. Fix na F2 enriquecida: `thinking:{type:'adaptive'}` + `output_config:{effort:'high',format:json_schema(F2_SCHEMA)}` + `max_tokens 15000` + `delete temperature`. **2º bug latente, nunca disparado:** o resgate do shell 80 mandava **prefill em Opus 4.8**, que TAMBÉM rejeita prefill (só Haiku ainda aceita) — o resgate teria 400'ado no 1º uso real. `_prefillOk` agora é `/claude-haiku/`; o resgate usa **structured outputs** no lugar do prefill, com auto-cura (se o 400 anterior foi de gramática, refaz sem `output_config`). Asserts novos + validado no preview (stub) nos 3 caminhos: F2 = `adaptive`+`effort`+`format`, sem temperature, sem prefill → retry = `thinking:disabled` → resgate = `claude-opus-4-8` + `format`, sem prefill |
 
+| **96** | **Gramática do F2_SCHEMA deduplicada ($defs) + memo da recusa + bug do card**: o 1º run real com o toggle ligado devolveu `The compiled grammar is too large` — a auto-cura funcionou (o card saiu via Sonnet), mas a gramática seguia estourando. Causa: a gramática compila o schema EXPANDIDO e cada `_soEvt()`/`_soTeamF2()`/… inlinava uma cópia nova (evt 3×, team 2×, tec 2×, ctSide 2×). Fix: `$defs`+`$ref` (suportados pelos structured outputs — doc verificado) → cada shape compila 1×, **sem podar nenhum campo** (podar seria pior: `additionalProperties:false` PROIBIRIA o modelo de emitir a seção e a aba sumiria). `F2_SCHEMA_ID=`96-defs`` + memo em `localStorage.meridian_f2_grammar_blocked`: recusa de gramática não é retentada a cada análise (economiza 1 request perdido + latência por run), e gramática nova (ID novo) volta a ser testada sozinha, sem o usuário limpar nada; só erro de **gramática** memoiza (demais 400 podem ser transitórios). **Bug do print (Flamengo × São Paulo):** aba Desempenho mostrava `★ [object Object] · [object Object]` — `jogadores_chave` chega como STRING (contrato F2) ou OBJETO (contrato F1, com nome/posição/stats) e o render mandava o item cru pro `esc()`; `_listLabel`/`_labelList` normalizam (também em `desfalques`). Validado no preview: card sem `[object Object]` (`★ Pedro (Abreu dos Santos) (ATACANTE) · Samuel Lino (EXTREMO)`), run1 tenta SO→recusa→auto-cura→card, run2 já nem tenta, run4 (ID novo) tenta de novo e ✓ |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 95)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 96)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 95).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 96).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 95)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 96)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
@@ -783,6 +785,8 @@ Quero que você: [OBJETIVO AQUI]
 | 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local (na data; o HEAD agora é 95 — reconferir após o push). Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
 | 17 | Freeze ao trocar liga das estatísticas durante a análise | **FEITO** shell 94 (`fromSelector` em `setStatsComp`) |
 | 18 | Contrato da API (adaptive thinking + prefill só Haiku) | **FEITO** shell 95 — inv. 30 e 36 reescritos; 3 caminhos validados no preview (stub) |
+| 19 | "compiled grammar is too large" no F2_SCHEMA | **FEITO** shell 96 ($defs/$ref + memo por F2_SCHEMA_ID). **Reteste ao vivo pendente**: rode uma análise com o toggle ligado — se ✓, thinking+SO passam a valer; se recusar de novo, o memo desliga sozinho e o card continua saindo |
+| 20 | `★ [object Object]` na aba Desempenho | **FEITO** shell 96 (`_listLabel` em jogadores_chave/desfalques) |
 
 ---
 
