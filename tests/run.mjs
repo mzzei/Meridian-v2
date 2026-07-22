@@ -256,6 +256,17 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   assert(/finally\s*\{[\s\S]{0,400}stuck\.disabled\s*=\s*false/.test(lcSrc), 'refresh restaura o botão no finally');
   // (4) poll para quando o card sai do DOM (não vira fetch órfão a cada 75s).
   assert(/!document\.getElementById\(panelId\)[\s\S]{0,60}_lcStopPoll/.test(lcSrc), 'poll encerra sem painel no DOM');
+  // Shell 91 — limpeza dos 4 achados de baixo risco do review 87–89:
+  // (5) _lcFindEspnEvent reusa getEspnScoreboard (cache compartilhado), sem 2º fetch/cache.
+  assert(lcSrc.includes('getEspnScoreboard(compId)') && !lcSrc.includes('meridian_lc_sb_'), 'reusa getEspnScoreboard (sem 2º cache de scoreboard)');
+  // (6) ESPN summary + AF lineups em paralelo (Promise.all), não em série.
+  assert(/Promise\.all\(\[_espnP,\s*_afP\]\)/.test(lcSrc), 'ESPN e AF confirmados em paralelo');
+  // (7) opts.query morto removido dos 2 call sites (a chamada de applyConfirmedLineups
+  //     não carrega mais `query:`; as linhas de diagnóstico _lastAnalysisFail seguem).
+  assert(!/applyConfirmedLineups[\s\S]{0,80}query:/.test(runSrc7) && !/_cl\(parsed,\{[^}]*query:/.test(runSrc7), 'runAnalysis não passa mais opts.query morto');
+  assert(!/applyConfirmedLineups\(d,\{[^}]*query:/.test(lcSrc), 'refresh não passa mais opts.query morto');
+  // (8) source é acurado por lado (não sobrescrito pelo 2º time).
+  assert(lcSrc.includes('_srcBySide') && !lcSrc.includes('usedSource=pick.source'), 'source combinado por lado (não sobrescrito)');
 }
 // Shell 82: ctSideSection/ctVanTag recuperadas (refactor as perdeu; todo card real crashava)
 assert(renderSrc.includes('function ctSideSection') && renderSrc.includes('function ctVanTag'), 'confronto tatico helpers defined');

@@ -83,11 +83,12 @@ async function _lcAfConfirmed(query,compId){
 // Acha o evento ESPN do confronto (para eventId + janela).
 async function _lcFindEspnEvent(teams,compId){
   try{
-    if(typeof fetchEspn!=='function'||typeof espnBase!=='function')return null;
-    const base=espnBase(compId);
-    const from=new Date(Date.now()-2*864e5).toISOString().slice(0,10).replace(/-/g,'');
-    const to=new Date(Date.now()+30*864e5).toISOString().slice(0,10).replace(/-/g,'');
-    const sb=await fetchEspn(base+'/scoreboard?dates='+from+'-'+to+'&limit=100','meridian_lc_sb_'+compId,10*60*1000);
+    // Shell 91: reusa getEspnScoreboard(compId) — mesmo recurso/cache
+    // (meridian_espn_sb_<comp>) que a UI e findScheduledMatchForAnalysis já usam.
+    // Antes este arquivo fazia um 2º fetch + 2º cache do MESMO scoreboard, com chave
+    // própria → requisição extra por card e caches divergentes do mesmo dado.
+    if(typeof getEspnScoreboard!=='function')return null;
+    const sb=await getEspnScoreboard(compId);
     const evs=(sb&&sb.events)||[];
     const ev=evs.find(e=>{
       const c=e&&e.competitions&&e.competitions[0];const cs=(c&&c.competitors)||[];
@@ -139,20 +140,21 @@ async function applyConfirmedLineups(parsed,opts){
   if(ev&&(ev.state==='post'))parsed._matchOver=true;
   if(!inWindow&&!opts.force)return {changed:false,source:'',eventId:ev&&ev.eventId,window:false};
 
-  // Fontes confirmadas (TTL curto na janela; cache longo fora)
+  // Fontes confirmadas (TTL curto na janela; cache longo fora). ESPN summary e AF
+  // lineups são independentes → em PARALELO (shell 91: antes eram 2 awaits em série,
+  // somando o timeout da ESPN ao throttle da AF no caminho de render do card).
   const ttl=inWindow?45*1000:15*60*1000;
-  let espnSides=null,af=null;
-  if(ev&&ev.eventId&&typeof fetchEspn==='function'&&typeof espnBase==='function'){
-    try{
-      const summary=await fetchEspn(espnBase(compId)+'/summary?event='+ev.eventId,'meridian_lu_live_'+ev.eventId,ttl);
-      if(summary)espnSides=espnStartersFromSummary(summary);
-    }catch{}
-  }
-  af=await _lcAfConfirmed(nmM+' x '+nmV,compId);
+  const _espnP=(ev&&ev.eventId&&typeof fetchEspn==='function'&&typeof espnBase==='function')
+    ?fetchEspn(espnBase(compId)+'/summary?event='+ev.eventId,'meridian_lu_live_'+ev.eventId,ttl)
+      .then(s=>s?espnStartersFromSummary(s):null).catch(()=>null)
+    :Promise.resolve(null);
+  const _afP=_lcAfConfirmed(nmM+' x '+nmV,compId).catch(()=>null);
+  const [espnSides,af]=await Promise.all([_espnP,_afP]);
 
   if(!espnSides&&!af)return {changed:false,source:'',eventId:ev&&ev.eventId,window:inWindow};
   if(!parsed._lineups)parsed._lineups={mandante:null,visitante:null};
-  let changed=false,usedSource='';
+  let changed=false;
+  const _srcBySide={}; // shell 91: fonte POR LADO (antes usedSource era sobrescrito pelo 2º time)
   const applySide=(sideKey,tecKey,teamName)=>{
     const pick=_lcPickConfirmed(teamName,af,espnSides);
     if(!pick)return;
@@ -168,10 +170,12 @@ async function applyConfirmedLineups(parsed,opts){
       fonte:'api',
       formacaoFonte:pick.conf.formacao?'api':'inferida'
     }):null;
-    if(built){parsed._lineups[sideKey]=built;changed=true;usedSource=pick.source;}
+    if(built){parsed._lineups[sideKey]=built;changed=true;_srcBySide[sideKey]=pick.source;}
   };
   applySide('mandante','tecnico_mandante',nmM);
   applySide('visitante','tecnico_visitante',nmV);
+  // source combinado e único (ex.: 'af', 'espn', 'af+espn') — reflete os DOIS lados.
+  const usedSource=[...new Set([_srcBySide.mandante,_srcBySide.visitante].filter(Boolean))].join('+');
   if(changed){
     // rodapé: pior nível entre os dois lados (um pode ter confirmado e o outro não)
     const fm=parsed._lineups.mandante&&parsed._lineups.mandante.fonte;
@@ -208,7 +212,7 @@ async function refreshAnalysisLineups(hid,cardId,silent){
     if(!d||!document.getElementById(panelId)){_lcStopPoll(hid);return;}
     const btn=document.querySelector(btnSel);
     if(btn&&!silent){btnLabel=btn.textContent;btn.disabled=true;btn.textContent='Atualizando…';}
-    const res=await applyConfirmedLineups(d,{compId:d.comp_id||_activeCompId,query:(d.partida||''),force:true});
+    const res=await applyConfirmedLineups(d,{compId:d.comp_id||_activeCompId,force:true});
     const panel=document.getElementById(panelId);
     if(panel&&typeof buildEscalacaoTab==='function')panel.innerHTML=buildEscalacaoTab(d,cardId);
     if(typeof persistHistory==='function'){try{persistHistory();}catch{}}

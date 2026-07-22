@@ -713,7 +713,7 @@ async function runAnalysis(){
     // bloqueia a entrega do card.
     try{
       const _cl=_h('applyConfirmedLineups');
-      if(typeof _cl==='function')await _cl(parsed,{compId:state.activeCompId,query:state.pendingQuery||query});
+      if(typeof _cl==='function')await _cl(parsed,{compId:state.activeCompId});
     }catch(_){}
     _h('renderResults')(parsed);
     // Auto-poll da escalação enquanto o jogo estiver na janela (para em FT).
