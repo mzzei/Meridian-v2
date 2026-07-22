@@ -47,6 +47,20 @@ Ver `../docs/backtester-design.md`.
 
 ---
 
+## Rate limit (shell 92)
+
+Binding nativo `[[ratelimits]]` (wrangler ≥4.36) — **por IP + classe de rota**:
+
+| Binding | Rotas | Limite |
+|---------|-------|--------|
+| `RL_DATA` | `/af/*` · `/fd/*` · `/fpl/*` (key `ip:classe` — cada classe conta separada) | 30/min por IP |
+| `RL_AI` | `/v1/*` (relay Anthropic; uma análise ≈ 10–12 chamadas) | 30/min por IP |
+
+- Estouro → **429** JSON `{code:"rate_limited"}` + `Retry-After: 60` + CORS (o app lê o corpo).
+- **Fail-open**: sem o binding (dev/conta sem o recurso) nada é bloqueado; `/health` expõe `rate_limit:true|false`.
+- Contagem é **por localização Cloudflare** (backstop honesto contra abuso, não contador global exato — validado em produção: 30×200 → 429 na mesma conexão/colo).
+- `namespace_id` 2101/2102 são do **v2** — não reutilizar no v1.
+
 ## Segurança
 
 - Nenhuma chave no repositório — só Secrets Cloudflare  

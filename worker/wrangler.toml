@@ -8,3 +8,18 @@ compatibility_date = "2024-11-01"
 #   npx wrangler secret put ANTHROPIC_KEY
 #   npx wrangler secret put AF_KEY
 # (ou pelo painel: Workers & Pages → seu Worker → Settings → Variables and Secrets)
+
+# ── Rate limit por IP (shell 92) — binding nativo `ratelimits` ───────────────
+# period só aceita 10 ou 60 (segundos); contagem é por localização Cloudflare.
+# namespace_id = inteiro único NA CONTA (21xx reservado ao v2; não colidir com v1).
+# RL_DATA: cada classe af|fd|fpl usa a key "ip:classe" → 30/min por IP por classe.
+# RL_AI: relay Anthropic /v1 → 30/min por IP (uma análise ≈ 10–12 chamadas).
+[[ratelimits]]
+name = "RL_DATA"
+namespace_id = "2101"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "RL_AI"
+namespace_id = "2102"
+simple = { limit = 30, period = 60 }

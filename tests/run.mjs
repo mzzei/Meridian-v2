@@ -392,6 +392,16 @@ assert(indexSrc.includes('id="cov-help"'), 'coverage help hint in settings');
 // Shell 59: FPL + StatsBomb Open + health probe + worker /fpl
 const workerSrc = fs.readFileSync(path.join(ROOT, 'worker/worker.js'), 'utf8');
 assert(workerSrc.includes("'/fpl/'") && workerSrc.includes('fantasy.premierleague.com/api'), 'worker proxies FPL');
+// Shell 92 (worker): rate limit por IP+classe — binding nativo, fail-open, health isento
+{
+  assert(workerSrc.includes('rateLimitOk') && workerSrc.includes('tooManyRequests'), 'worker rate limit helpers');
+  assert(workerSrc.includes("code: 'rate_limited'") && workerSrc.includes("'Retry-After': '60'"), 'worker 429 body + retry-after');
+  assert(workerSrc.includes('env.RL_DATA') && workerSrc.includes('env.RL_AI') && workerSrc.includes('CF-Connecting-IP'), 'worker limiter bindings keyed by IP');
+  assert(workerSrc.includes('rate_limit: !!(env.RL_DATA && env.RL_AI)'), 'health reports rate_limit');
+  assert(!workerSrc.includes('rl-selftest'), 'debug route removed');
+  const wtoml = fs.readFileSync(path.join(ROOT, 'worker/wrangler.toml'), 'utf8');
+  assert((wtoml.match(/\[\[ratelimits\]\]/g) || []).length === 2 && wtoml.includes('RL_DATA') && wtoml.includes('RL_AI'), 'wrangler.toml has both ratelimit bindings');
+}
 assert(workerSrc.includes('resolveCors') || workerSrc.includes('origin_gate') || workerSrc.includes('ALLOWED_ORIGINS'), 'worker origin allowlist');
 assert(workerSrc.includes('mzzei.github.io') && workerSrc.includes('localhost:3457'), 'worker default origins Pages+local');
 assert(workerSrc.includes('origin_not_allowed') || workerSrc.includes('Origin não permitida'), 'worker 403 forbidden origin');

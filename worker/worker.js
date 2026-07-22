@@ -11,6 +11,13 @@
  *   - Secret ALLOWED_ORIGINS (CSV) amplia a lista default.
  *   - ALLOW_NULL_ORIGIN=1 permite Origin: null (file://) — off por padrão.
  *
+ * Rate limit (shell 92): binding nativo `ratelimits` por IP+classe de rota —
+ *   RL_DATA 30/min por IP para cada uma de af|fd|fpl (protege a cota AF 100/dia
+ *   e a cortesia das APIs free) · RL_AI 30/min por IP no /v1 (relay Anthropic).
+ *   Contagem é POR LOCALIZAÇÃO Cloudflare (backstop, não contador global exato).
+ *   FAIL-OPEN: sem o binding (wrangler dev antigo / conta sem o recurso) nada é
+ *   bloqueado. Health/OPTIONS isentos. 429 com Retry-After + CORS legível pelo app.
+ *
  * Secrets: AF_KEY, FD_KEY, (opcional) ANTHROPIC_KEY, ALLOWED_ORIGINS, ALLOW_NULL_ORIGIN
  * Nome do Worker: meridian-v2-proxy — NUNCA meridian-proxy (v1).
  */
@@ -80,6 +87,32 @@ function resolveCors(request, env) {
   };
 }
 
+/** true = pode seguir. Fail-open por design: binding ausente/erro nunca bloqueia. */
+async function rateLimitOk(binding, key) {
+  try {
+    if (!binding || typeof binding.limit !== 'function') return true;
+    const { success } = await binding.limit({ key });
+    return success !== false;
+  } catch {
+    return true;
+  }
+}
+
+function tooManyRequests(cors, cls) {
+  return new Response(
+    JSON.stringify({
+      error: {
+        message: 'Rate limit do proxy excedido (' + cls + '). Aguarde ~1 minuto e tente de novo.',
+        code: 'rate_limited',
+      },
+    }),
+    {
+      status: 429,
+      headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' },
+    }
+  );
+}
+
 function forbidden(cors, reason) {
   return new Response(
     JSON.stringify({
@@ -108,6 +141,21 @@ export default {
     if (!gate.ok) return forbidden(CORS, gate.reason);
 
     const url = new URL(request.url);
+
+    // ── Rate limit por IP + classe de rota (health isento) ────────────────
+    {
+      const p = url.pathname;
+      let cls = null,
+        bind = null;
+      if (p === '/af' || p.startsWith('/af/')) { cls = 'af'; bind = env.RL_DATA; }
+      else if (p === '/fd' || p.startsWith('/fd/')) { cls = 'fd'; bind = env.RL_DATA; }
+      else if (p === '/fpl' || p.startsWith('/fpl/')) { cls = 'fpl'; bind = env.RL_DATA; }
+      else if (p.startsWith('/v1/')) { cls = 'ai'; bind = env.RL_AI; }
+      if (cls) {
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        if (!(await rateLimitOk(bind, ip + ':' + cls))) return tooManyRequests(CORS, cls);
+      }
+    }
 
     try {
       // ── API-Football: {worker}/af/<path>?<query> ──────────────────────────
@@ -216,6 +264,7 @@ export default {
             ok: true,
             service: 'meridian-v2-proxy',
             origin_gate: true,
+            rate_limit: !!(env.RL_DATA && env.RL_AI), // false = binding ausente (fail-open)
             allowed_default: DEFAULT_ALLOWED_ORIGINS,
           }),
           { headers: { ...CORS, 'Content-Type': 'application/json' } }
