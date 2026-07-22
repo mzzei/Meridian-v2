@@ -549,7 +549,32 @@ const _soN=()=>_soNullable('number');
 const _soPlayer=()=>_soObj({nome:_soStr,posicao:_soStr,jogos:_soN(),minutos:_soN(),gols:_soN(),assistencias:_soN(),finalizacoes_por_jogo:_soN(),finalizacoes_no_gol_por_jogo:_soN(),grandes_chances_ou_passes_decisivos_por_jogo:_soN(),cartoes_amarelos:_soN(),cartoes_vermelhos:_soN(),a_um_amarelo_da_suspensao:_soNullable('boolean'),faltas_cometidas_por_jogo:_soN(),faltas_sofridas_por_jogo:_soN(),desarmes_por_jogo:_soN(),cobra_penaltis_ou_faltas:_soStr,rating_medio:_soN(),observacao:_soStr});
 const _soTeamP1=()=>_soObj({nome:_soStr,tecnico:_soStr,ranking_fifa:_soStr,resultados_recentes:_soStrArr,xg_marcado:_soNullable('number'),xg_sofrido:_soNullable('number'),desfalques:_soStrArr,escalacao_provavel:_soStr,formacao:_soStr,onze_provavel:{type:'array',items:_soObj({nome:_soStr,posicao:_soStr})},banco:_soStrArr,jogadores_chave:{type:'array',items:_soPlayer()},estilo_ofensivo:_soStr,vulnerabilidades_defensivas:_soStrArr});
 const FACTS_SCHEMA=_soObj({mandante:_soTeamP1(),visitante:_soTeamP1(),contexto_fase:_soStr,grupo_classificacao:_soStr,lacunas:_soStrArr});
-// Fase 2 (análise): structured outputs NÃO é usado. Testado ao vivo (07/2026):
+// ─── F2_SCHEMA (shell 93) — gramática COMPACTA p/ thinking na Fase 2 (OPT-IN) ───
+// O teste de 07/2026 estourou o limite de gramática com o schema "ingênuo"; este
+// espelha o contrato textual do prompt com o MÍNIMO de aninhamento (sub-shapes
+// reusados, jogadores_chave como strings, sem enums/min/max). required = todos os
+// campos → nenhum painel some. Se AINDA estourar no acesso do usuário, a auto-cura
+// do pipeline-run desliga thinking+SO no MESMO run (caminho provado). Regras SO:
+// additionalProperties:false em todo objeto; anuláveis via anyOf.
+const _soEvt=()=>_soObj({evento:_soStr,probabilidade:_soN(),fundamento:_soStr});
+const _soTeamF2=()=>_soObj({nome:_soStr,ranking_fifa:_soStr,forma_recente:_soStr,xg_marcado:_soN(),xg_sofrido:_soN(),desfalques:_soStrArr,escalacao_status:_soStr,escalacao:_soStr,jogadores_chave:_soStrArr});
+const _soTecF2=()=>_soObj({nome:_soStr,formacao:_soStr,filosofia:_soStr,ajustes_recentes:_soStr,impacto_mercados:_soStr});
+const _soCtSide=()=>_soObj({diagnostico:_soStr,vantagem:_soStr,pontos_exploracao:_soStrArr,bloqueios:_soStrArr});
+const F2_SCHEMA=_soObj({
+  contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr,
+  mandante:_soTeamF2(),visitante:_soTeamF2(),
+  tecnico_mandante:_soTecF2(),tecnico_visitante:_soTecF2(),
+  lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
+  eventos_provaveis:{type:'array',items:_soEvt()},
+  sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})},
+  tendencias:_soStrArr,fatores_decisivos:_soStrArr,
+  incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},
+  confronto_tatico:_soObj({atq_mand_def_vis:_soCtSide(),atq_vis_def_mand:_soCtSide(),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
+  cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_soEvt()},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
+  escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_soEvt()},conclusao:_soStr}),
+  lacunas:_soStrArr
+});
+// Fase 2 SEM opt-in: structured outputs NÃO é usado. Testado ao vivo (07/2026):
 // o schema completo da análise (19 campos, confronto_tatico aninhado etc.) excede
 // o limite de gramática compilada da API — erro "The compiled grammar is too large"
 // em Haiku, Sonnet e Opus, mesmo sem enums/anyOf. Bisect: só 15 dos 19 campos
@@ -739,6 +764,7 @@ JSON:
 export {
   GROUNDING_RULE,
   SOURCE_RULE,
+  F2_SCHEMA,
   ticketRulesFor,
   gatherFacts,
   repairJson,

@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=92">
+<link rel="stylesheet" href="css/app.css?v=93">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -523,6 +523,14 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           <input id="op-key-input" type="password" placeholder="Chave Opta (Stats Perform)" autocomplete="off">
         </div>
         <div class="sf">
+          <label class="sf-lbl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="f2-think-toggle" style="width:auto;margin:0;cursor:pointer">
+            Raciocínio estendido na análise (experimental)
+          </label>
+          <div class="sf-hint">Liga thinking na Fase 2 <b>com JSON garantido por structured outputs</b> (gramática compacta do relatório — required em todos os campos, nenhuma aba some). Se o seu acesso rejeitar a gramática ("compiled grammar is too large") ou a combinação, a <b>auto-cura desliga no mesmo relatório</b> e a análise sai pelo caminho provado — nada quebra. Resultado da última tentativa abaixo (e em <code>_f2ThinkLast</code> no console). Custo: +tokens de raciocínio no modelo escolhido.</div>
+          <div class="sf-hint" id="f2-think-status"></div>
+        </div>
+        <div class="sf">
           <label class="sf-lbl" for="adv-pass-new">Trocar senha desta seção</label>
           <input id="adv-pass-new" type="password" placeholder="Nova senha (mínimo 4 caracteres)" autocomplete="new-password">
           <input id="adv-pass-conf" type="password" placeholder="Confirmar nova senha" autocomplete="new-password" style="margin-top:.35rem">
@@ -576,7 +584,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=92"></script>
+<script type="module" src="js/main.js?v=93"></script>
 
 
 <!-- Mobile sidebar backdrop -->

@@ -590,6 +590,38 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc2.includes('Recusar de novo é falha total'), 'hard retry message');
 }
 
+// Shell 93: thinking na F2 (opt-in) — SÓ com structured outputs + auto-cura
+{
+  const PF = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
+  assert(PF.F2_SCHEMA && PF.F2_SCHEMA.type === 'object', 'F2_SCHEMA exported');
+  const req = PF.F2_SCHEMA.required || [];
+  ['contexto_analise','mandante','visitante','confronto_tatico','cartoes_faltas','escanteios','sugestoes_ticket','lacunas'].forEach((k) =>
+    assert(req.includes(k), 'F2_SCHEMA requires ' + k));
+  // walker: regras de structured outputs — additionalProperties:false em todo objeto; sem min/max/enum
+  {
+    let objs = 0, bad = [];
+    const walk = (n, p) => {
+      if (!n || typeof n !== 'object') return;
+      if (n.type === 'object') { objs++; if (n.additionalProperties !== false) bad.push(p + ':addProps'); }
+      ['minimum','maximum','minLength','maxLength','enum'].forEach((k) => { if (k in n) bad.push(p + ':' + k); });
+      if (n.properties) Object.entries(n.properties).forEach(([k, v]) => walk(v, p + '.' + k));
+      if (n.items) walk(n.items, p + '[]');
+      if (n.anyOf) n.anyOf.forEach((v, i) => walk(v, p + '|' + i));
+    };
+    walk(PF.F2_SCHEMA, '$');
+    assert(objs >= 15 && bad.length === 0, 'F2_SCHEMA obeys SO constraints (' + objs + ' objs; bad: ' + bad.join(',') + ')');
+  }
+  const runSrcT = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert(runSrcT.includes('getF2Think()') && runSrcT.includes("output_config={format:{type:'json_schema',schema:F2_SCHEMA}}"), 'F2 thinking gated + SO wired');
+  assert(runSrcT.includes('_think&&/grammar|output_config|format|schema|thinking|budget/i'), 'F2 thinking auto-heal');
+  assert((runSrcT.match(/delete (retryBody|rescueBody)\.output_config/g) || []).length === 2, 'retry+rescue strip output_config');
+  assert(runSrcT.includes('_f2ThinkLast'), 'F2 thinking outcome recorded');
+  // prefill continua condicionado a thinking off/disabled (incompatível com thinking)
+  assert(runSrcT.includes("(!baseBody.thinking||baseBody.thinking.type==='disabled')"), 'prefill still gated by thinking state');
+  assert(appSrc.includes('function getF2Think') && appSrc.includes('function setF2Think'), 'F2 think toggle functions');
+  assert(indexSrc.includes('id="f2-think-toggle"') && indexSrc.includes('id="f2-think-status"'), 'F2 think toggle UI');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
