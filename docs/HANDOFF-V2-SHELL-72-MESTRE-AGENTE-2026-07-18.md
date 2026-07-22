@@ -8,6 +8,8 @@
 
 **Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 91**.
 
+**Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (só Sonnet 5), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
+
 **Série dos "assassinos silenciosos" da decomposição do monólito (bugs onde um símbolo perdido derrubava um caminho inteiro):** MODEL_PRICE `const` classic (79), prefill Sonnet 5 (79), `ctSideSection`/`ctVanTag` (82), `_lvKey` em lineup.js (85), **`chatCardFrom`/`renderChatCard`/`cardToPlain` no chat (88)**. Mitigação estrutural no 88: teste de fumaça varre TODA `_h('x')` do pipeline-run e falha se a função não existir em nenhum classic/ESM — **corrigido no 89**, porque a 1ª versão do teste era um no-op (self-match: o próprio call site `_h('fn')` satisfazia o regex de "definido"). **Lição (invariante 35):** teste anti-regressão precisa de **meta-assert** provando que ele reprova o caso que deveria pegar — senão vira falsa segurança pior que não ter teste.
 
 **Regra de manutenção:** atualizar este mestre **a cada implementação**. Início de sessão = ler este arquivo. Fim = handoff + commit + push.
@@ -542,8 +544,11 @@ Deploy: `cd worker && npx.cmd wrangler deploy` (PowerShell: `npx.cmd`, não `npx
 prompts.js → render.js →
 cached-fetch.js → source-telemetry.js → espn.js → football-apis.js →
 free-sources.js → facts-memory.js → phase1-context.js → source-health.js →
-schedule.js → live.js → featured.js → library.js → app.js
+schedule.js → live.js → lineup-confirmed.js → featured.js → library.js → app.js
 ```
+
+**16 classic** (contagem no console do boot). `lineup-confirmed.js` entrou no shell 87 —
+ao adicionar classic novo: `main.js` CLASSIC **e** precache do `sw.js` **e** bump de shell.
 
 3. `installHtmlBridge()`
 
@@ -660,9 +665,12 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | `js/lib/intent.js` | **Roteamento** análise vs chat |
 | `js/analysis/pipeline-run.js` | toggleRun, runAnalysis, runChat, stream |
 | `js/analysis/pipeline-facts.js` | gatherFacts, `_p1JsonRescue`, `parseAnalysisJson`/`repairJson`, grounding, portões |
-| `js/analysis/prompts.js` | system prompts F2 |
-| `js/analysis/render.js` | 7 abas; `ctSideSection`/`ctVanTag`; empty Escalação + diag F1 |
-| `js/analysis/normalize.js` | schema; `_coletaOk = !!rawFacts` |
+| `js/analysis/prompts.js` | system prompts F2 + persona do chat (`analystSystemPrompt`, MODO CONVERSA) |
+| `js/analysis/render.js` | 7 abas; `buildEscalacaoTab` (re-render isolado da aba); `ctSideSection`/`ctVanTag`; empty Escalação + diag F1 |
+| `js/analysis/normalize.js` | schema; `_coletaOk = !!rawFacts`; `contexto_analise`; proveniência `_lineupsFonte` |
+| `js/analysis/lineup.js` | `buildPitchModel`, `normalizeLineupTeam`, `_luWorseFonte`, `_lvKey` (mapa de campo) |
+| `js/analysis/tab-helpers.js` | `ANALYSIS_TAB_ORDER` + `ANALYSIS_TAB_LABELS_POS` (rótulos pós-jogo), empty states |
+| `js/data/lineup-confirmed.js` | **XI confirmado match-day** (AF>ESPN), `isMatchDayWindow`, `applyConfirmedLineups`, `refreshAnalysisLineups` + auto-poll — ZERO Anthropic |
 | `js/data/phase1-context.js` | coleta A/B + free + memória |
 | `js/data/espn.js` | ESPN + TSDB |
 | `js/data/football-apis.js` | FD/AF, ready, coach fallback |
@@ -670,9 +678,10 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | `js/data/facts-memory.js` | cache fatos / skip tópicos |
 | `js/data/source-telemetry.js` | repertoire, coverage interna |
 | `js/data/source-health.js` | probe UI |
-| `js/app.js` | UI, keys, **MODEL_PROFILES** / `modelProfile()`, default Sonnet 5 |
-| `js/analysis/pipeline-run.js` | runAnalysis/runChat, `_noThinkModel`, streamOnce signature |
-| `worker/worker.js` | proxy CORS + origin gate; strip Origin/Referer no `/v1` |
+| `js/app.js` | UI, keys, **MODEL_PROFILES** / `modelProfile()` (`var`!), `MODEL_PRICE` (`var`!), default Sonnet 5, gate de senha avançada |
+| `worker/worker.js` | proxy CORS + origin gate; strip Origin/Referer no `/v1`; rotas `/af` `/fd` `/fpl` |
+| `js/export/report.js` | export HTML + PDF por **impressão nativa** (sem html2pdf) |
+| `js/data/schedule.js` | agenda multi-comp + `findScheduledMatchForAnalysis` (âncora do gate de contexto) |
 
 ---
 
@@ -680,14 +689,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **87** em version/sw/index (HEAD ≥ `d0cec90`)  
-- [ ] HEAD ≥ `6099fda` (código 86) · ler **este** handoff · **PARTE X se a tarefa for escalação/ao vivo**  
-- [ ] `node tests/run.mjs`  
-- [ ] Worker health: `meridian-v2-proxy` + `origin_gate`  
-- [ ] Dual-mode / prefill / resgate Opus / PDF / SW network-first JS intactos  
-- [ ] Se implementar PARTE X: Q0→Q4; bump shell **87+**; asserts; handoff+push  
+- [ ] `git pull` · `SHELL_VERSION` **91** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
+- [ ] `node tests/run.mjs` → **ALL PASSED**  
+- [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
+- [ ] Boot no preview: console `[Meridian v2] shell 91 · … · classic: 16`, sem erro  
+- [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
+- [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-20)
+## Estado atual (revisão 2026-07-22 · shell 91)
 
 | Shell | Entrega |
 |-------|---------|
@@ -700,128 +710,50 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | **90** | **Code-review `high` dos shells 87–89 — 4 achados corrigidos** (`37ff562`): (1) **`applyConfirmedLineups` marcava `parsed._coletaOk=true`** ao aplicar o XI confirmado — o flag significa "a Fase 1 devolveu rawFacts" e alimenta o empty-state + diag `fase1-*` de **todas** as abas (inv. 32); forçá-lo fazia uma F1 falha exibir "pouca cobertura de imprensa" em Cartões/Escanteios e sumir com o `_fallbackDiagLine()`. Removido — a escalação confirmada já se anuncia por `_lineupsFonte='api'` + badge por time. (2) **`_chatJsonToProse` fazia `JSON.parse` cru** (violava inv. 33): JSON truncado no `max_tokens` lançava e o usuário recebia "reformule" perdendo texto recuperável → agora `parseAnalysisJson` (fences + `repairJson`); validado com `{"resposta":"…` sem fechar. (3) **botão "Atualizar escalação" ficava preso em "Atualizando…"** quando o refresh lançava ou o painel sumia → `finally` restaura rótulo e clique. (4) **auto-poll virava fetch órfão**: ao limpar a conversa o card saía do DOM mas a entrada seguia no `_history`, e o intervalo batia em ESPN/AF a cada 75s até o FT → encerra quando `#at-escalacao-<id>` não existe. **Abertos → FEITOS no shell 91.** |
 | **91** | **Limpeza dos 4 achados de baixo risco do review 87–89** (`a824bdb`): (5) `_lcFindEspnEvent` agora **reusa `getEspnScoreboard(compId)`** (cache `meridian_espn_sb_` compartilhado com a UI e `findScheduledMatchForAnalysis`) — antes fazia um 2º fetch + 2º cache do mesmo scoreboard. (6) ESPN summary + AF lineups em **`Promise.all([_espnP,_afP])`** (antes em série, somando o timeout da ESPN ao throttle da AF no render). (7) **`opts.query` morto removido** dos 2 call sites — `applyConfirmedLineups` nunca lia (o match AF usa os nomes `nmM x nmV`). (8) **`source` acurado por lado** (`_srcBySide`) em vez de `usedSource` sobrescrito pelo 2º time; retorno combinado `'af'`/`'espn'`/`'af+espn'`. Sem mudança de comportamento observável; 4 asserts novos. |
 
-**Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras):** mapa de Escalação **volta a aparecer**, mas ambos em `4-2-3-1` e elenco **especulativo** (Sofascore/previsão). Receio correto: **não** é default hardcode do app na aba de análise, mas também **não** é XI/formação confirmados do dia de jogo como no V1 com AF lineups. Rodapé “prováveis da pesquisa” é honesto — e insuficiente se o usuário espera o elenco **real** no match day.
+**Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — sessão genérica
+## Prompt pronto — **USE ESTE** (sessão nova, shell 91)
+
+⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (main, shell 86+).
-Leia docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md (PARTE IX feita; PARTE X se escalação/live).
-Regras: dual-mode; v1 intocável; handoff+commit+push; tests.
-Quero: [OBJETIVO]
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 91).
+
+Leia OBRIGATORIAMENTE, antes de tocar em código:
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 91)
+Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
+
+Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
+(análise padrão de 7 abas via runAnalysis × chat em prosa via runChat, roteado por
+código em intent.js), coleta estruturada anti-fantasma (A/B/C), Worker Cloudflare real
+(meridian-v2-proxy) com secrets AF/FD e chave Anthropic por navegador.
+
+Estado: PARTES IX (paridade de coleta) e X (escalação honesta + XI confirmado
+match-day) estão FEITAS — são histórico, não backlog. Não reimplementar.
+
+Invariantes duros (lista completa na PARTE VI — os que mais quebram):
+- v1 / meridian-proxy intocáveis; nunca deployar worker com o nome do v1.
+- Dual-mode: intent.js decide; chat nunca vira card de 7 abas.
+- MODEL_PROFILES budget 0; default claude-sonnet-5; thinking {type:'disabled'} explícito.
+- Prefill '{' só em modelo que aceita (_prefillOk; Sonnet 5 rejeita); resgate = Opus.
+- Ponte classic→ESM só com var/function/expose (const classic não chega ao window).
+- Todo parse de JSON de LLM via parseAnalysisJson.
+- Escalação: proveniência honesta (api>pesquisa>modelo>inferida); poll sem Anthropic.
+- Teste anti-regressão precisa de meta-assert que prove que ele reprova.
+
+Fluxo obrigatório da sessão:
+1. node tests/run.mjs (ALL PASSED) antes de mudar qualquer coisa.
+2. Implementar o objetivo abaixo.
+3. Bump SHELL_VERSION em 4 pontos (version.js, sw.js, index.html ?v= ×2) se mexer em
+   asset servido; classic novo → main.js CLASSIC + sw.js precache.
+4. node tests/run.mjs de novo + validar no preview (console limpo).
+5. Atualizar ESTE handoff (timeline + invariante novo se houver) no MESMO push.
+6. commit + push origin main; me informar path do handoff + hash.
+
+Quero que você: [OBJETIVO AQUI]
 ```
-
-## Prompt pronto — **IMPLEMENTAR PARTE X (Claude)** ← **USAR ESTE AGORA**
-
-Cole **inteiro** no Claude Code. Pedido canônico do dono (2026-07-20).
-
-```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 86+).
-
-Leia OBRIGATORIAMENTE:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md
-Foque em: PARTE X (plano escalação honesta + elenco match-day/live).
-Também: lineup.js, normalize.js attachAnalysisDerived, render.js tab Escalação,
-football-apis.js (getAfLineups / afEnrich*), live.js (ESPN summary rosters, LV_REFRESH),
-pipeline-facts.js coverNote, phase1-context.js.
-
-Contexto do dono (print suigsuigns.png):
-- Escalação agora APARECE (shell 85/86 ok).
-- Mas receio de formação "padrão" (ex. 4-2-3-1 nos dois times) e elenco truncado/
-  especulativo tipo Sofascore previsão — não o elenco REAL do dia de jogo.
-- No V1, perto do apito, AF devolvia ESCALAÇÕES CONFIRMADAS (formation + XI).
-- No V2 Free a prévia usa web_search; em dia de jogo o usuário quer a coleta
-  ATUALIZAR ao vivo e SUBSTITUIR especulativo por confirmado.
-
-TAREFA: implementar a PARTE X na ordem Q0 → Q1 → Q2 → Q3 → Q4 (não pular; não só docs).
-
-Q0 — Proveniência honesta (UI + dados) — shell 87 mínimo:
-1) Cada pitch-team mostra badge de FONTE da formação/XI, por time:
-   - api / confirmada (AF lineups ou ESPN summary starters com formation)
-   - pesquisa (rawFacts F1 / web_search)
-   - modelo (só JSON F2)
-   - inferida (geometria fallback 1-4-3-3 ou buckets sem formacao na fonte)
-2) Se formacao NÃO veio de fonte confiável, NÃO exibir label "4-2-3-1" como se fosse oficial.
-   Preferir: omitir o chip OU "formação não confirmada" + linhas por posição.
-3) Proibir no prompt F1/fillDataGaps: copiar a MESMA formação nos dois times sem
-   lastro explícito por time na busca. Se só um time tiver formação na fonte, o outro
-   fica vazio/inferida — não espelhar.
-4) Disclaimer do rodapé Escalação deve refletir o PIOR nível entre os dois times
-   (se um é api e outro modelo → texto do mais fraco, ou dual).
-
-Q1 — Match-day: preferir XI confirmado sobre especulativo:
-5) Detectar "janela de jogo": kickoff −6h até FT+30min (ESPN scoreboard status
-   pre/in/post + data do confronto da análise).
-6) Nessa janela, na coleta (gatherFacts / collectPhase1Context / enrich):
-   a) ESPN: summary?event= (mesmo path de live.js) → rosters starters + formation
-      se disponíveis; montar bloco === ESCALAÇÕES CONFIRMADAS (ESPN) ===.
-   b) AF: getAfLineups(fixtureId) SE afReady e fixtures da season acessíveis
-      (já existe _afLineupWorthFetch <36h — ALARGAR ou alinhar à janela −6h…FT).
-   c) Precedência ao montar rawFacts / _lineups:
-      AF confirmada > ESPN starters > rawFacts web_search prévio > F2 modelo.
-7) Banco: se a fonte confirmada trouxer reserves/bench, PREENCHER banco completo
-   (não deixar truncado em 1 suplente especulativo se a API trouxe lista).
-8) Nunca inventar nomes para completar 11 se a API trouxe 11; se API trouxe 11 e
-   rawFacts tinha outros, API vence.
-
-Q2 — Refresh ao vivo no CARD de análise (não só painel live.js):
-9) Se o card da análise for do jogo "de hoje"/em andamento (âncora agenda ou
-   scoreboard match), oferecer/atualizar aba Escalação sem re-rodar F2 inteira:
-   - Botão "Atualizar escalação" no tab Escalação OU auto-poll a cada 60–90s
-     enquanto status ESPN = pre (próximo) ou in (ao vivo), parar em FT.
-   - Função tipo refreshAnalysisLineups(cardId|parsed):
-        fetch ESPN summary (+ AF lineups se ready) → patch parsed._lineups
-        + _lineupsFonte + formacao → re-render só a aba / card.
-10) Cache curto (TTL ≤ 45–60s) para summary/lineups na janela live; fora da janela
-    manter cache longo (não gastar cota).
-11) NÃO reabrir pipeline LLM (F1/F2) no poll — só fontes determinísticas.
-    Opcional (fase 2 do Q2): um único re-gatherFacts se o user clicar
-    "Reanalisar com dados ao vivo" (explícito, gasta tokens).
-
-Q3 — Painel live.js alinhado (consistência):
-12) live.js hoje defaulta formation||'4-3-3' — REMOVER default enganoso:
-    se roster sem formation, mostrar "—" / "n/d", não inventar 4-3-3.
-13) Quando o painel live tiver starters, garantir que o mesmo helper de
-    conversão roster→_lineups seja reutilizado pelo card de análise (DRY).
-
-Q4 — Testes, shell, handoff:
-14) Asserts: precedência api>pesquisa>modelo; sem label formacao se só inferida;
-    live.js sem default '4-3-3' enganoso; refresh não chama Anthropic;
-    strings do bloco ESCALAÇÕES CONFIRMADAS.
-15) Bump SHELL_VERSION 86→87 (ou 87+88 se quiser fatiar Q0 vs Q1–Q2).
-    version.js = sw.js = index.html ?v= ×2.
-16) node tests/run.mjs ALL PASSED.
-17) Atualizar handoff mestre: PARTE X status FEITO onde couber; commit + push origin main.
-
-PROIBIDO:
-- Tocar Meridian v1 / WorldCupAgent / meridian-proxy.
-- budget>0 F2, prefill Sonnet 5, resgate Haiku F2.
-- allowed_domains no web_search.
-- Inventar jogadores ou formação "porque é comum".
-- Poll LLM no loop ao vivo (custo).
-- Mentir badge api se a fonte for só modelo.
-
-Referências (LEITURA):
-- V1 AF lineups: Agente Copa 2026 index.html ~getAfLineups / ESCALAÇÕES CONFIRMADAS
-- V2 live: js/data/live.js (_lv_formationHTML, LV_REFRESH=30s, ESPN summary)
-- V2 análise: js/analysis/lineup.js, normalize.js attachAnalysisDerived, render.js
-
-Critério de aceite:
-- Prévia (dias antes): mapa pode ser pesquisa/modelo; badge NÃO diz "confirmada".
-- Match day / live: quando ESPN ou AF publicar XI, aba Escalação do card passa a
-  mostrar esse XI (11 + formação da fonte) e banco da fonte — sem ficar preso no
-  especulativo Sofascore da análise de ontem.
-- Dois times com a mesma formação só se AMBAS as fontes trouxerem essa formação.
-- tests verdes; shell 87+ no rodapé.
-
-Implemente agora Q0–Q4. Ao final: resumo + commits + push.
-```
-
-## Prompt histórico — PARTE IX (JÁ FEITO no shell 85 — não reexecutar)
-
-Só referência. Código em `f24db4e`. Não reimplementar do zero. O prompt longo antigo da paridade vive no git history se precisar.
 
 ## Próximos passos (produto)
 
@@ -831,10 +763,13 @@ Só referência. Código em `f24db4e`. Não reimplementar do zero. O prompt long
 | 7 | PARTE IX paridade coleta | **FEITO** shell 85 |
 | 8 | SW network-first JS | **FEITO** shell 86 |
 | **9** | **PARTE X — proveniência + elenco match-day/live** | **FEITO** shell 87 (`d0cec90`) |
-| 10 | UI senha avançada | aberto |
-| 11 | Pages `?v=` | FEITO (serve main) |
-| 12 | Secrets AF/FD / rate-limit Worker | aberto |
-| 13 | Thinking F2 + schema | aberto (budget 0) |
+| 10 | Code-review 87–89: achados médios (4) | **FEITO** shell 90 (`37ff562`) |
+| 11 | Code-review 87–89: achados baixos (4) | **FEITO** shell 91 (`a824bdb`) |
+| 12 | UI para trocar a senha avançada (hoje é editar `ADV_PASS_HASH`) | aberto |
+| 13 | Rate-limit no Worker (além do Origin gate) | aberto |
+| 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto |
+| 15 | Thinking na F2 (só com structured outputs/schema compatível) | aberto (budget 0 hoje) |
+| 16 | Confirmar Pages servindo `?v=91` após deploy | verificar |
 
 ---
 
@@ -858,7 +793,7 @@ Só referência. Código em `f24db4e`. Não reimplementar do zero. O prompt long
 
 Especificação original (mantida como referência):
 
-**Implementação:** prompt da PARTE VIII no Claude → shell **85+**.  
+**Implementação:** FEITA no shell 85 (`f24db4e`) — texto abaixo é referência histórica; o prompt original saiu da PARTE VIII para não ser reexecutado (está no git history).
 **V1:** só leitura em `C:\Users\Gabriel\.claude\projects\Agente Copa 2026\index.html`. **Nunca** mergear v1 no v2.
 
 ## 1. Por que o V1 “coletava impecável” e o V2 não
@@ -1014,7 +949,7 @@ Render:
 
 Especificação original (referência):
 
-**Implementar com o prompt da PARTE VIII.**  
+**JÁ IMPLEMENTADA no shell 87 (`d0cec90`) — não reexecutar.** O prompt de implementação saiu da PARTE VIII de propósito (está no git history). O texto abaixo é a especificação original, mantida como racional/referência.  
 **Pedido do dono (2026-07-20):** (1) não confiar em formação “padrão” sem fonte; (2) em **dia de jogo** o elenco deve **atualizar** e deixar de ser só especulativo Sofascore; (3) coleta/refresh **ao vivo** no card de análise.
 
 ## 1. Problema (print `suigsuigns.png`)

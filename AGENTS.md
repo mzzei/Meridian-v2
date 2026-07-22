@@ -5,7 +5,7 @@
 **Antes de qualquer tarefa de código, review ou “continuar de onde parou”:**
 
 1. Localize e leia o handoff **mestre do agente** (prioridade máxima):
-   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; shell 90 + PARTE IX e PARTE X FEITAS** — paridade de coleta; escalação honesta por proveniência + elenco confirmado match-day/live; chat em prosa).
+   - `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (**canônico; shell 91 · PARTES IX e X FEITAS (histórico, não backlog)** — paridade de coleta; escalação honesta por proveniência + elenco confirmado match-day/live; chat em prosa).
    - Se existir `*MESTRE*` com número de shell **maior** no nome, preferir esse.
    - Não pular: dual-mode, Sonnet 5, budget 0, prefill/`_prefillOk`, resgate Opus, `var MODEL_PRICE`, `_coletaOk`/fase1-* (inv. 32 — **nada** pode marcá-lo true sem a F1 ter devolvido rawFacts), `parseAnalysisJson` em toda saída de LLM (inv. 33), proveniência da escalação (inv. 34), meta-assert em smoke test (inv. 35), Worker.
 2. Se a tarefa for pontual de uma sessão antiga, complemente com `docs/HANDOFF-V2-SHELL-*.md` do shell relevante (65 Worker, 67 allowlist, etc.).
