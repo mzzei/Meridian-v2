@@ -231,7 +231,14 @@ function renderEmptyStateFeatured(opts){
   if(!opts.keepPop)closeStatsCompPop();
   const convo=document.getElementById('conversation');
   const hasConvo=convo&&convo.children.length>0;
-  const showStats=!hasConvo;
+  // Bug do shell 94: com conversa na tela o painel featured é escondido (a sidebar
+  // vira contexto da partida — by design). Mas quando o próprio USUÁRIO troca a liga
+  // no seletor, esconder o bloco faz o seletor (que vive DENTRO dele) sumir junto:
+  // parece que a UI travou. Se o painel está visível e a troca partiu do seletor,
+  // mantém visível e REPINTA com a liga escolhida.
+  const _statsEl0=document.getElementById('rs-copa-stats');
+  const _visivelAgora=!!(_statsEl0&&_statsEl0.style.display&&_statsEl0.style.display!=='none');
+  const showStats=!hasConvo||(opts.fromSelector&&_visivelAgora);
   const statsId=_statsCompId||_activeCompId;
   const gen=++_featuredPaintGen;
   const statsEl=document.getElementById('rs-copa-stats');
@@ -252,7 +259,8 @@ function renderEmptyStateFeatured(opts){
     ]).then(()=>{
       if(gen!==_featuredPaintGen)return;
       const c2=document.getElementById('conversation');
-      if(c2&&c2.children.length>0)return;
+      // com conversa: só segue se o painel foi mantido visível por troca do seletor
+      if(c2&&c2.children.length>0&&!opts.fromSelector)return;
       if((_statsCompId||_activeCompId)!==statsId)return;
       _paintFeaturedHosts(statsId,_copaStatsHTML(statsId),_teamsHTML(statsId),_calendarHTML(statsId));
     }).catch(()=>{});

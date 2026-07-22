@@ -192,8 +192,9 @@ function setStatsComp(id){
   if(typeof setStatsCompId==='function')setStatsCompId(id);else _statsCompId=id;
   closeStatsCompPop();
   _syncStatsSelLabels(id);
-  // paint imediato com cache; enrich carrega results+standings da liga escolhida
-  scheduleFeaturedPaint({immediate:true,enrich:true});
+  // paint imediato com cache; enrich carrega results+standings da liga escolhida.
+  // fromSelector: troca veio do usuário → não escondemos o painel (shell 94).
+  scheduleFeaturedPaint({immediate:true,enrich:true,fromSelector:true});
   if(!(_schedByComp[id]||[]).length){
     loadEspnComp(id,true).then(()=>{
       _rebuildUnionSchedule();

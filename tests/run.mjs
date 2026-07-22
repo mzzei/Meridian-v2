@@ -463,6 +463,11 @@ assert(!appSrc.includes('function showView'), 'library not in app.js');
 assert(!appSrc.includes('function _copaStatsHTML'), 'featured not in app.js');
 assert(schedSrc.includes('function loadSchedule'), 'loadSchedule in schedule.js');
 assert(featSrc.includes('function renderEmptyStateFeatured'), 'featured module');
+// Shell 94: trocar a liga no seletor com conversa na tela NÃO pode esconder o painel
+// (o seletor vive dentro do bloco → sumia junto e parecia que a UI travou)
+assert(featSrc.includes('opts.fromSelector&&_visivelAgora'), 'featured keeps panel on user league switch');
+assert(featSrc.includes('c2.children.length>0&&!opts.fromSelector'), 'enrich repaint honors fromSelector');
+assert(appSrc.includes('scheduleFeaturedPaint({immediate:true,enrich:true,fromSelector:true})'), 'setStatsComp marks user switch');
 assert(libSrc.includes('function showView') && libSrc.includes('function renderLibrary'), 'library module');
 assert(mainSrc.includes("import './lib/intent.js'"), 'main imports intent ESM');
 assert(mainSrc.includes("import './data/history.js'"), 'main imports history ESM');
