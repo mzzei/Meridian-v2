@@ -617,9 +617,22 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
     assert(objs >= 15 && bad.length === 0, 'F2_SCHEMA obeys SO constraints (' + objs + ' objs; bad: ' + bad.join(',') + ')');
   }
   const runSrcT = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
-  assert(runSrcT.includes('getF2Think()') && runSrcT.includes("output_config={format:{type:'json_schema',schema:F2_SCHEMA}}"), 'F2 thinking gated + SO wired');
+  assert(runSrcT.includes('getF2Think()') && runSrcT.includes("schema:F2_SCHEMA"), 'F2 thinking gated + SO wired');
+  // Shell 95 — contrato atual da API (verificado no doc): adaptive + effort, sem budget/sampling
+  assert(runSrcT.includes("baseBody.thinking={type:'adaptive'}"), 'F2 thinking uses adaptive (budget_tokens = 400 nos modelos atuais)');
+  // ignora comentários: o termo só pode aparecer em prosa explicativa, nunca em código enviado
+  const _runCode = runSrcT
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+    .join('\n');
+  assert(!/budget_tokens/.test(_runCode), 'no budget_tokens in shipped code (400 nos modelos atuais)');
+  assert(runSrcT.includes("output_config={effort:'high',format:"), 'effort carries depth, not budget');
+  assert(!/baseBody\.temperature=/.test(runSrcT), 'no sampling params (rejected on Sonnet 5 / Opus 4.8)');
+  // prefill: só Haiku aceita — Opus 4.8 e Sonnet 5 devolvem 400
+  assert(runSrcT.includes("function _prefillOk(m){return /claude-haiku/.test(m||'');}"), 'prefill restricted to Haiku');
+  assert(!/rescueMessages/.test(runSrcT) && runSrcT.includes('_rescueSO'), 'rescue uses structured outputs, not prefill');
   assert(runSrcT.includes('_think&&/grammar|output_config|format|schema|thinking|budget/i'), 'F2 thinking auto-heal');
-  assert((runSrcT.match(/delete (retryBody|rescueBody)\.output_config/g) || []).length === 2, 'retry+rescue strip output_config');
+  assert(runSrcT.includes('delete retryBody.output_config') && runSrcT.includes('delete rescueBody.output_config'), 'retry drops SO; rescue can drop it on auto-cure');
   assert(runSrcT.includes('_f2ThinkLast'), 'F2 thinking outcome recorded');
   // prefill continua condicionado a thinking off/disabled (incompatível com thinking)
   assert(runSrcT.includes("(!baseBody.thinking||baseBody.thinking.type==='disabled')"), 'prefill still gated by thinking state');
@@ -636,7 +649,7 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc3.includes('function _prefillOk'), 'prefill gated by model');
   assert(runSrc3.includes('_prefillOk(globalThis.currentModel)'), 'prefill checks current model');
   assert(runSrc3.includes("/prefill/i.test(e2.message") && runSrc3.includes('messages.pop();_prefill=false'), 'prefill auto-cure in F2 loop');
-  assert(runSrc3.includes('RESGATE FINAL') && runSrc3.includes("model:'claude-opus-4-8',messages:rescueMessages"), 'rescue uses Opus (never downgrade quality)');
+  assert(runSrc3.includes('RESGATE FINAL') && runSrc3.includes("model:'claude-opus-4-8',messages:retryMessages"), 'rescue uses Opus (never downgrade quality)');
   // Shell 80: escrita em versão final — sem autocorreção/monólogo no texto livre
   const promptsSrc4 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
   assert((promptsSrc4.match(/VERSÃO FINAL, SEM RASCUNHO|ESCRITA EM VERSÃO FINAL/g) || []).length >= 3, 'no-self-correction rule in F2 prompts + chat persona');

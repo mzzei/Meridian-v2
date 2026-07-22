@@ -354,7 +354,11 @@ function _noThinkModel(m){return /claude-sonnet-5/.test(m||'');}
 // support assistant message prefill. The conversation must end with a user
 // message."). Haiku 4.5 / Opus 4.8 aceitam. Há auto-cura no loop da Fase 2 para
 // modelos futuros que rejeitem sem estarem listados aqui.
-function _prefillOk(m){return !/claude-sonnet-5/.test(m||'');}
+// PREFILL: removido em Sonnet 5, Opus 4.6/4.7/4.8, Sonnet 4.6 e Fable 5 — todos
+// devolvem 400 ("does not support assistant message prefill"; erro real do usuário
+// no shell 79 com Sonnet 5). Só Haiku 4.5 (e modelos anteriores) ainda aceitam.
+// Substituto oficial nos modelos novos = structured outputs (output_config.format).
+function _prefillOk(m){return /claude-haiku/.test(m||'');}
 async function conversationalFallback(query,apiKey,reqHeaders,signal){
   const ctx=getTournamentCtxString?_h('getTournamentCtxString')():'';
   const bubble=showFallbackCard(query);
@@ -596,10 +600,14 @@ async function runAnalysis(){
     // loop desliga thinking+SO no MESMO run e volta ao caminho provado.
     let _think=useEnriched&&typeof globalThis.getF2Think==='function'&&globalThis.getF2Think();
     if(_think){
-      baseBody.thinking={type:'enabled',budget_tokens:6000};
-      baseBody.temperature=1;
-      baseBody.max_tokens=9000+6000; // thinking consome do mesmo teto
-      baseBody.output_config={format:{type:'json_schema',schema:F2_SCHEMA}};
+      // CONTRATO ATUAL (verificado no doc da API, shell 95): Sonnet 5 / Opus 4.8 usam
+      // ADAPTIVE thinking — `{type:'enabled',budget_tokens:N}` é REMOVIDO e devolve 400
+      // (era o que o shell 93 mandava). Profundidade agora é output_config.effort, e
+      // sampling params (temperature/top_p/top_k) também são rejeitados nesses modelos.
+      baseBody.thinking={type:'adaptive'};
+      baseBody.output_config={effort:'high',format:{type:'json_schema',schema:F2_SCHEMA}};
+      baseBody.max_tokens=15000; // thinking consome do mesmo teto
+      delete baseBody.temperature;
     }else if(_noThinkModel(globalThis.currentModel)){
       // default (opt-in OFF): sem thinking; Sonnet 5 exige disabled explícito
       baseBody.thinking={type:'disabled'};
@@ -718,19 +726,26 @@ async function runAnalysis(){
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
       if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson((_retryPrefill?'{':'')+retryR.text);}
-      // RESGATE FINAL (shell 79→80): modelo sem prefill (Sonnet 5) insistiu em prosa →
-      // OPUS 4.8 COM prefill monta o card (JSON por construção). Opus é o tier ACIMA
-      // do Sonnet — o resgate nunca rebaixa a qualidade da análise (exigência do
-      // usuário; caminho raríssimo pós-fix MODEL_PRICE, custo pontual aceito).
+      // RESGATE FINAL (shell 79→80, corrigido no 95): modelo insistiu em prosa →
+      // OPUS 4.8 monta o card. Opus é o tier ACIMA do Sonnet — o resgate nunca
+      // rebaixa a qualidade (exigência do usuário). Opus 4.8 NÃO aceita prefill
+      // (400) — o substituto oficial é structured outputs, usado aqui salvo se a
+      // gramática já tiver sido rejeitada neste run (aí vai pelo prompt-contrato).
       if(!parsed&&!_retryPrefill){
+        const _rescueSO=!(globalThis._f2ThinkLast&&globalThis._f2ThinkLast.ok===false&&/grammar/i.test(globalThis._f2ThinkLast.msg||''));
         _h('updateThinkingToks')({status:'Montando card (resgate Opus)…',phase:2});
-        const rescueMessages=[...retryMessages,{role:'assistant',content:'{'}];
-        const rescueBody={...baseBody,model:'claude-opus-4-8',messages:rescueMessages};
+        const rescueBody={...baseBody,model:'claude-opus-4-8',messages:retryMessages};
         delete rescueBody.tools;delete rescueBody.thinking;delete rescueBody.temperature;
-        delete rescueBody.output_config;
+        if(_rescueSO)rescueBody.output_config={format:{type:'json_schema',schema:F2_SCHEMA}};
+        else delete rescueBody.output_config;
         rescueBody.max_tokens=Math.max(rescueBody.max_tokens||0,9000);
-        const rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=parseAnalysisJson('{'+rescueR.text);}
+        let rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
+        // auto-cura: gramática rejeitada no resgate → repete sem structured outputs
+        if(!rescueR&&_rescueSO){
+          delete rescueBody.output_config;
+          rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
+        }
+        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=parseAnalysisJson(rescueR.text);}
       }
     }
     if(!parsed){
