@@ -1905,6 +1905,34 @@ async function advPassHash(s){
   const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(s)));
   return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+// Senha trocável pela UI (shell 92): override em localStorage prevalece sobre a
+// constante. Escopo honesto: vale NESTE navegador — o site publicado continua com
+// ADV_PASS_HASH até o hash novo (público) ser fixado no código.
+function _advCurrentHash(){try{return localStorage.getItem('meridian_adv_hash')||ADV_PASS_HASH;}catch{return ADV_PASS_HASH;}}
+function _advPassSay(msg,ok){
+  const st=document.getElementById('adv-pass-status');
+  if(st){st.textContent=msg;st.style.color=ok?'var(--terra)':(ok===false?'#ffaaaa':'var(--muted)');}
+}
+async function setAdvPassword(){
+  const n=document.getElementById('adv-pass-new'),c=document.getElementById('adv-pass-conf');
+  const v=(n&&n.value||'').trim(),v2=(c&&c.value||'').trim();
+  if(v.length<4)return _advPassSay('Senha muito curta — mínimo 4 caracteres.',false);
+  if(v!==v2)return _advPassSay('As senhas não conferem.',false);
+  try{
+    const h=await advPassHash(v);
+    try{localStorage.setItem('meridian_adv_hash',h);}catch{return _advPassSay('Não foi possível salvar neste navegador.',false);}
+    if(n)n.value='';if(c)c.value='';
+    _advPassSay('Senha trocada neste navegador. Hash (pode ser público — cole em ADV_PASS_HASH para valer no site publicado): '+h,true);
+    try{toast('Senha das informações avançadas atualizada.');}catch{}
+  }catch{_advPassSay('Não foi possível gerar o hash neste contexto (exige HTTPS ou localhost).',false);}
+}
+function resetAdvPassword(){
+  try{localStorage.removeItem('meridian_adv_hash');}catch{}
+  const n=document.getElementById('adv-pass-new'),c=document.getElementById('adv-pass-conf');
+  if(n)n.value='';if(c)c.value='';
+  _advPassSay('Senha padrão do código restaurada.');
+  try{toast('Senha padrão restaurada.');}catch{}
+}
 (function initAdvLock(){
   const det=document.getElementById('adv-lock');
   if(!det)return;
@@ -1918,7 +1946,7 @@ async function advPassHash(s){
       const p=prompt('Senha das informações avançadas:');
       if(p==null)return;
       const h=await advPassHash(p);
-      if(h===ADV_PASS_HASH){
+      if(h===_advCurrentHash()){ // override do localStorage (UI de troca) > constante
         sessionStorage.setItem('meridian_adv_unlock','1');
         det.open=true;
       }else{

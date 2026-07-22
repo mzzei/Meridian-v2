@@ -417,6 +417,11 @@ assert(afSrc.includes('_afCoachOnlyFallback') && afSrc.includes('_afTeamIdByName
 assert(afSrc.includes('return _afCoachOnlyFallback(query)'), 'minimal enrich falls back to coach-only');
 // Shell 65: tranca de senha nas informações avançadas (gate de vitrine)
 assert(appSrc.includes('ADV_PASS_HASH') && appSrc.includes('advPassHash') && appSrc.includes('initAdvLock'), 'advanced settings password gate');
+// Shell 92: UI de troca da senha (override localStorage > constante)
+assert(appSrc.includes('function setAdvPassword') && appSrc.includes('function resetAdvPassword') && appSrc.includes('function _advCurrentHash'), 'adv password change UI functions');
+assert(appSrc.includes("localStorage.getItem('meridian_adv_hash')||ADV_PASS_HASH"), 'gate honors localStorage override');
+assert(appSrc.includes('h===_advCurrentHash()') && !appSrc.includes('h===ADV_PASS_HASH'), 'gate compares against current hash, not raw constant');
+assert(indexSrc.includes('id="adv-pass-new"') && indexSrc.includes('id="adv-pass-conf"') && indexSrc.includes('setAdvPassword()') && indexSrc.includes('resetAdvPassword()'), 'adv password form in locked section');
 assert(indexSrc.includes('id="adv-lock"'), 'adv-lock details in HTML');
 assert(!indexSrc.match(/worker-url-input[\s\S]{0,4000}<details class="sf-adv" id="adv-lock"/), 'worker url moved inside locked section');
 assert(freeSrc.includes('getFplContext') && freeSrc.includes('_fplFormatContext'), 'FPL provider in free-sources');

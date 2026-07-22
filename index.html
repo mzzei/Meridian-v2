@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=91">
+<link rel="stylesheet" href="css/app.css?v=92">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -522,6 +522,17 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           </div>
           <input id="op-key-input" type="password" placeholder="Chave Opta (Stats Perform)" autocomplete="off">
         </div>
+        <div class="sf">
+          <label class="sf-lbl" for="adv-pass-new">Trocar senha desta seção</label>
+          <input id="adv-pass-new" type="password" placeholder="Nova senha (mínimo 4 caracteres)" autocomplete="new-password">
+          <input id="adv-pass-conf" type="password" placeholder="Confirmar nova senha" autocomplete="new-password" style="margin-top:.35rem">
+          <div style="display:flex;gap:8px;margin-top:.5rem">
+            <button type="button" class="lang-btn" onclick="setAdvPassword()" style="flex:1;padding:.55rem .8rem;font-weight:600">Salvar nova senha</button>
+            <button type="button" class="lang-btn" onclick="resetAdvPassword()" style="flex:0 0 auto;padding:.55rem .8rem">Restaurar padrão</button>
+          </div>
+          <div class="sf-hint" id="adv-pass-status" style="word-break:break-all"></div>
+          <div class="sf-hint">A troca vale <b>neste navegador</b> (fica só um hash local; a senha em si não é salva). O site publicado continua com a senha do código — para trocar para todos, copie o hash exibido após salvar e atualize <code>ADV_PASS_HASH</code> em <code>js/app.js</code> (o hash pode ser público; a senha, nunca).</div>
+        </div>
       </div>
     </details>
     <div class="sf" id="sf-install-section">
@@ -565,7 +576,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=91"></script>
+<script type="module" src="js/main.js?v=92"></script>
 
 
 <!-- Mobile sidebar backdrop -->
