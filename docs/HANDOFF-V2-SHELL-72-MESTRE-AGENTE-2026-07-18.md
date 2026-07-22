@@ -769,7 +769,7 @@ Quero que você: [OBJETIVO AQUI]
 | 13 | Rate-limit no Worker (além do Origin gate) | aberto |
 | 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto |
 | 15 | Thinking na F2 (só com structured outputs/schema compatível) | aberto (budget 0 hoje) |
-| 16 | Confirmar Pages servindo `?v=91` após deploy | verificar |
+| 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local. Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
 
 ---
 
