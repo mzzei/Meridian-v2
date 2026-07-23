@@ -44,6 +44,9 @@ const CLASSIC = [
   'js/ui/featured.js',
   'js/ui/library.js',
   'js/app.js',
+  // MODO DEMO (?demo=1) — precisa vir DEPOIS do app.js: sobrescreve o valor do
+  // input de chave já restaurado e o patch de fetch pega qualquer análise
+  'js/demo.js',
 ];
 
 function loadClassic(src) {

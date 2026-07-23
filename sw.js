@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '97';
+const SHELL_VERSION = '98';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -51,6 +51,7 @@ const SHELL = [
   './js/ui/featured.js?v=' + SHELL_VERSION,
   './js/ui/library.js?v=' + SHELL_VERSION,
   './js/app.js?v=' + SHELL_VERSION,
+  './js/demo.js?v=' + SHELL_VERSION,
   './assets/vendor/html2pdf.bundle.min.js',
   './assets/icon-192.png',
   './assets/icon-512.png',

@@ -961,5 +961,28 @@ for (const rel of [
   assert(typeof joined === 'string' && joined.length <= 30, 'joinContextBlocks respects budget');
 }
 
+
+// Shell 98: MODO DEMO (?demo=1) — para calls de handover, sem consumo de API
+{
+  const demoSrc = fs.readFileSync(path.join(ROOT, 'js/demo.js'), 'utf8');
+  const mainSrc98 = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
+  const swSrc98 = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  assert(mainSrc98.includes("'js/demo.js'"), 'demo.js in CLASSIC');
+  assert(mainSrc98.indexOf("'js/demo.js'") > mainSrc98.indexOf("'js/app.js'"), 'demo.js loads AFTER app.js (sobrescreve o input restaurado)');
+  assert(swSrc98.includes("'./js/demo.js?v='") || swSrc98.includes('./js/demo.js?v='), 'demo.js in SW precache');
+  assert(demoSrc.includes("if (!q.has('demo')) return;"), 'demo gated by ?demo (custo zero sem o parâmetro)');
+  assert(demoSrc.includes("indexOf('/v1/messages') === -1") && demoSrc.includes('_origFetch(url, opts)'), 'demo intercepts ONLY /v1/messages (resto do app real)');
+  assert(demoSrc.includes('window.MERIDIAN_DEMO = true'), 'demo flag exposed');
+  assert(demoSrc.includes('demo-badge'), 'demo badge (dados ilustrativos rotulados)');
+  assert(demoSrc.includes('MODO CONVERSA'), 'demo distinguishes chat prose from F2 card');
+  assert(!/sessionStorage.setItem/.test(demoSrc), 'demo key never persisted to sessionStorage');
+  // fixtures completas: card de 7 abas exige todas as seções no F2_JSON
+  for (const k of ['confronto_tatico','cartoes_faltas','escanteios','sugestoes_ticket','eventos_provaveis','lambda','tendencias','fatores_decisivos','incerteza','lacunas'])
+    assert(demoSrc.includes(k + ':') || demoSrc.includes(k + ' :'), 'demo F2 fixture has ' + k);
+  assert(demoSrc.includes('onze_provavel') && demoSrc.includes('jogadores_chave'), 'demo F1 fixture has lineups + player stats');
+  // honestidade: fixtures se declaram demo
+  assert(/DEMO: /.test(demoSrc), 'fixtures self-declare as demo data');
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exit(failed ? 1 : 0);
