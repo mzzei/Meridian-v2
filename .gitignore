@@ -11,3 +11,8 @@ docs/ui-smoke-*.png
 worker/.wrangler/
 
 motor-meridian.zip
+
+_motor_zip_inspect*/
+_pkg_staging/
+_pkg_verify/
+motor-real-test/
