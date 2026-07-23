@@ -681,6 +681,41 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(factsSrc101.includes('RESULTADOS RECENTES: SEMPRE com placar exato'), 'coverNote demands exact scores');
 }
 
+// Shell 103: auditoria (Palmeiras × Atlético-MG) — lambda com rastro + coerência 1X por código
+{
+  const promptsSrc103 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  // regra do rastro nos DOIS prompts F2 (home_logic/away_logic declaram estimativa)
+  const hits = promptsSrc103.split('LAMBDA COM RASTRO (obrigatório)').length - 1;
+  assert(hits === 2, `lambda-com-rastro rule in both F2 prompts (${hits}/2)`);
+  assert(promptsSrc103.includes('Cifra sem rótulo = apresentação de estimativa como medição (proibido)'), 'unlabeled estimate forbidden');
+
+  // coerência de dupla chance: reconciliação determinística (o caso REAL da auditoria)
+  const N = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  const mk = () => ({
+    contexto_analise: 'previa',
+    eventos_provaveis: [
+      { evento: 'Palmeiras vence a partida', probabilidade: 0.55, fundamento: 'f' },
+      { evento: 'Empate', probabilidade: 0.25, fundamento: 'f' },
+    ],
+    sugestoes_ticket: [
+      { descricao: 'Palmeiras vence ou empata (1X)', probabilidade: 0.78, fundamento: 'dupla chance', confianca: 'alta' },
+      { descricao: 'Mais de 8.5 escanteios', probabilidade: 0.52, fundamento: 'f', confianca: 'media' },
+    ],
+  });
+  const p1 = mk(); N.attachAnalysisDerived(p1, null);
+  assert(p1.sugestoes_ticket[0].probabilidade === 0.8, '1X reconciled to V+E (0.78 → 0.80, the audited case)');
+  assert(/reconciliada por código: V 55% \+ E 25% \(era 78%\)/.test(p1.sugestoes_ticket[0].fundamento), 'adjustment documented in fundamento (not ad hoc)');
+  assert(p1.sugestoes_ticket[1].probabilidade === 0.52, 'unrelated ticket untouched');
+  // dentro da tolerância (≤1 p.p.) não mexe — não reescreve o modelo à toa
+  const p2 = mk(); p2.sugestoes_ticket[0].probabilidade = 0.79; N.attachAnalysisDerived(p2, null);
+  assert(p2.sugestoes_ticket[0].probabilidade === 0.79 && !/reconciliada/.test(p2.sugestoes_ticket[0].fundamento || ''), 'within-tolerance left alone');
+  // sem o trio completo (falta empate) não mexe — nunca inventa componente
+  const p3 = mk(); p3.eventos_provaveis.pop(); N.attachAnalysisDerived(p3, null);
+  assert(p3.sugestoes_ticket[0].probabilidade === 0.78, 'no draw event → no reconciliation');
+  // meta-assert: o caso auditado SEM o fix reprovaria (0.78 ≠ 0.80)
+  assert(0.55 + 0.25 === 0.8 && Math.abs(0.78 - 0.8) > 0.01, 'meta: audited mismatch is real (2 p.p.)');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

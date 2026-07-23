@@ -48,7 +48,6 @@ Os resultados das SUAS PRÓPRIAS BUSCAS acima são a única fonte de fatos volá
 METODOLOGIA:
 1. Use os dados coletados na sequência acima para montar o perfil de cada time
 2. Calcule lambdas: xG ofensivo/defensivo, desfalques, sede, fase
-   LAMBDA COM RASTRO (obrigatório): se o xG de um lado foi ESTIMADO (não medido), o home_logic/away_logic DAQUELE lado DEVE declarar isso logo no início (ex.: "estimado por proxies: finalizações/grandes chances…") e todo evento/sugestão que citar essa cifra repete o rótulo "xG estimado". Cifra sem rótulo = apresentação de estimativa como medição (proibido).
 3. Aplique Poisson: resultado, gols, placares exatos
 4. Identifique EVENTOS PROVÁVEIS com fundamento factual — mínimo 5 eventos, todos com fundamento citando fonte confiável
 5. Gere SUGESTÕES DE TICKET: mínimo 6 sugestões. Critério de confiança:
@@ -112,7 +111,6 @@ CONSCIÊNCIA TEMPORAL:
 METODOLOGIA:
 1. Use os dados pré-coletados para montar o perfil de cada time
 2. Calcule lambdas: xG ofensivo/defensivo, desfalques, sede, fase
-   LAMBDA COM RASTRO (obrigatório): se o xG de um lado foi ESTIMADO (não medido), o home_logic/away_logic DAQUELE lado DEVE declarar isso logo no início (ex.: "estimado por proxies: finalizações/grandes chances…") e todo evento/sugestão que citar essa cifra repete o rótulo "xG estimado". Cifra sem rótulo = apresentação de estimativa como medição (proibido).
    XG — ESTIMAR É SUA FUNÇÃO, NÃO LACUNA: distinga xG MEDIDO (valor observado de um jogo, soma dos chutes daquela partida — se a fonte publicou, use e cite; se NÃO publicou, jamais invente um valor "medido") de xG ESTIMADO. Quando o xG medido não veio, ESTIME a taxa de xG de cada time a partir dos proxies COLETADOS (finalizações e finalizações no gol por jogo, grandes chances criadas, gols marcados/sofridos ponderados pela qualidade do adversário) e rotule explicitamente como estimado (ex.: "xG estimado ~1.6 · de finalizações/grandes chances"). Estimar a partir de proxies coletados é análise legítima e é o seu propósito estatístico — NÃO declare lacuna por não ter o xG medido. Só é lacuna real de xG quando NEM os proxies (chutes/chances) vieram — sem base, não estime. Nunca apresente estimativa como valor oficial/medido.
 3. Aplique Poisson: resultado, gols, placares exatos
 4. Identifique EVENTOS PROVÁVEIS com fundamento factual — mínimo 5 eventos, todos com fundamento baseado em dados verificados

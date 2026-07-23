@@ -149,52 +149,8 @@ function normalizeAnalysisPayload(d) {
  * Único write-path pós-pipeline: anexa campos derivados de rawFacts + pads + schema.
  * rawFacts pode ser null (coleta falhou).
  */
-// ── Coerência aritmética de dupla chance (shell 103) ──────────────────────
-// Auditoria real: "1X = 0.78 mas Vence(0.55)+Empate(0.25) = 0.80" — incoerência
-// interna de 2 p.p. Aritmética não é tarefa de LLM: quando o card traz o trio
-// (vitória do time, empate) E uma dupla chance do MESMO time, a probabilidade da
-// dupla chance é RECONCILIADA por código para V+E, com nota no fundamento (o
-// ajuste fica documentado — auditoria não acusa "ad hoc"). Só mexe quando a
-// divergência passa de 1 p.p.; nunca inventa entradas novas.
-function _fixDoubleChanceCoherence(parsed) {
-  try {
-    const all = []
-      .concat(Array.isArray(parsed.eventos_provaveis) ? parsed.eventos_provaveis : [])
-      .concat(Array.isArray(parsed.sugestoes_ticket) ? parsed.sugestoes_ticket : [])
-      .filter((e) => e && typeof e === 'object');
-    const txt = (e) => String(e.evento || e.descricao || '');
-    const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const prob = (e) => (typeof e.probabilidade === 'number' ? e.probabilidade : null);
-    // vitórias secas: "<Time> vence…" sem "ou empata"/dupla
-    const wins = all
-      .map((e) => {
-        const m = norm(txt(e)).match(/^([\w .'-]{2,40}?)\s+vence/);
-        return m && !/ou empat|dupla/.test(norm(txt(e))) && prob(e) != null ? { team: m[1].trim(), p: prob(e) } : null;
-      })
-      .filter(Boolean);
-    const drawE = all.find((e) => /empate/.test(norm(txt(e))) && !/vence|ou |dupla/.test(norm(txt(e))) && prob(e) != null);
-    if (!wins.length || !drawE) return;
-    for (const e of all) {
-      const t = norm(txt(e));
-      if (!/dupla chance|vence ou empata|\(1x\)|\(x2\)/.test(t) || prob(e) == null) continue;
-      const win = wins.find((w) => t.includes(w.team));
-      if (!win) continue;
-      const expected = Math.round((win.p + drawE.probabilidade) * 100) / 100;
-      // comparação em p.p. INTEIROS (float faria 0.80-0.79 = 0.0100…9 disparar à toa)
-      const diffPp = Math.abs(Math.round(prob(e) * 100) - Math.round(expected * 100));
-      if (expected > 0 && expected <= 1 && diffPp > 1) {
-        const antes = e.probabilidade;
-        e.probabilidade = expected;
-        e.fundamento = String(e.fundamento || '').trim() +
-          ` [prob. reconciliada por código: V ${Math.round(win.p * 100)}% + E ${Math.round(drawE.probabilidade * 100)}% (era ${Math.round(antes * 100)}%)]`;
-      }
-    }
-  } catch {}
-}
-
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
-  _fixDoubleChanceCoherence(parsed);
   // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
   // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).
   try {
