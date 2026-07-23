@@ -149,6 +149,70 @@ function normalizeAnalysisPayload(d) {
  * Único write-path pós-pipeline: anexa campos derivados de rawFacts + pads + schema.
  * rawFacts pode ser null (coleta falhou).
  */
+// ── xG zerado na análise (shell 105) ───────────────────────────────────────
+// Auditoria real (Corinthians × Remo): visitante veio com xg_marcado:0 e
+// xg_sofrido:0 enquanto o away_logic estimava ~1.0 — o modelo preencheu 0 onde
+// não sabia (o template JSON usa 0.0 como exemplo de FORMA) e 0 é lido como
+// MEDIÇÃO. xG médio 0 (ou fora de 0.1–4.5) não existe → vira null e o card
+// mostra "—", coerente com a estimativa declarada no lambda.
+function _sanitizeAnalysisTeamXg(parsed) {
+  try {
+    for (const side of ['mandante', 'visitante']) {
+      const t = parsed[side];
+      if (!t || typeof t !== 'object') continue;
+      for (const f of ['xg_marcado', 'xg_sofrido']) {
+        if (t[f] == null || t[f] === '') continue;
+        const n = Number(t[f]);
+        if (!isFinite(n) || n < 0.1 || n > 4.5) t[f] = null;
+      }
+    }
+  } catch {}
+}
+
+// ── Mercados de gols reconciliados por Poisson (shell 105) ─────────────────
+// Auditoria real: "P(U3.5)=0.66 não decorre dos lambdas 1.6+1.0 por Poisson".
+// Filosofia do produto: o modelo estima PARÂMETROS (lambdas), o código calcula
+// PROBABILIDADES — a aba Tática já faz isso; eventos/tickets de mercados PUROS
+// de gols passam a decorrer dos mesmos lambdas, com nota documentando o ajuste.
+// Cobertos: over/under total X.5 (sem nome de time), ambas marcam sim/não,
+// "<time> marca / +0.5 do <time>" (P≥1 gol). Mercados táticos (1X2, cartões,
+// escanteios) ficam com o modelo — ali contexto legitimamente desvia de Poisson.
+function _poi(k, lam) { let lp = -lam + k * Math.log(lam); for (let i = 1; i <= k; i++) lp -= Math.log(i); return lam <= 0 ? (k === 0 ? 1 : 0) : Math.exp(lp); }
+function _poissonReconcileGoalMarkets(parsed) {
+  try {
+    const lh = Number(parsed.lambda && parsed.lambda.home_mid), la = Number(parsed.lambda && parsed.lambda.away_mid);
+    if (!isFinite(lh) || !isFinite(la) || lh <= 0 || la <= 0 || lh > 6 || la > 6) return;
+    const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const hn = norm(parsed.mandante && parsed.mandante.nome), vn = norm(parsed.visitante && parsed.visitante.nome);
+    const pTotalOver = (line) => { let under = 0; for (let t = 0; t <= Math.floor(line); t++) { let pt = 0; for (let i = 0; i <= t; i++) pt += _poi(i, lh) * _poi(t - i, la); under += pt; } return 1 - under; };
+    const bt = (1 - Math.exp(-lh)) * (1 - Math.exp(-la));
+    const calc = (t) => {
+      const mOU = t.match(/\b(mais|menos|over|under)\b[^0-9]{0,12}(\d+)[.,]5\s*(gols?|golos?)/);
+      if (mOU && !(hn && t.includes(hn)) && !(vn && t.includes(vn))) {
+        const over = pTotalOver(Number(mOU[2]) + 0.5);
+        return /menos|under/.test(mOU[1]) ? 1 - over : over;
+      }
+      if (/ambas(?: as)? equipes marcam|ambas marcam|btts/.test(t)) return /n[a]o\b|\bnao\b/.test(t) ? 1 - bt : bt;
+      const team = (hn && t.includes(hn)) ? lh : (vn && t.includes(vn)) ? la : null;
+      if (team != null && (/marca(?: a qualquer momento)?\b/.test(t) || /(mais de|over|>)\s*0[.,]5/.test(t)) && !/escanteio|cart[a]o|cantos/.test(t)) return 1 - Math.exp(-team);
+      return null;
+    };
+    const all = [].concat(parsed.eventos_provaveis || [], parsed.sugestoes_ticket || []).filter((e) => e && typeof e === 'object');
+    for (const e of all) {
+      if (typeof e.probabilidade !== 'number') continue;
+      const p = calc(norm(e.evento || e.descricao || ''));
+      if (p == null) continue;
+      const expected = Math.round(p * 100) / 100;
+      // tolerância 1 p.p. (igual shell 103): o caso auditado real divergia ~2 p.p.
+      if (Math.abs(Math.round(e.probabilidade * 100) - Math.round(expected * 100)) > 1) {
+        const antes = e.probabilidade;
+        e.probabilidade = expected;
+        e.fundamento = String(e.fundamento || '').trim() + ` [prob. recalculada por Poisson dos lambdas ${lh.toFixed(1)}+${la.toFixed(1)} (era ${Math.round(antes * 100)}%)]`;
+      }
+    }
+  } catch {}
+}
+
 // ── Coerência aritmética de dupla chance (shell 103) ──────────────────────
 // Auditoria real: "1X = 0.78 mas Vence(0.55)+Empate(0.25) = 0.80" — incoerência
 // interna de 2 p.p. Aritmética não é tarefa de LLM: quando o card traz o trio
@@ -194,6 +258,10 @@ function _fixDoubleChanceCoherence(parsed) {
 
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
+  // ordem (shell 105): saneia xG=0 → recalcula mercados de gols pelos lambdas →
+  // reconcilia dupla chance (que pode depender de valores já recalculados)
+  _sanitizeAnalysisTeamXg(parsed);
+  _poissonReconcileGoalMarkets(parsed);
   _fixDoubleChanceCoherence(parsed);
   // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
   // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).

@@ -749,6 +749,53 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(!!PF104.parseAnalysisJson, 'module import sane');
 }
 
+// Shell 105: auditoria Corinthians × Remo — xG=0 fantasma + mercados de gols por Poisson
+{
+  const N5 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  // Poisson independente (do teste, não do código) p/ λh=1.6, λa=1.0
+  const poi = (k, l) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
+  const pTot = (t, lh, la) => { let s = 0; for (let i = 0; i <= t; i++) s += poi(i, lh) * poi(t - i, la); return s; };
+  const under35 = pTot(0,1.6,1) + pTot(1,1.6,1) + pTot(2,1.6,1) + pTot(3,1.6,1);
+  const bttsNao = 1 - (1 - Math.exp(-1.6)) * (1 - Math.exp(-1.0));
+  const corOver05 = 1 - Math.exp(-1.6);
+  const mk = () => ({
+    contexto_analise: 'previa',
+    mandante: { nome: 'Corinthians', xg_marcado: 0, xg_sofrido: 1.2 },
+    visitante: { nome: 'Remo', xg_marcado: 0, xg_sofrido: 0 },
+    lambda: { home_mid: 1.6, away_mid: 1.0 },
+    eventos_provaveis: [
+      { evento: 'Menos de 3.5 gols', probabilidade: 0.66, fundamento: 'f' },
+      { evento: 'Ambas as equipes marcam - Não', probabilidade: 0.52, fundamento: 'f' },
+      { evento: 'Cartão para o Remo', probabilidade: 0.4, fundamento: 'tático' },
+    ],
+    sugestoes_ticket: [
+      { descricao: 'Corinthians mais de 0.5 gols', probabilidade: 0.78, fundamento: 'f', confianca: 'alta' },
+      { descricao: 'Corinthians vence', probabilidade: 0.5, fundamento: 'tático', confianca: 'media' },
+    ],
+  });
+  const p = mk(); N5.attachAnalysisDerived(p, null);
+  // (1) xG=0 fantasma → null (o caso auditado); 1.2 legítimo fica
+  assert(p.visitante.xg_marcado === null && p.visitante.xg_sofrido === null && p.mandante.xg_marcado === null, 'xG 0 becomes null (audited ghost zero)');
+  assert(p.mandante.xg_sofrido === 1.2, 'plausible xG untouched');
+  // (2) mercados puros de gols decorrem dos lambdas (recalculados por Poisson)
+  assert(p.eventos_provaveis[0].probabilidade === Math.round(under35 * 100) / 100, `U3.5 from lambdas (${p.eventos_provaveis[0].probabilidade} = ${Math.round(under35*100)/100}, era 0.66)`);
+  assert(p.eventos_provaveis[1].probabilidade === Math.round(bttsNao * 100) / 100, 'BTTS-Não from lambdas');
+  assert(p.sugestoes_ticket[0].probabilidade === Math.round(corOver05 * 100) / 100, 'team over 0.5 from its lambda');
+  assert(/recalculada por Poisson dos lambdas 1\.6\+1\.0/.test(p.eventos_provaveis[0].fundamento), 'adjustment documented in fundamento');
+  // mercados TÁTICOS ficam com o modelo (contexto legitimamente desvia de Poisson)
+  assert(p.eventos_provaveis[2].probabilidade === 0.4, 'cartões untouched (tactical market)');
+  assert(p.sugestoes_ticket[1].probabilidade === 0.5, '1X2 untouched (tactical market)');
+  // sem lambdas válidos, nada é recalculado (nunca inventa modelo)
+  const p2 = mk(); p2.lambda = { home_mid: 0, away_mid: 1 }; N5.attachAnalysisDerived(p2, null);
+  assert(p2.eventos_provaveis[0].probabilidade === 0.66, 'invalid lambdas → no reconciliation');
+  // dentro da tolerância (≤1 p.p.) não mexe
+  const p3 = mk(); p3.eventos_provaveis[0].probabilidade = Math.round(under35 * 100) / 100; N5.attachAnalysisDerived(p3, null);
+  assert(!/recalculada/.test(p3.eventos_provaveis[0].fundamento), 'within tolerance → untouched');
+  // prompt: xG desconhecido = null, nunca 0 (nos DOIS prompts F2)
+  const pr5 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert(pr5.split('XG NUMÉRICO: desconhecido/não estimável = null — NUNCA 0').length - 1 === 2, 'null-not-zero rule in both F2 prompts');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

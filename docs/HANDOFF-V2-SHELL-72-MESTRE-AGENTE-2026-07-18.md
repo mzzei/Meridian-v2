@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 104)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 105)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 104**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 105**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **104** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **105** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 104 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 105 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 104)
+## Estado atual (revisão 2026-07-22 · shell 105)
 
 | Shell | Entrega |
 |-------|---------|
@@ -737,19 +737,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **104** | **Print real reincidente: "Escanteios · Coletados" só com um time e "10.5 a favor/jogo"** — dupla causa: (1) **plausibilidade**: 10.5/jogo por TIME não existe (é o total do JOGO); a busca trazia o número errado, nada validava, e o **facts-memory memorizava e re-servia** (por isso a reincidência). Fix: `_sanitizeCollectedStats` (pipeline-facts) — faixas por time/jogo (escanteios 1–9.9 · xG 0.1–4.5), fora = null + **lacuna declarada**; roda ANTES do `factsMemIngestRawFacts` (ordem coberta por assert) e também após o patch de gap. (2) **render capenga**: `_cornerChips` só desenhava o lado com dado → agora a seção SEMPRE mostra os DOIS times, lado vazio = "sem dado coletado nesta análise" nomeado (call site passa mandante/visitante). 10 asserts novos; validado no runtime do preview (Palmeiras "sem dado" + Atlético com chips). pipeline-facts está no pacote → zip regenerado |
 
+| **105** | **Auditoria Corinthians × Remo: os 2 graves corrigidos** (as lacunas de escanteios/disciplina eram declaração honesta — coleta pediu, fontes não tinham): (1) **xG=0 fantasma**: o modelo preenchia 0 onde não sabia (o template JSON usa 0.0 como exemplo de FORMA) e 0 é lido como medição — contradizendo o lambda estimado (~1.0). Fix duplo: `_sanitizeAnalysisTeamXg` no normalize (xG do card fora de 0.1–4.5 → null → "—") + regra "XG NUMÉRICO: desconhecido = null, NUNCA 0" nos 2 prompts F2. (2) **Mercados de gols não decorriam dos lambdas**: `_poissonReconcileGoalMarkets` — a filosofia (modelo estima PARÂMETROS, código calcula PROBABILIDADES, como a aba Tática já fazia) estendida a eventos/tickets de mercados PUROS de gols: over/under total X.5, ambas marcam sim/não, "time marca/+0.5" (P≥1 pelo λ do lado). Recalcula por Poisson dos próprios lambdas com nota "[prob. recalculada por Poisson dos lambdas 1.6+1.0 (era 66%)]"; tolerância 1 p.p.; lambdas inválidos = não mexe; **mercados táticos (1X2, cartões, escanteios) ficam com o modelo** — ali contexto legitimamente desvia de Poisson. Ordem no attach: saneia xG → Poisson → dupla chance (103). 13 asserts com Poisson calculado independentemente no teste; validado no runtime do preview (U3.5 0.66→0.74 · BTTS-Não 0.52→0.50 · over do time 0.78→0.80 · xG 0→null). prompts+normalize no pacote → zip regenerado |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 104)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 105)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 104).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 105).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 104)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 105)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
