@@ -81,17 +81,22 @@ function _cfStatsChips(nome,arr){
   }).filter(Boolean).join('')}</div></div>`;
 }
 // Escanteios/jogo por time (dados REAIS da Fase 1 via _corners): média a favor e sofrida.
-function _cornerChips(corners){
+// shell 104 (print real: só o Atlético aparecia): se a seção existe, SEMPRE mostra os
+// DOIS times — o lado sem dado ganha "sem dado coletado" em vez de sumir e deixar a
+// seção capenga. Nomes vêm do card (hn/vn) para o lado ausente ter identidade.
+function _cornerChips(corners,hn,vn){
   if(!corners)return '';
   const has=v=>v!==null&&v!==undefined&&v!=='';
-  const one=t=>{
-    if(!t||(!has(t.feitos)&&!has(t.sofridos)))return '';
+  const one=(t,fallbackNome)=>{
+    const nome=(t&&t.nome)||fallbackNome||'—';
+    if(!t||(!has(t.feitos)&&!has(t.sofridos)))
+      return `<div class="pstat-team"><div class="tname">${esc(nome)}</div><div><span class="cf-chip" style="opacity:.55">sem dado coletado nesta análise</span></div></div>`;
     const parts=[];
     if(has(t.feitos))parts.push(`<span class="cf-chip">🚩 ${esc(t.feitos)} a favor/jogo</span>`);
     if(has(t.sofridos))parts.push(`<span class="cf-chip">🛡️ ${esc(t.sofridos)} sofridos/jogo</span>`);
-    return `<div class="pstat-team"><div class="tname">${esc(t.nome||'—')}</div><div>${parts.join('')}</div></div>`;
+    return `<div class="pstat-team"><div class="tname">${esc(nome)}</div><div>${parts.join('')}</div></div>`;
   };
-  return one(corners.mandante)+one(corners.visitante);
+  return one(corners.mandante,hn)+one(corners.visitante,vn);
 }
 // ── Confronto tático (RECUPERADAS do commit 8f8aae2 — shell 82) ──────────────
 // Perdidas num refactor da decomposição do monólito: renderResults as chamava mas
@@ -276,7 +281,7 @@ function renderResults(d,opts){
   // ── Tab: Escanteios (estrutura PDF referência / Meridian v1 — seção própria, não misturar em Tática) ──
   const ec=d.escanteios;
   const ecEventos=Array.isArray(ec?.eventos)?ec.eventos.filter(e=>e&&e.evento):[];
-  const ecStats=_cornerChips(d._corners);
+  const ecStats=_cornerChips(d._corners,d.mandante?.nome,d.visitante?.nome);
   const tabEscanteios=(ec&&(ecEventos.length||ec.analise))?`
     ${ec.analise?`<div class="tab-s">
       <div class="tab-h">1. Leitura de Escanteios</div>

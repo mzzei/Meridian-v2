@@ -716,6 +716,39 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(0.55 + 0.25 === 0.8 && Math.abs(0.78 - 0.8) > 0.01, 'meta: audited mismatch is real (2 p.p.)');
 }
 
+// Shell 104: "10.5 escanteios a favor/jogo" + seção capenga (print real, reincidente)
+{
+  const PF104 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
+  const factsSrc104 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  // sanitizador: implausível → null + lacuna declarada; plausível fica intacto
+  {
+    const _src = factsSrc104.slice(factsSrc104.indexOf('const _STAT_RANGES'), factsSrc104.indexOf('function _teamResultsNeedScores'));
+    const _san = new Function(_src + '; return _sanitizeCollectedStats;')();
+    const rf = { mandante: { nome: 'Atlético-MG', escanteios_por_jogo: 10.5, xg_marcado: 1.4 }, visitante: { nome: 'Palmeiras', escanteios_por_jogo: 5.2, xg_sofrido: 9 }, lacunas: [] };
+    _san(rf);
+    assert(rf.mandante.escanteios_por_jogo === null, '10.5 escanteios/time descartado (o caso do print)');
+    assert(rf.mandante.xg_marcado === 1.4 && rf.visitante.escanteios_por_jogo === 5.2, 'valores plausíveis intactos');
+    assert(rf.visitante.xg_sofrido === null, 'xG 9 descartado (mesma guarda)');
+    assert(rf.lacunas.length === 2 && /implausibilidade/.test(rf.lacunas[0]), 'descartes DECLARADOS nas lacunas');
+  }
+  // ordem crítica: sanitiza ANTES do facts-memory (senão o lixo é memorizado e re-serve — a reincidência do usuário)
+  assert(factsSrc104.indexOf('_sanitizeCollectedStats(rawFacts);') < factsSrc104.indexOf("_h('factsMemIngestRawFacts')(_compId,rawFacts)"), 'sanitize runs BEFORE memory ingest');
+  assert(factsSrc104.includes('_sanitizeCollectedStats(rawFacts); // o patch de gap'), 'gap-fill patch also sanitized');
+  // render: seção de escanteios SEMPRE com os dois times (lado vazio = "sem dado", não some)
+  const renderSrc104 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  {
+    const _src = renderSrc104.slice(renderSrc104.indexOf('function _cornerChips'), renderSrc104.indexOf('// ── Confronto tático'));
+    const _cc = new Function('esc', _src + '; return _cornerChips;')((s) => String(s));
+    const html = _cc({ mandante: null, visitante: { nome: 'Atlético-MG', feitos: 5.5 } }, 'Palmeiras', 'Atlético-MG');
+    assert(/Palmeiras/.test(html) && /sem dado coletado/.test(html), 'time sem dado aparece nomeado com "sem dado" (não some)');
+    assert(/Atlético-MG/.test(html) && /5\.5 a favor\/jogo/.test(html), 'time com dado segue normal');
+    // meta-assert: a versão antiga (só quem tem dado) produziria seção sem o Palmeiras
+    assert((html.match(/pstat-team/g) || []).length === 2, 'section always renders both teams');
+  }
+  assert(renderSrc104.includes('_cornerChips(d._corners,d.mandante?.nome,d.visitante?.nome)'), 'call site passes both names');
+  assert(!!PF104.parseAnalysisJson, 'module import sane');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

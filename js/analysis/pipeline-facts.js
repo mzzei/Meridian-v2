@@ -235,6 +235,10 @@ Extraia placares, classificação de ${compLabel(state.activeCompId)}, xG e esti
       // portão anti-alucinação. Não-enumerável: não polui o JSON exibido nem a persistência.
       if(rawFacts&&typeof rawFacts==='object'){
         try{Object.defineProperty(rawFacts,'_evidence',{value:((hasFd?fdCtx:'')+'\n'+_evi.join('\n')).toLowerCase(),enumerable:false,configurable:true});}catch(_){}
+        // PLAUSIBILIDADE ANTES DA MEMÓRIA (shell 104): descarta stats absurdas AQUI —
+        // depois deste ponto o valor entra no facts-memory e RE-SERVE análises futuras
+        // (caso real: "10.5 escanteios a favor/jogo" reapareceu diversas vezes).
+        _sanitizeCollectedStats(rawFacts);
         // Grava fatos básicos na memória local → próximas análises skipam web_search repetido.
         try{_h('factsMemIngestRawFacts')(_compId,rawFacts);}catch{}
         // Cobertura pós-busca: o que a busca trouxe (xG/métricas → C; técnico/onze → B)
@@ -331,6 +335,31 @@ const _TEAM_CRITICAL=['ranking_fifa','xg_marcado','xg_sofrido','escanteios_por_j
 // resultados_recentes SEM PLACAR EXATO (shell 101): "V, V, D" qualitativo deixa a F2
 // sem margem de vitória (auditoria: "placar exato da rodada 18 não fornecido").
 // Conta como gap quando a lista está vazia OU nenhuma entrada tem dígitos de placar.
+// ── Plausibilidade de stats coletadas (shell 104) ──────────────────────────
+// A busca às vezes traz o número ERRADO (caso real: "10.5 escanteios a favor/jogo"
+// — isso é o total do JOGO, não a média de UM time; nenhum time tem essa média).
+// Valor implausível é DESCARTADO (null) + lacuna declarada — e isso PRECISA rodar
+// antes do facts-memory, senão o lixo é memorizado e re-servido por dias.
+// Faixas por TIME/jogo: escanteios 1–9.9 · xG 0.1–4.5. Fora disso = coleta errada.
+const _STAT_RANGES={escanteios_por_jogo:[1,9.9],escanteios_sofridos_por_jogo:[1,9.9],xg_marcado:[0.1,4.5],xg_sofrido:[0.1,4.5]};
+function _sanitizeCollectedStats(rawFacts){
+  if(!rawFacts||typeof rawFacts!=='object')return rawFacts;
+  if(!Array.isArray(rawFacts.lacunas))rawFacts.lacunas=[];
+  for(const side of ['mandante','visitante']){
+    const tm=rawFacts[side];
+    if(!tm||typeof tm!=='object')continue;
+    for(const[f,[lo,hi]]of Object.entries(_STAT_RANGES)){
+      const v=tm[f];
+      if(v==null||v==='')continue;
+      const n=Number(v);
+      if(!isFinite(n)||n<lo||n>hi){
+        tm[f]=null;
+        rawFacts.lacunas.push(`${f} de ${tm.nome||side} descartado por implausibilidade (veio ${v}; faixa aceita ${lo}–${hi} por time/jogo) — provável dado do jogo inteiro ou de outra métrica`);
+      }
+    }
+  }
+  return rawFacts;
+}
 function _teamResultsNeedScores(tm){
   if(!tm||!tm.nome)return false;
   const rr=Array.isArray(tm.resultados_recentes)?tm.resultados_recentes:[];
@@ -424,6 +453,7 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
         const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
         const patch=parseAnalysisJson(txt); // robusto: fences + repairJson (shell 84)
         if(patch){if(Array.isArray(patch.jogadores))_mergePlayerPatch(rawFacts,patch.jogadores);if(Array.isArray(patch.times))_mergeTeamPatch(rawFacts,patch.times);}
+        _sanitizeCollectedStats(rawFacts); // o patch de gap também pode trazer número implausível
         break;
       }
       if(data.stop_reason==='tool_use'){
