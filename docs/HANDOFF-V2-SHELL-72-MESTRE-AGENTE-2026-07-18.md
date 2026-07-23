@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 100)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 101)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 100**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 101**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **100** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **101** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 100 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 101 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 100)
+## Estado atual (revisão 2026-07-22 · shell 101)
 
 | Shell | Entrega |
 |-------|---------|
@@ -727,19 +727,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **100** | **Thinking na F2 REMOVIDO (a pedido do dono)** — o opt-in dos shells 93–97 custou 4 shells e o acesso recusou TODAS as gramáticas ("compiled grammar is too large"): ingênua, compacta, $defs (96) e agrupada (97). Excisão completa: toggle da UI (`#f2-think-toggle`/`#f2-think-status`), `getF2Think`/`setF2Think` (app.js), branch `_think` + auto-cura + memo de gramática (pipeline-run), `F2_SCHEMA`/`F2_SCHEMA_ID`/`F2_GROUPS`/`_f2Unnest` + helpers `_soEvt`/`_soTeamF2`/`_soTecF2`/`_soCtSide` (pipeline-facts). O resgate Opus 4.8 voltou ao prompt-contrato puro (sem SO). `FACTS_SCHEMA` da F1 preservado (feature independente). Boot limpa `meridian_f2_think` e `meridian_f2_grammar_blocked`. Asserts anti-reintrodução substituem os dos shells 93–97 (o fix do [object Object] no render fica). Invariantes 23 e 36 reescritos. Validado no preview: boot sem erro, toggle ausente, localStorage limpo, F2 stub = `thinking:disabled` + sem `output_config` + max_tokens 9000 → card renderiza |
 
+| **101** | **Lacunas da auditoria real corrigidas NA COLETA** (print Botafogo × Vitória): (1) **causa raiz dos escanteios** — `FACTS_SCHEMA` (SO da F1) omitia `escanteios_por_jogo`/`escanteios_sofridos_por_jogo` que o template textual pede e normalize/facts-memory consomem; com `additionalProperties:false` o modelo ficava **PROIBIDO** de devolvê-los sempre que o caminho SO funcionava. Corrigido + **meta-assert de PARIDADE template↔schema** (toda chave do `_teamTpl` precisa existir no schema — mata a classe de drift). (2) **xG/escanteios em `_TEAM_CRITICAL`** — a auditoria pegou a F2 "estimando" xG sem lastro (grave); agora vazio dispara a passagem de gap (Sofascore/FBref públicos). (3) **placar exato**: `_teamResultsNeedScores` detecta forma qualitativa ("V,V,D"), o gap pede "últimos 5 COM placar exato" e o merge substitui SÓ qualitativo→com-placar (nunca regride); coverNote da coleta principal exige placar+mando. (4) **`faltas_cometidas_por_jogo` em `_PLAYER_CRITICAL`** (mercado disciplinar; mesma passagem, zero chamadas extras). Patch de gap transporta os campos novos. Validado no preview: body real da F1 com escanteios no schema + prompt com a regra de placar; card ok |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 100)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 101)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 100).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 101).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 100)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 101)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
@@ -794,6 +796,8 @@ Quero que você: [OBJETIVO AQUI]
 | 19 | "compiled grammar is too large" no F2_SCHEMA | encerrado: recurso **REMOVIDO no shell 100** (96=$defs e 97=agrupamento também recusados) |
 | 20 | `★ [object Object]` na aba Desempenho | **FEITO** shell 96 (`_listLabel` em jogadores_chave/desfalques) |
 | 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
+| 22 | Lacunas da auditoria (escanteios/xG/placar exato/faltas) | **FEITO** shell 101 (coleta + gap pass + paridade template↔schema) |
+| 23 | Substituir Meridian v1 pelo v2 (pós-Copa) | **ABERTO** — plano na conversa de 2026-07-23; decisão do dono: URL final e destino do worker v1 |
 
 ---
 

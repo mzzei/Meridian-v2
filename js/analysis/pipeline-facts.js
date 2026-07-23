@@ -163,7 +163,9 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'Deixar esses campos vazios = FALHA DE BUSCA (a imprensa publica provável escalação na véspera — refaça a busca focada no time faltante), não lacuna legítima. '
     +'PROIBIDO inventar nome: só o que dados/busca trouxerem; jogador incerto = "A confirmar" na posição. '
     +'FORMAÇÃO por time SEPARADA: NUNCA copie a mesma formação (ex.: 4-2-3-1) para os dois só porque é comum — cada "formacao" precisa de lastro na busca DAQUELE time; se só um time tem formação com fonte, deixe a do outro VAZIA ("") em vez de espelhar.\n'
-    +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+'.\n'
+    +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+' — inclua cartoes_amarelos e faltas_cometidas_por_jogo (mercado disciplinar depende).\n'
+    +'RESULTADOS RECENTES: SEMPRE com placar exato e mando — "V 2x1 Vasco (fora)", nunca só "V". Sem placar = busca incompleta.\n'
+    +'xG e ESCANTEIOS/JOGO (a favor e sofridos): números públicos (Sofascore/FBref) — deixar null com busca disponível = falha de busca, não lacuna.\n'
     +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (não "fonte X ausente").\n'
     +_activeNote+_covNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
@@ -315,11 +317,26 @@ function buildEnrichedQuery(query,rawFacts,ctx){
 // Se faltar, dispara UMA busca-alvo (Haiku + web_search) só para os campos vazios e
 // funde o resultado no rawFacts. Custo ZERO quando a coleta já veio completa (só
 // inspeciona o JSON em memória — nenhuma chamada de API).
-const _PLAYER_CRITICAL=['gols','finalizacoes_no_gol_por_jogo','cartoes_amarelos','rating_medio'];
+// faltas_cometidas_por_jogo (shell 101): auditoria real apontou "dados de cartões e
+// faltas escassos para a maioria dos jogadores" — o mercado disciplinar depende disso.
+// Custo: zero chamadas extras (entra na MESMA passagem de gap já existente).
+const _PLAYER_CRITICAL=['gols','finalizacoes_no_gol_por_jogo','cartoes_amarelos','faltas_cometidas_por_jogo','rating_medio'];
 const _PLAYER_FIELDS=['posicao','jogos','minutos','gols','assistencias','finalizacoes_por_jogo','finalizacoes_no_gol_por_jogo','grandes_chances_ou_passes_decisivos_por_jogo','cartoes_amarelos','cartoes_vermelhos','a_um_amarelo_da_suspensao','faltas_cometidas_por_jogo','faltas_sofridas_por_jogo','desarmes_por_jogo','cobra_penaltis_ou_faltas','rating_medio','observacao'];
 // Fatos de TIME públicos e estáveis que NUNCA devem virar lacuna — o portão os
 // busca deterministicamente se a coleta vier vazia (mesmo racional do ranking na regra).
-const _TEAM_CRITICAL=['ranking_fifa'];
+// shell 101: xG e escanteios entram aqui — a auditoria real pegou a F2 "estimando"
+// xG que a coleta não trouxe (grave: número central sem lastro) e escanteios sem
+// estatística. Sofascore/FBref publicam ambos; vazio = falha de busca, não lacuna.
+const _TEAM_CRITICAL=['ranking_fifa','xg_marcado','xg_sofrido','escanteios_por_jogo','escanteios_sofridos_por_jogo'];
+// resultados_recentes SEM PLACAR EXATO (shell 101): "V, V, D" qualitativo deixa a F2
+// sem margem de vitória (auditoria: "placar exato da rodada 18 não fornecido").
+// Conta como gap quando a lista está vazia OU nenhuma entrada tem dígitos de placar.
+function _teamResultsNeedScores(tm){
+  if(!tm||!tm.nome)return false;
+  const rr=Array.isArray(tm.resultados_recentes)?tm.resultados_recentes:[];
+  if(!rr.length)return true;
+  return !rr.some(r=>/\d\s*[x×–-]\s*\d/.test(String(r||'')));
+}
 // Campos de ESCALAÇÃO do time (shell 85 / PARTE IX P1): técnico/formação/onze/banco vazios
 // disparam a passagem de gap — no V1 esses campos vinham no caminho AF; no Free multi-liga
 // a busca dirigida é quem os garante. Arrays vazios também contam como faltantes.
@@ -345,6 +362,12 @@ function _mergeTeamPatch(rawFacts,timesArr){
     _TEAM_CRITICAL.forEach(f=>{if(_pgEmpty(tm[f])&&!_pgEmpty(src[f]))tm[f]=src[f];});
     // Escalação (shell 85): completa técnico/formação/onze/banco vindos da passagem de gap
     _TEAM_LINEUP_FILL.forEach(f=>{if(_pgEmpty(tm[f])&&!_pgEmpty(src[f]))tm[f]=src[f];});
+    // resultados_recentes (shell 101): caso especial — o campo pode vir PREENCHIDO mas
+    // sem placar ("V, V, D"); se o patch trouxe ao menos uma entrada COM placar exato,
+    // a versão com números substitui a qualitativa. Nunca o contrário (não regride).
+    if(_teamResultsNeedScores(tm)&&Array.isArray(src.resultados_recentes)
+      &&src.resultados_recentes.some(r=>/\d\s*[x×–-]\s*\d/.test(String(r||''))))
+      tm.resultados_recentes=src.resultados_recentes;
   });
 }
 // Um time tem escalação "completa" p/ o portão? tecnico + formacao + onze com 11.
@@ -374,6 +397,8 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
     [rawFacts.mandante,rawFacts.visitante].filter(Boolean).forEach(tm=>{
       if(!tm||!tm.nome)return;
       const missing=_TEAM_CRITICAL.filter(f=>_pgEmpty(tm[f]));
+      // placar exato dos últimos jogos (shell 101): forma "V,V,D" sem números = gap
+      if(_teamResultsNeedScores(tm))missing.push('resultados_recentes (últimos 5 COM placar exato, ex. "V 2x1 Vasco (fora)")');
       if(missing.length)teamGaps.push({nome:tm.nome,faltando:missing});
     });
     // Escalação faltante (shell 85 / PARTE IX P1): técnico vazio OU onze<11 em QUALQUER
@@ -384,9 +409,9 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
     const partes=[];
     const _clGap=compLabel(state.activeCompId);
     if(luGaps.length)partes.push('ESCALAÇÕES (PRIORIDADE MÁXIMA — a imprensa publica provável escalação na véspera; busque "[time] escalação provável" na imprensa/Sofascore; NUNCA invente nome — sem fonte, deixe vazio; FORMAÇÃO de cada time precisa de lastro próprio, NÃO espelhe a mesma nos dois):\n'+luGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
-    if(teamGaps.length)partes.push('CLUBES (posição na tabela de '+_clGap+' é pública — ex.: "5º · 28 pts"):\n'+teamGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
+    if(teamGaps.length)partes.push('CLUBES (dados públicos de '+_clGap+' — tabela ex. "5º · 28 pts"; xG e escanteios/jogo no Sofascore/FBref; resultados SEMPRE com placar exato):\n'+teamGaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
     if(gaps.length)partes.push('JOGADORES:\n'+gaps.map(g=>`- ${g.nome}: faltam ${g.faltando.join(', ')}`).join('\n'));
-    const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (escalação provável/tabela · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":"","tecnico":"","formacao":"","onze_provavel":[{"nome":"","posicao":""}],"banco":[]}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/""/[] quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;
+    const SP=`Você preenche dados FALTANTES de ${_clGap} buscando na web (escalação provável/tabela · Sofascore/FotMob/FBref/imprensa). Retorne APENAS JSON válido: {"times":[{"nome":"","ranking_fifa":"","tecnico":"","formacao":"","xg_marcado":null,"xg_sofrido":null,"escanteios_por_jogo":null,"escanteios_sofridos_por_jogo":null,"resultados_recentes":[],"onze_provavel":[{"nome":"","posicao":""}],"banco":[]}],"jogadores":[{"nome":"","posicao":"","jogos":null,"minutos":null,"gols":null,"assistencias":null,"finalizacoes_por_jogo":null,"finalizacoes_no_gol_por_jogo":null,"grandes_chances_ou_passes_decisivos_por_jogo":null,"cartoes_amarelos":null,"cartoes_vermelhos":null,"a_um_amarelo_da_suspensao":null,"faltas_cometidas_por_jogo":null,"faltas_sofridas_por_jogo":null,"desarmes_por_jogo":null,"cobra_penaltis_ou_faltas":"","rating_medio":null,"observacao":""}]}. Preencha ao menos os campos pedidos. Use null/""/[] quando a busca não trouxer; NUNCA invente de memória; descarte implausíveis (totais absurdos de jogos/gols na temporada).`;
     const msgs=[{role:'user',content:`DATA: ${_h('currentDateFull')()}. Busque e preencha os dados faltantes em ${_clGap}:\n${partes.join('\n\n')}`}];
     let accIn=0,accOut=0;
     for(let i=0;i<3;i++){
@@ -547,7 +572,11 @@ function _soObj(props){return{type:'object',properties:props,required:Object.key
 // jogadores_chave agora é uma lista de objetos estruturados (15 stats fundamentais + nome/posição/observação).
 const _soN=()=>_soNullable('number');
 const _soPlayer=()=>_soObj({nome:_soStr,posicao:_soStr,jogos:_soN(),minutos:_soN(),gols:_soN(),assistencias:_soN(),finalizacoes_por_jogo:_soN(),finalizacoes_no_gol_por_jogo:_soN(),grandes_chances_ou_passes_decisivos_por_jogo:_soN(),cartoes_amarelos:_soN(),cartoes_vermelhos:_soN(),a_um_amarelo_da_suspensao:_soNullable('boolean'),faltas_cometidas_por_jogo:_soN(),faltas_sofridas_por_jogo:_soN(),desarmes_por_jogo:_soN(),cobra_penaltis_ou_faltas:_soStr,rating_medio:_soN(),observacao:_soStr});
-const _soTeamP1=()=>_soObj({nome:_soStr,tecnico:_soStr,ranking_fifa:_soStr,resultados_recentes:_soStrArr,xg_marcado:_soNullable('number'),xg_sofrido:_soNullable('number'),desfalques:_soStrArr,escalacao_provavel:_soStr,formacao:_soStr,onze_provavel:{type:'array',items:_soObj({nome:_soStr,posicao:_soStr})},banco:_soStrArr,jogadores_chave:{type:'array',items:_soPlayer()},estilo_ofensivo:_soStr,vulnerabilidades_defensivas:_soStrArr});
+// escanteios_por_jogo/sofridos (shell 101): o template TEXTUAL (_teamTpl) já pedia os
+// dois e normalize/facts-memory já os consomem, mas este schema os OMITIA — com
+// additionalProperties:false o modelo ficava PROIBIDO de devolvê-los no caminho SO.
+// Era a causa raiz da lacuna "estatísticas de escanteios não fornecidas" na auditoria.
+const _soTeamP1=()=>_soObj({nome:_soStr,tecnico:_soStr,ranking_fifa:_soStr,resultados_recentes:_soStrArr,xg_marcado:_soNullable('number'),xg_sofrido:_soNullable('number'),escanteios_por_jogo:_soNullable('number'),escanteios_sofridos_por_jogo:_soNullable('number'),desfalques:_soStrArr,escalacao_provavel:_soStr,formacao:_soStr,onze_provavel:{type:'array',items:_soObj({nome:_soStr,posicao:_soStr})},banco:_soStrArr,jogadores_chave:{type:'array',items:_soPlayer()},estilo_ofensivo:_soStr,vulnerabilidades_defensivas:_soStrArr});
 const FACTS_SCHEMA=_soObj({mandante:_soTeamP1(),visitante:_soTeamP1(),contexto_fase:_soStr,grupo_classificacao:_soStr,lacunas:_soStrArr});
 // ─── Thinking/structured outputs na FASE 2: REMOVIDOS (shell 100) ───
 // Histórico (93→97): opt-in de thinking exigia JSON por gramática (F2_SCHEMA), e o
@@ -745,6 +774,7 @@ export {
   parseAnalysisJson,
   buildEnrichedQuery,
   fillDataGaps,
+  FACTS_SCHEMA,
   verifyLineupNames,
   verifyAnalysis,
   hasExplicitMatchAnchor,

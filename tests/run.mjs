@@ -644,6 +644,43 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   }
 }
 
+// Shell 101: lacunas da auditoria real (print Botafogo × Vitória) corrigidas na COLETA
+{
+  const PF101 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
+  const factsSrc101 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  // (1) CAUSA RAIZ dos escanteios: FACTS_SCHEMA omitia os campos que o template textual
+  // pede — additionalProperties:false PROIBIA o modelo de devolvê-los no caminho SO.
+  const teamProps = Object.keys(PF101.FACTS_SCHEMA.properties.mandante.properties);
+  assert(teamProps.includes('escanteios_por_jogo') && teamProps.includes('escanteios_sofridos_por_jogo'), 'FACTS_SCHEMA has escanteios fields (SO path no longer forbids them)');
+  // meta-assert de PARIDADE template↔schema: TODA chave do _teamTpl textual existe no
+  // schema SO — impede a classe inteira de drift (campo pedido no texto, proibido no SO)
+  {
+    const m = factsSrc101.match(/const _teamTpl='(\{.*?\})';/);
+    assert(m, '_teamTpl found');
+    const tplKeys = Object.keys(JSON.parse(m[1].replace(/'\+_pStat\+'/, '{}')));
+    for (const k of tplKeys) assert(teamProps.includes(k), `parity: template field "${k}" present in FACTS_SCHEMA`);
+  }
+  // (2) xG/escanteios viram gap determinístico (auditoria: F2 "estimava" xG sem lastro)
+  assert(factsSrc101.includes("const _TEAM_CRITICAL=['ranking_fifa','xg_marcado','xg_sofrido','escanteios_por_jogo','escanteios_sofridos_por_jogo']"), 'xG + escanteios in _TEAM_CRITICAL (gap pass fetches them)');
+  // (3) placar exato: detector + substituição segura (só qualitativo→com-placar, nunca regride)
+  assert(factsSrc101.includes('function _teamResultsNeedScores'), 'score-less recent results detector exists');
+  {
+    const _src = factsSrc101.slice(factsSrc101.indexOf('function _teamResultsNeedScores'), factsSrc101.indexOf('async function fillDataGaps'));
+    const _fn = new Function(_src + '; return _teamResultsNeedScores;')();
+    assert(_fn({ nome: 'X', resultados_recentes: ['V', 'V', 'D'] }) === true, 'qualitative-only form flagged as gap');
+    assert(_fn({ nome: 'X', resultados_recentes: ['V 2x1 Vasco (fora)'] }) === false, 'scored results NOT a gap');
+    assert(_fn({ nome: 'X', resultados_recentes: [] }) === true, 'empty results flagged');
+  }
+  assert(factsSrc101.includes('tm.resultados_recentes=src.resultados_recentes'), 'scored results replace qualitative ones on merge');
+  // (4) faltas no gate de jogador (mercado disciplinar) — mesma passagem, custo zero extra
+  assert(factsSrc101.includes("'faltas_cometidas_por_jogo','rating_medio']"), 'faltas_cometidas in _PLAYER_CRITICAL');
+  // (5) o patch de gap consegue TRANSPORTAR os campos novos (template do SP)
+  assert(/"xg_marcado":null,"xg_sofrido":null,"escanteios_por_jogo":null/.test(factsSrc101), 'gap patch template carries xG/escanteios');
+  assert(factsSrc101.includes('"resultados_recentes":[]'), 'gap patch template carries resultados_recentes');
+  // (6) coverNote exige placar exato na coleta principal
+  assert(factsSrc101.includes('RESULTADOS RECENTES: SEMPRE com placar exato'), 'coverNote demands exact scores');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
