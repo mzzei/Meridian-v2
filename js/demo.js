@@ -205,8 +205,8 @@
     var b = document.createElement('div');
     b.id = 'demo-badge';
     b.textContent = '🎬 MODO DEMO — dados ilustrativos · nenhuma chamada de API é feita';
-    b.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:9999;background:#e8b44a;color:#141414;' +
-      'font:600 12px/1.4 system-ui;padding:6px 12px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none';
+    b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;background:#e8b44a;color:#141414;' +
+      'font:600 12px/1.4 system-ui;padding:6px 12px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap';
     document.body.appendChild(b);
     // chave ilustrativa direto no input (setar .value NÃO dispara o listener de
     // 'input' → nada é gravado no sessionStorage; ao sair do modo demo, some)

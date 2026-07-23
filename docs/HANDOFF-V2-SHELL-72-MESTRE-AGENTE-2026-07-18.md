@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 98)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 99)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 98**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 99**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **98** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **99** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 98 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 99 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 98)
+## Estado atual (revisão 2026-07-22 · shell 99)
 
 | Shell | Entrega |
 |-------|---------|
@@ -723,21 +723,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **97** | **Gramática por AGRUPAMENTO (última tentativa do opt-in)** — o $defs do 96 foi recusado com a MESMA mensagem, então a hipótese "custo = total de shapes" caiu. Hipótese revisada: o custo é dominado por **propriedades de UM MESMO objeto** (a gramática aceita as chaves em qualquer ordem → cresce combinatoriamente), o que bate com a nota do 93 ("só 15 dos 19 campos de topo cabiam" = teto por objeto, não global). Fix: os 19 campos de topo viraram 5 grupos (`cabecalho`/`times`/`mercados`/`leitura`/`secoes`) — **topo 19→5 props, maior objeto do schema = 9** (`team`). NENHUM campo perdido: só mudam de endereço, e `_f2Unnest` (pipeline-facts) devolve o formato PLANO logo após o parse, nos 3 pontos (principal/retry/resgate), de forma **idempotente** — sem opt-in o objeto passa intacto e o caminho provado segue byte a byte. O system ganha a instrução do formato agrupado só quando SO está ligado, e a auto-cura **restaura o system original**. `F2_SCHEMA_ID=`97-grouped`` → o memo do 96 se retesta sozinho. Validado no preview: modelo devolvendo AGRUPADO → card com as 7 abas, sem modo simplificado, Cartões/Escanteios/Tática com conteúdo real, sem `[object Object]`. **Se ainda estourar no acesso do usuário, o combinado é aposentar o opt-in — não podar campos** |
 
-| **98** | **MODO DEMO para calls de handover** (`?demo=1`): novo classic `js/demo.js` (17º — CLASSIC do main.js + precache do sw.js). Intercepta `window.fetch` SÓ para `/v1/messages` e responde com fixtures locais — F1 devolve rawFacts completos (XI 11+banco+técnico dos dois lados, jogadores_chave com stats), F2 devolve o JSON PLANO das 7 abas, chat devolve prosa curta — com **streaming simulado** (ReadableStream + delays ~5s) para o contador de tokens e as fases andarem como ao vivo. Todo o resto do app roda REAL (agenda ESPN, render, Poisson, export). **Zero consumo de API e zero chave**: preenche o input com chave ilustrativa (SEM gravar no sessionStorage) e, mesmo com chave real no navegador, nenhuma chamada sai com `?demo=1`. Badge fixo "🎬 MODO DEMO". Prefill do input usa prefixo `PARTIDA:` de propósito — o jogo da demo é fictício e sem o prefixo o gate de contexto (shell 75) abriria popup no meio da call (comportamento correto do produto, verificado ao vivo). Fixtures se declaram demo nas lacunas. Sem o parâmetro, o arquivo é no-op (guard na 1ª linha). Validado e2e no preview: análise → card 7 abas (Escalação com XI "pesquisa", Poisson calculado do lambda) → pergunta de chat → prosa demo; `read_network_requests` = ZERO chamadas a /v1/messages. Nota: o card da demo é salvo na biblioteca como card normal (apagável). Console agora loga `classic: 17` |
+| **98** | **MODO DEMO para calls de handover** (`?demo=1`): novo classic `js/demo.js` (17º — CLASSIC do main.js + precache do sw.js). Intercepta `window.fetch` SÓ para `/v1/messages` e responde com fixtures locais — F1 devolve rawFacts completos (XI 11+banco+técnico dos dois lados, jogadores_chave com stats), F2 devolve o JSON PLANO das 7 abas, chat devolve prosa curta — com **streaming simulado** (ReadableStream + delays ~5s) para o contador de tokens e as fases andarem como ao vivo. Todo o resto do app roda REAL (agenda ESPN, render, Poisson, export). **Zero consumo de API e zero chave**: preenche o input com chave ilustrativa (SEM gravar no sessionStorage) e, mesmo com chave real no navegador, nenhuma chamada sai com `?demo=1`. Badge fixo "🎬 MODO DEMO" (**shell 99**: centralizado no TOPO da página — antes inferior esquerdo; pedido do dono). Prefill do input usa prefixo `PARTIDA:` de propósito — o jogo da demo é fictício e sem o prefixo o gate de contexto (shell 75) abriria popup no meio da call (comportamento correto do produto, verificado ao vivo). Fixtures se declaram demo nas lacunas. Sem o parâmetro, o arquivo é no-op (guard na 1ª linha). Validado e2e no preview: análise → card 7 abas (Escalação com XI "pesquisa", Poisson calculado do lambda) → pergunta de chat → prosa demo; `read_network_requests` = ZERO chamadas a /v1/messages. Nota: o card da demo é salvo na biblioteca como card normal (apagável). Console agora loga `classic: 17` |
 
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 98)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 99)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 98).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 99).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 98)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 99)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
