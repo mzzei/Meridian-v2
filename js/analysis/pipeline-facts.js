@@ -549,97 +549,14 @@ const _soN=()=>_soNullable('number');
 const _soPlayer=()=>_soObj({nome:_soStr,posicao:_soStr,jogos:_soN(),minutos:_soN(),gols:_soN(),assistencias:_soN(),finalizacoes_por_jogo:_soN(),finalizacoes_no_gol_por_jogo:_soN(),grandes_chances_ou_passes_decisivos_por_jogo:_soN(),cartoes_amarelos:_soN(),cartoes_vermelhos:_soN(),a_um_amarelo_da_suspensao:_soNullable('boolean'),faltas_cometidas_por_jogo:_soN(),faltas_sofridas_por_jogo:_soN(),desarmes_por_jogo:_soN(),cobra_penaltis_ou_faltas:_soStr,rating_medio:_soN(),observacao:_soStr});
 const _soTeamP1=()=>_soObj({nome:_soStr,tecnico:_soStr,ranking_fifa:_soStr,resultados_recentes:_soStrArr,xg_marcado:_soNullable('number'),xg_sofrido:_soNullable('number'),desfalques:_soStrArr,escalacao_provavel:_soStr,formacao:_soStr,onze_provavel:{type:'array',items:_soObj({nome:_soStr,posicao:_soStr})},banco:_soStrArr,jogadores_chave:{type:'array',items:_soPlayer()},estilo_ofensivo:_soStr,vulnerabilidades_defensivas:_soStrArr});
 const FACTS_SCHEMA=_soObj({mandante:_soTeamP1(),visitante:_soTeamP1(),contexto_fase:_soStr,grupo_classificacao:_soStr,lacunas:_soStrArr});
-// ─── F2_SCHEMA (shell 93) — gramática COMPACTA p/ thinking na Fase 2 (OPT-IN) ───
-// O teste de 07/2026 estourou o limite de gramática com o schema "ingênuo"; este
-// espelha o contrato textual do prompt com o MÍNIMO de aninhamento (sub-shapes
-// reusados, jogadores_chave como strings, sem enums/min/max). required = todos os
-// campos → nenhum painel some. Se AINDA estourar no acesso do usuário, a auto-cura
-// do pipeline-run desliga thinking+SO no MESMO run (caminho provado). Regras SO:
-// additionalProperties:false em todo objeto; anuláveis via anyOf.
-const _soEvt=()=>_soObj({evento:_soStr,probabilidade:_soN(),fundamento:_soStr});
-const _soTeamF2=()=>_soObj({nome:_soStr,ranking_fifa:_soStr,forma_recente:_soStr,xg_marcado:_soN(),xg_sofrido:_soN(),desfalques:_soStrArr,escalacao_status:_soStr,escalacao:_soStr,jogadores_chave:_soStrArr});
-const _soTecF2=()=>_soObj({nome:_soStr,formacao:_soStr,filosofia:_soStr,ajustes_recentes:_soStr,impacto_mercados:_soStr});
-const _soCtSide=()=>_soObj({diagnostico:_soStr,vantagem:_soStr,pontos_exploracao:_soStrArr,bloqueios:_soStrArr});
-// ── shell 96: $defs/$ref para os shapes REPETIDOS ──
-// O erro real do usuário no 1º run com thinking foi "The compiled grammar is too
-// large". A gramática é compilada a partir do schema EXPANDIDO: cada chamada de
-// _soEvt()/_soTeamF2()/… inlinava uma cópia nova (evt 3×, team 2×, tec 2×, ctSide
-// 2×) e cada cópia custava gramática de novo. Com $ref, cada shape compila UMA vez
-// — sem perder nenhum campo (podar campo não é opção: additionalProperties:false
-// PROIBIRIA o modelo de emitir a seção podada e a aba sumiria da UI).
-// $ref/$defs são suportados pelos structured outputs (doc da API, verificado no 96).
-// Se AINDA estourar, a auto-cura do pipeline-run desliga thinking+SO no mesmo run.
-const _ref=n=>({$ref:'#/$defs/'+n});
-// ── shell 97: AGRUPAMENTO — menos propriedades POR OBJETO ──
-// O $defs do 96 (que reduz o TOTAL de shapes) foi recusado de novo com a mesma
-// mensagem. Hipótese revisada: o custo da gramática é dominado pelo número de
-// propriedades de UM MESMO objeto — a gramática precisa aceitar as chaves em
-// qualquer ordem, o que cresce combinatoriamente. Bate com a nota do shell 93
-// ("só 15 dos 19 campos de topo cabiam"): um teto por objeto, não global.
-// Aqui o topo cai de 19 → 5 propriedades agrupando em cabecalho/times/mercados/
-// leitura/secoes. NENHUM campo é perdido — só mudam de endereço no JSON, e o
-// _f2Unnest devolve o formato plano logo após o parse, então render/normalize e
-// todo o resto do pipeline seguem sem saber que isso existe.
-// ÚLTIMA TENTATIVA: se ainda estourar, o caminho é aposentar o opt-in, não podar
-// campos (podar = additionalProperties:false proibiria a seção e a aba sumiria).
-const F2_SCHEMA={
-  ..._soObj({
-    cabecalho:_soObj({contexto_analise:_soStr,partida:_soStr,fase:_soStr,grupo:_soNullable('string'),data_hora:_soStr,sede:_soStr,contexto_fase:_soStr,confianca_geral:_soStr}),
-    times:_soObj({mandante:_ref('team'),visitante:_ref('team'),tecnico_mandante:_ref('tec'),tecnico_visitante:_ref('tec')}),
-    mercados:_soObj({
-      lambda:_soObj({home_low:_soN(),home_mid:_soN(),home_high:_soN(),home_logic:_soStr,away_low:_soN(),away_mid:_soN(),away_high:_soN(),away_logic:_soStr}),
-      eventos_provaveis:{type:'array',items:_ref('evt')},
-      sugestoes_ticket:{type:'array',items:_soObj({descricao:_soStr,probabilidade:_soN(),fundamento:_soStr,confianca:_soStr})}
-    }),
-    leitura:_soObj({tendencias:_soStrArr,fatores_decisivos:_soStrArr,incerteza:{type:'array',items:_soObj({fator:_soStr,impacto:_soStr})},lacunas:_soStrArr}),
-    secoes:_soObj({
-      confronto_tatico:_soObj({atq_mand_def_vis:_ref('ctSide'),atq_vis_def_mand:_ref('ctSide'),duelos_chave:{type:'array',items:_soObj({confronto:_soStr,setor:_soStr,favorito:_soStr,impacto:_soStr})},conclusao:_soStr}),
-      cartoes_faltas:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},jogadores_risco:{type:'array',items:_soObj({nome:_soStr,time:_soStr,motivo:_soStr})},conclusao:_soStr}),
-      escanteios:_soObj({analise:_soStr,eventos:{type:'array',items:_ref('evt')},conclusao:_soStr})
-    })
-  }),
-  $defs:{evt:_soEvt(),team:_soTeamF2(),tec:_soTecF2(),ctSide:_soCtSide()}
-};
-// Grupos do F2_SCHEMA → usado pelo _f2Unnest e pela instrução do prompt.
-const F2_GROUPS={
-  cabecalho:['contexto_analise','partida','fase','grupo','data_hora','sede','contexto_fase','confianca_geral'],
-  times:['mandante','visitante','tecnico_mandante','tecnico_visitante'],
-  mercados:['lambda','eventos_provaveis','sugestoes_ticket'],
-  leitura:['tendencias','fatores_decisivos','incerteza','lacunas'],
-  secoes:['confronto_tatico','cartoes_faltas','escanteios'],
-};
-/**
- * Achata a resposta agrupada do structured outputs no formato PLANO que o resto do
- * pipeline (normalize/render/export) espera. Idempotente: JSON já plano — o caminho
- * sem opt-in, que é a esmagadora maioria — passa intacto. Campo do topo sempre vence
- * o do grupo (nunca sobrescreve algo que o modelo já entregou no lugar certo).
- */
-function _f2Unnest(o){
-  if(!o||typeof o!=='object'||Array.isArray(o))return o;
-  let touched=false;
-  const out={...o};
-  for(const g of Object.keys(F2_GROUPS)){
-    const sub=o[g];
-    if(!sub||typeof sub!=='object'||Array.isArray(sub))continue;
-    touched=true;
-    for(const k of F2_GROUPS[g])if(!(k in out)&&k in sub)out[k]=sub[k];
-    delete out[g];
-  }
-  return touched?out:o;
-}
-// Marca de versão da gramática: muda sempre que F2_SCHEMA muda de forma. O
-// pipeline-run usa isso para não repetir, a CADA análise, uma tentativa que já
-// falhou com "grammar too large" neste navegador — e para tentar de novo sozinho
-// quando a gramática for reescrita (como agora, no 97).
-const F2_SCHEMA_ID='97-grouped';
-// Fase 2 SEM opt-in: structured outputs NÃO é usado. Testado ao vivo (07/2026):
-// o schema completo da análise (19 campos, confronto_tatico aninhado etc.) excede
-// o limite de gramática compilada da API — erro "The compiled grammar is too large"
-// em Haiku, Sonnet e Opus, mesmo sem enums/anyOf. Bisect: só 15 dos 19 campos
-// de topo cabem. Podar campos não é opção: com additionalProperties:false o modelo
-// ficaria PROIBIDO de emitir as seções podadas (a UI perderia painéis inteiros).
-// A Fase 2 segue com o caminho provado: prompt-contrato + parseAnalysisJson/repairJson
-// + retry sem thinking. NÃO reintroduzir output_config na Fase 2 sem reteste ao vivo.
+// ─── Thinking/structured outputs na FASE 2: REMOVIDOS (shell 100) ───
+// Histórico (93→97): opt-in de thinking exigia JSON por gramática (F2_SCHEMA), e o
+// acesso do dono recusou TODAS as variantes com "The compiled grammar is too large"
+// — schema ingênuo, compacto, $defs/$ref (96) e agrupado com topo de 5 props (97).
+// O recurso foi aposentado a pedido do dono; podar campos nunca foi opção (com
+// additionalProperties:false o modelo ficaria PROIBIDO de emitir a seção podada e a
+// aba sumiria da UI). NÃO reintroduzir sem a API elevar o limite de gramática.
+// (FACTS_SCHEMA da FASE 1 acima é feature independente e continua em uso.)
 
 /* prompts: getSystemPromptPhase2 → js/analysis/prompts.js */
 
@@ -822,10 +739,6 @@ JSON:
 export {
   GROUNDING_RULE,
   SOURCE_RULE,
-  F2_SCHEMA,
-  F2_SCHEMA_ID,
-  _f2Unnest,
-  F2_GROUPS,
   ticketRulesFor,
   gatherFacts,
   repairJson,

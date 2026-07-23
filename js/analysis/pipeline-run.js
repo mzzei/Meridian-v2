@@ -9,10 +9,6 @@ import { compLabel, COMP_ORDER } from '../comp/competitions.js';
 import { routeUserIntent } from '../lib/intent.js';
 import {
   gatherFacts,
-  F2_SCHEMA,
-  F2_SCHEMA_ID,
-  _f2Unnest,
-  F2_GROUPS,
   hasExplicitMatchAnchor,
   isVagueMatchQuery,
   _chatNeedsLiveData,
@@ -353,20 +349,13 @@ function showFallbackCard(query){
 // nesses, enviar {type:'disabled'} explícito. Modelos antigos (Haiku 4.5): omitir
 // já significa sem thinking — não enviar o campo (evita 400 em modelos que não o aceitam).
 function _noThinkModel(m){return /claude-sonnet-5/.test(m||'');}
-// ── Memo de "compiled grammar is too large" (shell 96) ──
-// Guarda o F2_SCHEMA_ID recusado por ESTE acesso. Gramática nova = ID novo = testa
-// de novo sozinho. localStorage pode falhar (modo privado) → degrada p/ memória.
-const _F2_GK='meridian_f2_grammar_blocked';
-let _f2GrammarMem=null;
-function _f2GrammarBlockedId(){
-  if(_f2GrammarMem)return _f2GrammarMem;
-  try{return localStorage.getItem(_F2_GK)||'';}catch{return '';}
-}
-function _f2GrammarBlocked(){return _f2GrammarBlockedId()===F2_SCHEMA_ID;}
-function _f2MarkGrammarBlocked(){
-  _f2GrammarMem=F2_SCHEMA_ID;
-  try{localStorage.setItem(_F2_GK,F2_SCHEMA_ID);}catch{}
-}
+// THINKING NA F2: REMOVIDO no shell 100 (era opt-in dos shells 93–97). Motivo: o
+// acesso do dono recusou TODAS as gramáticas de structured outputs da F2 com
+// "compiled grammar is too large" — o schema ingênuo (93), o compacto (93), o
+// deduplicado com $defs (96) e o agrupado com topo de 5 props (97). Sem gramática,
+// thinking na F2 é proibido (desastre de prosa dos shells 70/71). NÃO REINTRODUZIR
+// sem a API elevar o limite de gramática. Limpeza do memo antigo:
+try{localStorage.removeItem('meridian_f2_grammar_blocked');}catch{}
 // Sonnet 5 REJEITA prefill de assistant (400 real 07/2026: "This model does not
 // support assistant message prefill. The conversation must end with a user
 // message."). Haiku 4.5 / Opus 4.8 aceitam. Há auto-cura no loop da Fase 2 para
@@ -608,48 +597,12 @@ async function runAnalysis(){
     const baseBody={model:globalThis.currentModel,max_tokens:9000,system:[{type:'text',text:sysText,cache_control:{type:'ephemeral'}}]};
     if(_h('getWorkerUrl')())baseBody.diagnostics={previous_message_id:_lastAnalysisId};
     if(!useEnriched)baseBody.tools=[{type:'web_search_20250305',name:'web_search',max_uses:4}];
-    // ── Thinking na F2 (shell 93 — OPT-IN experimental) ───────────────────
-    // REGRA DURA: thinking na F2 SÓ acompanhado de structured outputs (F2_SCHEMA
-    // compacto — JSON por gramática). Thinking sem SO foi o desastre do shell 70/71
-    // (prosa quebrava o card). Só no caminho enriquecido (sem tools). Prefill é
-    // incompatível com thinking → o gate _prefill abaixo desliga sozinho.
-    // Se o acesso rejeitar ("compiled grammar is too large" etc.), a auto-cura no
-    // loop desliga thinking+SO no MESMO run e volta ao caminho provado.
-    let _think=useEnriched&&typeof globalThis.getF2Think==='function'&&globalThis.getF2Think();
-    // MEMO DE GRAMÁTICA (shell 96): se ESTE acesso já recusou ESTA versão do
-    // F2_SCHEMA com "grammar too large", não queima uma requisição perdida (+latência)
-    // a cada análise — pula direto pro caminho provado. O memo é gravado com o
-    // F2_SCHEMA_ID, então uma gramática nova (como a do 96, com $defs) é testada de
-    // novo automaticamente, sem o usuário precisar limpar nada.
-    if(_think&&_f2GrammarBlocked()){
-      _think=false;
-      try{
-        const _st=document.getElementById('f2-think-status');
-        if(_st)_st.textContent='desligado neste navegador: a gramática '+_f2GrammarBlockedId()+' já foi recusada por este acesso (não retentamos a cada análise).';
-      }catch{}
-    }
-    if(_think){
-      // CONTRATO ATUAL (verificado no doc da API, shell 95): Sonnet 5 / Opus 4.8 usam
-      // ADAPTIVE thinking — `{type:'enabled',budget_tokens:N}` é REMOVIDO e devolve 400
-      // (era o que o shell 93 mandava). Profundidade agora é output_config.effort, e
-      // sampling params (temperature/top_p/top_k) também são rejeitados nesses modelos.
-      baseBody.thinking={type:'adaptive'};
-      baseBody.output_config={effort:'high',format:{type:'json_schema',schema:F2_SCHEMA}};
-      baseBody.max_tokens=15000; // thinking consome do mesmo teto
-      delete baseBody.temperature;
-      // O prompt-contrato (prompts.js) descreve o JSON PLANO; com SO ligado a gramática
-      // exige o formato AGRUPADO do shell 97. A gramática vence de qualquer jeito, mas
-      // sem avisar o modelo o texto e a forma brigam — e isso custa qualidade.
-      baseBody.system[0].text+=`\n\nFORMATO DESTA CHAMADA (gramática obrigatória): os campos do JSON acima vêm AGRUPADOS — `
-        +Object.entries(F2_GROUPS).map(([g,ks])=>`"${g}": { ${ks.join(', ')} }`).join(' · ')
-        +`. O conteúdo exigido de cada campo é EXATAMENTE o mesmo descrito acima; só muda o endereço. Nenhum campo pode ficar de fora.`;
-    }else if(_noThinkModel(globalThis.currentModel)){
-      // default (opt-in OFF): sem thinking; Sonnet 5 exige disabled explícito
+    // Thinking na F2: REMOVIDO (shell 100) — ver nota em _noThinkModel. A F2 roda
+    // SEMPRE no caminho provado: sem thinking (disabled explícito no Sonnet 5),
+    // prompt-contrato + parseAnalysisJson, prefill '{' onde o modelo aceita.
+    if(_noThinkModel(globalThis.currentModel)){
       baseBody.thinking={type:'disabled'};
     }
-    // NOTA (07/2026): o schema "ingênuo" da F2 excedia o limite de gramática da API;
-    // o F2_SCHEMA compacto (pipeline-facts) é a nova tentativa — o 1º run real do
-    // usuário com o toggle ligado é o reteste ao vivo (resultado em _f2ThinkLast).
     const messages=[{role:'user',content:`DATA: ${_h('currentDateFull')()}${memCtx}\n\nAnalise esta partida/contexto de ${compLabel(state.activeCompId)} e retorne APENAS o JSON estruturado: ${finalQuery}${_h('contextBlock')()}`}];
     // PREFILL '{' (shell 77): com thinking OFF e sem tools, pré-preencher o assistant
     // com "{" OBRIGA a API a continuar o objeto — prosa/recusa ("o jogo ainda não
@@ -669,30 +622,6 @@ async function runAnalysis(){
           break;
         }catch(e2){
           if(e2.name==='AbortError'||e2.message==='cancelled')throw e2;
-          // Auto-cura thinking+SO (shell 93): gramática grande demais / combinação
-          // rejeitada pelo acesso → desliga thinking e structured outputs e volta ao
-          // caminho provado (prefill se o modelo aceitar) no MESMO run.
-          if(_think&&/grammar|output_config|format|schema|thinking|budget/i.test(e2.message||'')){
-            try{
-              globalThis._f2ThinkLast={ts:Date.now(),ok:false,model:globalThis.currentModel,msg:String(e2.message||'').slice(0,300)};
-              console.warn('[f2-think] auto-cura OFF:',globalThis._f2ThinkLast.msg);
-              // Só a gramática grande demais é PERMANENTE p/ esta versão do schema
-              // (é limite do schema, não do run). Os demais 400 podem ser transitórios
-              // → não memoizamos, para não desligar o recurso por um erro de ocasião.
-              if(/grammar/i.test(e2.message||''))_f2MarkGrammarBlocked();
-              const _st=document.getElementById('f2-think-status');
-              if(_st)_st.textContent='indisponível neste acesso — auto-cura desligou. Motivo: '+globalThis._f2ThinkLast.msg;
-            }catch{}
-            _think=false;
-            delete baseBody.output_config;delete baseBody.temperature;
-            // devolve o system ao texto original: sem gramática, o contrato volta a ser
-            // o JSON PLANO do prompts.js (caminho provado desde o 77, byte a byte)
-            baseBody.system[0].text=sysText;
-            if(_noThinkModel(globalThis.currentModel))baseBody.thinking={type:'disabled'};else delete baseBody.thinking;
-            baseBody.max_tokens=9000;
-            if(useEnriched&&!_prefill&&_prefillOk(globalThis.currentModel)){_prefill=true;messages.push({role:'assistant',content:'{'});}
-            continue;
-          }
           // Auto-cura de prefill (shell 79): modelo rejeitou o assistant '{' → remove
           // e repete sem prefill (cobre modelos futuros fora da lista _prefillOk).
           if(/prefill/i.test(e2.message||'')&&messages.length&&messages[messages.length-1].role==='assistant'){
@@ -722,11 +651,6 @@ async function runAnalysis(){
       lastIn=inTokens;lastOut=outTokens;lastCacheCreated+=cacheCreated;lastCacheRead+=cacheRead;
       if(stopReason==='end_turn'){
         finalText=(_prefill?'{':'')+text;
-        if(_think){try{
-          globalThis._f2ThinkLast={ts:Date.now(),ok:true,model:globalThis.currentModel};
-          const _st=document.getElementById('f2-think-status');
-          if(_st)_st.textContent='✓ funcionou no último relatório (thinking + JSON garantido por gramática)';
-        }catch{}}
         break;
       }
       if(stopReason==='tool_use'&&!useEnriched){
@@ -744,10 +668,7 @@ async function runAnalysis(){
     _h('stopThinking')(true);
     setTimeout(()=>{_h('updateTokenBar')();_h('updateDockTokens')();},1300);
     // Extração robusta: aceita blocos markdown e repara JSON truncado.
-    // _f2Unnest (shell 97): o F2_SCHEMA agrupa os campos de topo para caber na
-    // gramática; aqui o JSON volta ao formato PLANO que normalize/render esperam.
-    // Idempotente — sem opt-in (a esmagadora maioria dos runs) o objeto passa intacto.
-    let parsed=_f2Unnest(parseAnalysisJson(finalText));
+    let parsed=parseAnalysisJson(finalText);
     if(!parsed){
       // Re-pedido SEM raciocínio estendido. Thinking ("Leve"/"Médio"+) deixa o modelo
       // conversador → ele responde em prosa ou JSON truncado. Sem thinking, com teto alto
@@ -764,33 +685,25 @@ async function runAnalysis(){
       if(_retryPrefill)retryMessages.push({role:'assistant',content:'{'});
       const retryBody={...baseBody,messages:retryMessages};
       delete retryBody.tools;delete retryBody.thinking;delete retryBody.temperature;
-      delete retryBody.output_config; // retry/resgate ficam no caminho provado (sem SO)
       // Re-desliga thinking após o delete: no Sonnet 5, OMITIR o campo = adaptive ON,
       // o que reintroduziria prosa exatamente no retry que existe para evitá-la.
       if(_noThinkModel(globalThis.currentModel))retryBody.thinking={type:'disabled'};
       retryBody.max_tokens=Math.max(retryBody.max_tokens||0,9000);
       const retryR=await streamOnce(retryBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-      if(retryR){lastOut+=retryR.outTokens||0;parsed=_f2Unnest(parseAnalysisJson((_retryPrefill?'{':'')+retryR.text));}
-      // RESGATE FINAL (shell 79→80, corrigido no 95): modelo insistiu em prosa →
-      // OPUS 4.8 monta o card. Opus é o tier ACIMA do Sonnet — o resgate nunca
-      // rebaixa a qualidade (exigência do usuário). Opus 4.8 NÃO aceita prefill
-      // (400) — o substituto oficial é structured outputs, usado aqui salvo se a
-      // gramática já tiver sido rejeitada neste run (aí vai pelo prompt-contrato).
+      if(retryR){lastOut+=retryR.outTokens||0;parsed=parseAnalysisJson((_retryPrefill?'{':'')+retryR.text);}
+      // RESGATE FINAL (shell 79→80, corrigido no 95; SO removido no 100): modelo
+      // insistiu em prosa → OPUS 4.8 monta o card. Opus é o tier ACIMA do Sonnet —
+      // o resgate nunca rebaixa a qualidade (exigência do usuário). Opus 4.8 NÃO
+      // aceita prefill (400) nem tem gramática viável neste acesso (F2_SCHEMA
+      // removido no 100) — vai pelo prompt-contrato + parseAnalysisJson, que é o
+      // caminho provado.
       if(!parsed&&!_retryPrefill){
-        const _rescueSO=!(globalThis._f2ThinkLast&&globalThis._f2ThinkLast.ok===false&&/grammar/i.test(globalThis._f2ThinkLast.msg||''));
         _h('updateThinkingToks')({status:'Montando card (resgate Opus)…',phase:2});
         const rescueBody={...baseBody,model:'claude-opus-4-8',messages:retryMessages};
         delete rescueBody.tools;delete rescueBody.thinking;delete rescueBody.temperature;
-        if(_rescueSO)rescueBody.output_config={format:{type:'json_schema',schema:F2_SCHEMA}};
-        else delete rescueBody.output_config;
         rescueBody.max_tokens=Math.max(rescueBody.max_tokens||0,9000);
-        let rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-        // auto-cura: gramática rejeitada no resgate → repete sem structured outputs
-        if(!rescueR&&_rescueSO){
-          delete rescueBody.output_config;
-          rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
-        }
-        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=_f2Unnest(parseAnalysisJson(rescueR.text));}
+        const rescueR=await streamOnce(rescueBody,reqHeaders,(upd)=>_h('updateThinkingToks')({...upd,phase:2}),state.abort.signal).catch(()=>null);
+        if(rescueR){lastOut+=rescueR.outTokens||0;parsed=parseAnalysisJson(rescueR.text);}
       }
     }
     if(!parsed){

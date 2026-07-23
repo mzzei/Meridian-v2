@@ -1959,21 +1959,10 @@ function resetAdvPassword(){
   });
 })();
 
-// ─── Thinking na Fase 2 (opt-in experimental — shell 93) ──────────────────
-// SÓ com structured outputs (F2_SCHEMA compacto); pipeline-run lê getF2Think()
-// e tem auto-cura se o acesso rejeitar a gramática. Default: DESLIGADO (inv. 23).
-function getF2Think(){try{return localStorage.getItem('meridian_f2_think')==='1';}catch{return false;}}
-function setF2Think(v){
-  try{if(v)localStorage.setItem('meridian_f2_think','1');else localStorage.removeItem('meridian_f2_think');}catch{}
-  const st=document.getElementById('f2-think-status');
-  if(st&&!(globalThis._f2ThinkLast&&globalThis._f2ThinkLast.ts))st.textContent=v?'ligado — o próximo relatório tenta thinking + JSON garantido':'desligado (padrão)';
-}
-(function initF2Think(){
-  const c=document.getElementById('f2-think-toggle');
-  if(!c)return;
-  c.checked=getF2Think();
-  c.addEventListener('change',function(){setF2Think(this.checked);});
-})();
+// ─── Thinking na Fase 2: REMOVIDO (shell 100; era opt-in dos shells 93–97) ──
+// O acesso do dono recusou todas as gramáticas ("compiled grammar is too large");
+// o recurso foi aposentado a pedido dele. Limpeza da preferência antiga:
+try{localStorage.removeItem('meridian_f2_think');}catch(e){}
 
 // ─── Data API key listeners ───────────────────────────────────────────────
 (function initDataKeys(){

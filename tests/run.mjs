@@ -595,129 +595,35 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(runSrc2.includes('Recusar de novo é falha total'), 'hard retry message');
 }
 
-// Shell 93: thinking na F2 (opt-in) — SÓ com structured outputs + auto-cura
+// Shell 100: thinking na F2 REMOVIDO (era o opt-in dos shells 93–97).
+// O acesso do dono recusou TODAS as gramáticas com 'compiled grammar is too large'
+// (ingênua, compacta, $defs, agrupada) e o recurso foi aposentado a pedido dele.
+// Estes asserts impedem reintrodução acidental — e preservam o que ficou (F1 SO,
+// fix do [object Object] no render).
 {
   const PF = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
-  assert(PF.F2_SCHEMA && PF.F2_SCHEMA.type === 'object', 'F2_SCHEMA exported');
-  // shell 97: os campos agora vivem DENTRO de grupos (cabecalho/times/mercados/...).
-  // O que precisa valer é: todo campo continua exigido em ALGUM lugar do schema —
-  // nenhum painel da UI pode ser podado para a gramática caber.
-  const _reqAll = (n) => {
-    const acc = new Set();
-    const walk = (x) => {
-      if (!x || typeof x !== 'object') return;
-      (x.required || []).forEach((k) => acc.add(k));
-      if (x.properties) Object.values(x.properties).forEach(walk);
-      if (x.$defs) Object.values(x.$defs).forEach(walk);
-      if (x.items) walk(x.items);
-    };
-    walk(n);
-    return acc;
-  };
-  const req = _reqAll(PF.F2_SCHEMA);
-  ['contexto_analise','mandante','visitante','confronto_tatico','cartoes_faltas','escanteios','sugestoes_ticket','lacunas'].forEach((k) =>
-    assert(req.has(k), 'F2_SCHEMA requires ' + k));
-  // walker: regras de structured outputs — additionalProperties:false em todo objeto; sem min/max/enum
-  {
-    let objs = 0, bad = [];
-    const walk = (n, p) => {
-      if (!n || typeof n !== 'object') return;
-      if (n.type === 'object') { objs++; if (n.additionalProperties !== false) bad.push(p + ':addProps'); }
-      ['minimum','maximum','minLength','maxLength','enum'].forEach((k) => { if (k in n) bad.push(p + ':' + k); });
-      if (n.properties) Object.entries(n.properties).forEach(([k, v]) => walk(v, p + '.' + k));
-      if (n.items) walk(n.items, p + '[]');
-      if (n.anyOf) n.anyOf.forEach((v, i) => walk(v, p + '|' + i));
-      // shell 96: os shapes compartilhados vivem em $defs — as regras de SO valem lá também
-      if (n.$defs) Object.entries(n.$defs).forEach(([k, v]) => walk(v, p + '$defs.' + k));
-    };
-    walk(PF.F2_SCHEMA, '$');
-    // shell 96: a contagem CAIU (15→13) de propósito — os shapes repetidos viraram $defs
-    // (o objetivo do fix é justamente gramática menor). O que não pode cair é a regra.
-    assert(objs >= 12 && bad.length === 0, 'F2_SCHEMA obeys SO constraints (' + objs + ' objs; bad: ' + bad.join(',') + ')');
-  }
+  for (const k of ['F2_SCHEMA', 'F2_SCHEMA_ID', '_f2Unnest', 'F2_GROUPS'])
+    assert(!(k in PF), k + ' removed from pipeline-facts exports');
+  const factsSrcR = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(factsSrcR.includes('FACTS_SCHEMA'), 'FACTS_SCHEMA (F1 structured outputs) PRESERVED — feature independente');
+  assert(!factsSrcR.includes('_soTeamF2') && !factsSrcR.includes('_soCtSide'), 'F2-only schema helpers removed');
   const runSrcT = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
-  assert(runSrcT.includes('getF2Think()') && runSrcT.includes("schema:F2_SCHEMA"), 'F2 thinking gated + SO wired');
-  // Shell 95 — contrato atual da API (verificado no doc): adaptive + effort, sem budget/sampling
-  assert(runSrcT.includes("baseBody.thinking={type:'adaptive'}"), 'F2 thinking uses adaptive (budget_tokens = 400 nos modelos atuais)');
-  // ignora comentários: o termo só pode aparecer em prosa explicativa, nunca em código enviado
   const _runCode = runSrcT
     .split(/\r?\n/)
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join('\n');
-  assert(!/budget_tokens/.test(_runCode), 'no budget_tokens in shipped code (400 nos modelos atuais)');
-  assert(runSrcT.includes("output_config={effort:'high',format:"), 'effort carries depth, not budget');
-  assert(!/baseBody\.temperature=/.test(runSrcT), 'no sampling params (rejected on Sonnet 5 / Opus 4.8)');
-  // prefill: só Haiku aceita — Opus 4.8 e Sonnet 5 devolvem 400
-  assert(runSrcT.includes("function _prefillOk(m){return /claude-haiku/.test(m||'');}"), 'prefill restricted to Haiku');
-  assert(!/rescueMessages/.test(runSrcT) && runSrcT.includes('_rescueSO'), 'rescue uses structured outputs, not prefill');
-  assert(runSrcT.includes('_think&&/grammar|output_config|format|schema|thinking|budget/i'), 'F2 thinking auto-heal');
-  assert(runSrcT.includes('delete retryBody.output_config') && runSrcT.includes('delete rescueBody.output_config'), 'retry drops SO; rescue can drop it on auto-cure');
-  assert(runSrcT.includes('_f2ThinkLast'), 'F2 thinking outcome recorded');
-  // prefill continua condicionado a thinking off/disabled (incompatível com thinking)
-  assert(runSrcT.includes("(!baseBody.thinking||baseBody.thinking.type==='disabled')"), 'prefill still gated by thinking state');
-  assert(appSrc.includes('function getF2Think') && appSrc.includes('function setF2Think'), 'F2 think toggle functions');
-  assert(indexSrc.includes('id="f2-think-toggle"') && indexSrc.includes('id="f2-think-status"'), 'F2 think toggle UI');
-
-  // ── Shell 96 — gramática deduplicada ($defs) + memo da recusa ──
-  const factsSrcG = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
-  assert(factsSrcG.includes('$defs:{evt:_soEvt(),team:_soTeamF2(),tec:_soTecF2(),ctSide:_soCtSide()}'), 'F2_SCHEMA declares $defs for repeated shapes');
-  assert(factsSrcG.includes("const _ref=n=>({$ref:'#/$defs/'+n})"), '$ref helper present');
-  // nenhum shape repetido pode continuar inline no corpo do F2_SCHEMA
-  // corpo = do início do F2_SCHEMA até a linha $defs (onde os shapes DEVEM aparecer 1×)
-  const _f2Body = factsSrcG.slice(factsSrcG.indexOf('const F2_SCHEMA='), factsSrcG.indexOf('  $defs:{'));
-  for (const [fn, n] of [['_soEvt()', 3], ['_soTeamF2()', 2], ['_soTecF2()', 2], ['_soCtSide()', 2]]) {
-    const hits = _f2Body.split(fn).length - 1;
-    assert(hits === 0, `${fn} inlined ${hits}× in F2_SCHEMA body (was ${n}× — must be $ref now)`);
-  }
-  // e o schema tem de continuar COMPLETO: podar campo esconderia painel (additionalProperties:false)
-  const factsMod = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href).catch(() => null);
-  if (factsMod && factsMod.F2_SCHEMA) {
-    const S = factsMod.F2_SCHEMA;
-    const topo = Object.keys(S.properties);
-    const G = factsMod.F2_GROUPS;
-    // shell 97: o topo agora é só os grupos — os 19 campos vivem dentro deles.
-    assert(topo.length === Object.keys(G).length, `top-level reduced to groups (${topo.length} props — era 19; o limite da gramática é por objeto)`);
-    for (const [g, ks] of Object.entries(G)) {
-      assert(topo.includes(g), `group "${g}" at top level`);
-      const sub = S.properties[g];
-      for (const k of ks) assert(k in sub.properties, `field "${k}" preserved inside "${g}" (no panel may be pruned)`);
-      assert(sub.required.length === Object.keys(sub.properties).length, `group "${g}" requires all its fields`);
-    }
-    // nenhum campo pode ter sumido na reorganização
-    const _flat = Object.values(G).flat();
-    for (const k of ['confronto_tatico', 'cartoes_faltas', 'escanteios', 'sugestoes_ticket', 'eventos_provaveis', 'lambda', 'mandante', 'visitante', 'lacunas', 'contexto_analise', 'partida', 'tendencias', 'fatores_decisivos', 'incerteza'])
-      assert(_flat.includes(k), `F2_SCHEMA keeps "${k}" (no panel may be pruned)`);
-    assert(S.required.length === topo.length, 'F2_SCHEMA requires every top-level group');
-    assert(S.$defs && Object.keys(S.$defs).length === 4, 'F2_SCHEMA exposes the 4 shared defs');
-    assert(S.properties.times.properties.mandante.$ref === '#/$defs/team', 'mandante is a $ref');
-    // maior objeto do schema — a métrica que o fix do 97 ataca
-    {
-      let worst = 0;
-      const walk = (n) => {
-        if (!n || typeof n !== 'object') return;
-        if (n.properties) { worst = Math.max(worst, Object.keys(n.properties).length); Object.values(n.properties).forEach(walk); }
-        if (n.$defs) Object.values(n.$defs).forEach(walk);
-        if (n.items) walk(n.items);
-      };
-      walk(S);
-      assert(worst <= 9, `largest object has ${worst} props (era 19 no topo; teto do 97 = 9)`);
-    }
-    // _f2Unnest: agrupado → plano, e idempotente no caminho sem opt-in
-    const nested = { cabecalho: { partida: 'A × B', contexto_analise: 'previa' }, times: { mandante: { nome: 'A' } }, secoes: { escanteios: { analise: 'x' } } };
-    const flat = factsMod._f2Unnest(nested);
-    assert(flat.partida === 'A × B' && flat.mandante.nome === 'A' && flat.escanteios.analise === 'x', '_f2Unnest flattens groups');
-    assert(!('cabecalho' in flat) && !('times' in flat), '_f2Unnest removes group wrappers');
-    const already = { partida: 'X', mandante: { nome: 'M' } };
-    assert(factsMod._f2Unnest(already) === already, '_f2Unnest is a no-op on flat JSON (caminho sem opt-in intacto)');
-    assert(factsMod._f2Unnest(null) === null && factsMod._f2Unnest(undefined) === undefined, '_f2Unnest tolerates parse failure');
-    // campo do topo vence o do grupo (nunca sobrescreve o que o modelo já pôs certo)
-    assert(factsMod._f2Unnest({ partida: 'TOPO', cabecalho: { partida: 'GRUPO' } }).partida === 'TOPO', '_f2Unnest never overwrites a top-level field');
-    assert(typeof factsMod.F2_SCHEMA_ID === 'string' && factsMod.F2_SCHEMA_ID.length > 0, 'F2_SCHEMA_ID present (memo key)');
-  }
-  // memo: só "grammar" é permanente; qualquer 400 é transitório e NÃO desliga o recurso
-  assert(runSrcT.includes('if(/grammar/i.test(e2.message||""))_f2MarkGrammarBlocked();'.replace(/"/g, "'")), 'only grammar errors are memoized');
-  assert(runSrcT.includes('_f2GrammarBlocked()') && runSrcT.includes('F2_SCHEMA_ID'), 'grammar memo keyed by schema id (new grammar retries itself)');
-  assert(runSrcT.includes('try{localStorage.setItem(_F2_GK,F2_SCHEMA_ID);}catch{}'), 'memo tolerates blocked localStorage');
+  assert(!/getF2Think|_f2Think|_f2Grammar|F2_SCHEMA|_f2Unnest|output_config/.test(_runCode), 'no F2 thinking/SO code paths in pipeline-run (comments allowed)');
+  assert(!_runCode.includes("thinking={type:'adaptive'}"), 'no adaptive thinking sent in F2');
+  assert(_runCode.includes("baseBody.thinking={type:'disabled'}"), 'Sonnet 5 still gets explicit disabled (caminho provado)');
+  assert(_runCode.includes("localStorage.removeItem('meridian_f2_grammar_blocked')"), 'stale grammar memo cleaned on boot');
+  const appSrcR = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert(!appSrcR.includes('function getF2Think') && !appSrcR.includes('function setF2Think'), 'toggle functions removed from app.js');
+  assert(appSrcR.includes("localStorage.removeItem('meridian_f2_think')"), 'stale toggle preference cleaned on boot');
+  const indexSrcR = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert(!indexSrcR.includes('f2-think-toggle') && !indexSrcR.includes('f2-think-status'), 'toggle UI removed from index.html');
+  // resgate continua Opus 4.8 SEM prefill e SEM SO (prompt-contrato puro)
+  assert(_runCode.includes("model:'claude-opus-4-8',messages:retryMessages"), 'rescue still Opus 4.8 (never downgrade)');
+  assert(!/rescueBody.output_config=/.test(_runCode), 'rescue has no structured outputs');
 
   // ── Shell 96 — "★ [object Object]" no card (print real do usuário) ──
   // jogadores_chave chega como STRING (contrato F2) ou OBJETO (contrato F1, com

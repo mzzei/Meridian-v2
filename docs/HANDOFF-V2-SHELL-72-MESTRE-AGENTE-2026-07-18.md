@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 99)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 100)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 99**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 100**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -645,7 +645,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 20. Fim de sessão: handoff + commit + push (`AGENTS.md`).  
 21. Worker `/v1` não repassa Origin/Referer para Anthropic.  
 22. Thinking no stream: **sempre** reenviar `signature` com o bloco thinking (se thinking existir).  
-23. Profundidade da análise padrão = `modelProfile().searches` + capacidade do modelo; **budget thinking = 0 POR PADRÃO** (opt-in experimental do shell 93 é a única exceção — e só com structured outputs, ver inv. 36).  
+23. Profundidade da análise padrão = `modelProfile().searches` + capacidade do modelo; **budget thinking = 0 SEMPRE na F2** — o opt-in experimental dos shells 93–97 foi **REMOVIDO no shell 100** (ver inv. 36).  
 24. Fase 1 / portões / verify continuam em Haiku (barato), independente do modelo da Fase 2.  
 25. Default modelo: `claude-sonnet-5`.  
 26. Sonnet 5: se thinking off, enviar `{type:'disabled'}` — omitir liga adaptive thinking.  
@@ -658,7 +658,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 33. **Todo parse de JSON vindo de LLM usa `parseAnalysisJson`** (fences + `repairJson`) — nunca `txt.match(/\{…\}/)` + `JSON.parse` seco (assert proíbe). `stop_reason:'max_tokens'` na F1 é terminal com salvage, não `break`. Retry de forma da F1 = `_p1JsonRescue` (Haiku + prefill `{`, sem tools) — shell 84.  
 34. **Escalação = proveniência HONESTA (shell 87)**: precedência AF(api) > ESPN starters(api) > rawFacts(pesquisa) > F2(modelo) > geometria(inferida) > empty. Chip de formação só com fonte confiável — nunca rotular "4-2-3-1" de modelo/inferida como oficial; nunca **espelhar** a mesma formação nos dois times sem lastro próprio. Elenco confirmado de dia de jogo (`applyConfirmedLineups`/`refreshAnalysisLineups`) é **determinístico** — ZERO chamada Anthropic no enrich/poll. `live.js` nunca inventa `4-3-3` (mostra `n/d`).  
 35. **Teste anti-regressão precisa de META-ASSERT (shell 89)**: todo smoke test que varre o código (ex.: "toda `_h('x')` existe") deve (a) **excluir o arquivo escaneado** da busca — senão o próprio call site "prova" a definição — e (b) trazer um assert que **prova que o teste reprova** um caso inexistente. Sem isso o teste é no-op e dá falsa segurança (a 1ª versão do teste do shell 88 teria passado com `chatCardFrom` removido). No chat: JSON nunca vai cru para a bolha (extrai texto ou pede reformulação), e o gate de suposição (inv. 18) roda no caminho de **prosa** com critério estrito — só confronto/placar explícito abre popup.  
-36. **Thinking na F2 SÓ com structured outputs** (`F2_SCHEMA` — desde o shell 96 com `$defs`/`$ref` nos shapes repetidos, porque a gramática compila o schema EXPANDIDO; **nunca podar campo para caber**: com `additionalProperties:false` o modelo ficaria proibido de emitir a seção e a aba sumiria da UI. Recusa de gramática é memoizada por `F2_SCHEMA_ID` — não se retenta a cada análise, e schema novo se retesta sozinho) e SÓ via opt-in `getF2Think()` — NUNCA thinking com JSON por prompt-contrato (desastre do shell 70/71). Auto-cura obrigatória no mesmo run; o **retry** sempre stripa `output_config`; prefill nunca coexiste com thinking (shell 93). **Forma vigente (shell 95, verificada no doc da API):** `thinking:{type:'adaptive'}` — `{type:'enabled',budget_tokens:N}` é **400** nos modelos atuais — profundidade via `output_config.effort`, e **sampling params (temperature/top_p/top_k) são rejeitados** no mesmo caminho, logo `delete baseBody.temperature`. O **resgate** usa `output_config.format` (SO) no lugar do prefill, e só o remove se o 400 anterior tiver sido de gramática.  
+36. **Thinking na Fase 2 NÃO EXISTE (removido no shell 100 a pedido do dono)** — era o opt-in dos shells 93–97 e exigia JSON por gramática (structured outputs). O acesso do dono recusou TODAS as gramáticas com "The compiled grammar is too large": schema ingênuo (93), compacto (93), $defs/$ref (96) e agrupado com topo de 5 props (97). **NÃO REINTRODUZIR** sem a API elevar o limite de gramática; thinking sem gramática na F2 é proibido para sempre (desastre de prosa dos shells 70/71). A F2 roda no caminho provado: `thinking:{type:'disabled'}` explícito no Sonnet 5, prompt-contrato + `parseAnalysisJson`, prefill `{` só onde o modelo aceita (inv. 30) e resgate Opus 4.8 sem prefill e sem SO. `FACTS_SCHEMA` da **Fase 1** é feature independente e CONTINUA em uso. Preferência/memo antigos (`meridian_f2_think`, `meridian_f2_grammar_blocked`) são limpos no boot.  
 
 ---
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **99** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **100** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 99 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 100 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 99)
+## Estado atual (revisão 2026-07-22 · shell 100)
 
 | Shell | Entrega |
 |-------|---------|
@@ -725,19 +725,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **98** | **MODO DEMO para calls de handover** (`?demo=1`): novo classic `js/demo.js` (17º — CLASSIC do main.js + precache do sw.js). Intercepta `window.fetch` SÓ para `/v1/messages` e responde com fixtures locais — F1 devolve rawFacts completos (XI 11+banco+técnico dos dois lados, jogadores_chave com stats), F2 devolve o JSON PLANO das 7 abas, chat devolve prosa curta — com **streaming simulado** (ReadableStream + delays ~5s) para o contador de tokens e as fases andarem como ao vivo. Todo o resto do app roda REAL (agenda ESPN, render, Poisson, export). **Zero consumo de API e zero chave**: preenche o input com chave ilustrativa (SEM gravar no sessionStorage) e, mesmo com chave real no navegador, nenhuma chamada sai com `?demo=1`. Badge fixo "🎬 MODO DEMO" (**shell 99**: centralizado no TOPO da página — antes inferior esquerdo; pedido do dono). Prefill do input usa prefixo `PARTIDA:` de propósito — o jogo da demo é fictício e sem o prefixo o gate de contexto (shell 75) abriria popup no meio da call (comportamento correto do produto, verificado ao vivo). Fixtures se declaram demo nas lacunas. Sem o parâmetro, o arquivo é no-op (guard na 1ª linha). Validado e2e no preview: análise → card 7 abas (Escalação com XI "pesquisa", Poisson calculado do lambda) → pergunta de chat → prosa demo; `read_network_requests` = ZERO chamadas a /v1/messages. Nota: o card da demo é salvo na biblioteca como card normal (apagável). Console agora loga `classic: 17` |
 
+| **100** | **Thinking na F2 REMOVIDO (a pedido do dono)** — o opt-in dos shells 93–97 custou 4 shells e o acesso recusou TODAS as gramáticas ("compiled grammar is too large"): ingênua, compacta, $defs (96) e agrupada (97). Excisão completa: toggle da UI (`#f2-think-toggle`/`#f2-think-status`), `getF2Think`/`setF2Think` (app.js), branch `_think` + auto-cura + memo de gramática (pipeline-run), `F2_SCHEMA`/`F2_SCHEMA_ID`/`F2_GROUPS`/`_f2Unnest` + helpers `_soEvt`/`_soTeamF2`/`_soTecF2`/`_soCtSide` (pipeline-facts). O resgate Opus 4.8 voltou ao prompt-contrato puro (sem SO). `FACTS_SCHEMA` da F1 preservado (feature independente). Boot limpa `meridian_f2_think` e `meridian_f2_grammar_blocked`. Asserts anti-reintrodução substituem os dos shells 93–97 (o fix do [object Object] no render fica). Invariantes 23 e 36 reescritos. Validado no preview: boot sem erro, toggle ausente, localStorage limpo, F2 stub = `thinking:disabled` + sem `output_config` + max_tokens 9000 → card renderiza |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 99)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 100)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 99).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 100).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 99)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 100)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
@@ -785,11 +787,11 @@ Quero que você: [OBJETIVO AQUI]
 | 12 | UI para trocar a senha avançada | **FEITO** shell 92 (override `meridian_adv_hash` no localStorage; hash público exibido p/ fixar no código) |
 | 13 | Rate-limit no Worker | **FEITO** 92·worker (binding nativo; validado em produção 30×200→429) |
 | 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto |
-| 15 | Thinking na F2 com structured outputs | **FEITO** shell 93 (opt-in + F2_SCHEMA compacto + auto-cura) → **contrato corrigido no shell 95** (adaptive + effort; ver linha 95 da timeline). Reteste ao vivo = 1º run real com o toggle ligado — resultado em `_f2ThinkLast`/`#f2-think-status` |
+| 15 | Thinking na F2 com structured outputs | shells 93–97 → **REMOVIDO no shell 100** a pedido do dono (todas as gramáticas recusadas; ver inv. 36) |
 | 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local (na data; o HEAD agora é 95 — reconferir após o push). Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
 | 17 | Freeze ao trocar liga das estatísticas durante a análise | **FEITO** shell 94 (`fromSelector` em `setStatsComp`) |
 | 18 | Contrato da API (adaptive thinking + prefill só Haiku) | **FEITO** shell 95 — inv. 30 e 36 reescritos; 3 caminhos validados no preview (stub) |
-| 19 | "compiled grammar is too large" no F2_SCHEMA | shell 96 ($defs) **RECUSADO de novo** → shell 97 (agrupamento: topo 19→5 props + _f2Unnest). **Reteste ao vivo pendente**: rode uma análise com o toggle ligado — se ✓, thinking+SO passam a valer; se recusar de novo, o memo desliga sozinho e o card continua saindo |
+| 19 | "compiled grammar is too large" no F2_SCHEMA | encerrado: recurso **REMOVIDO no shell 100** (96=$defs e 97=agrupamento também recusados) |
 | 20 | `★ [object Object]` na aba Desempenho | **FEITO** shell 96 (`_listLabel` em jogadores_chave/desfalques) |
 | 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
 
