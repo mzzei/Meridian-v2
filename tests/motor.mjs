@@ -7,9 +7,22 @@
  * sem quebrar. Se este teste passa, o pacote é integrável fora do app.
  */
 import { createEngine } from '../motor/engine.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 let failed = 0;
 const assert = (c, m) => { if (!c) { console.error('FAIL', m); failed++; } else console.log('PASS', m); };
+
+// ── Manifesto do pacote: todo arquivo listado precisa existir ──
+{
+  const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const manifest = fs.readFileSync(path.join(ROOT, 'motor/MANIFEST.txt'), 'utf8')
+    .split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const missing = manifest.filter((rel) => !fs.existsSync(path.join(ROOT, rel)));
+  assert(manifest.length >= 20 && missing.length === 0,
+    `package manifest complete (${manifest.length} files${missing.length ? '; MISSING: ' + missing.join(', ') : ''})`);
+}
 
 const F1 = JSON.stringify({
   mandante: { nome: 'Flamengo', tecnico: 'Filipe Luís', xg_marcado: 1.7, xg_sofrido: 1.0, resultados_recentes: ['V 2x0 Fluminense'], jogadores_chave: [{ nome: 'Pedro', posicao: 'ATA', gols: 12, cartoes_amarelos: 2, finalizacoes_no_gol_por_jogo: 1.5, faltas_cometidas_por_jogo: 0.8, rating_medio: 7.5 }], onze_provavel: Array.from({ length: 11 }, (_, i) => ({ nome: 'J' + i, posicao: 'P' })), banco: ['B1'], formacao: '4-2-3-1', escanteios_por_jogo: 6.1, escanteios_sofridos_por_jogo: 3.9 },

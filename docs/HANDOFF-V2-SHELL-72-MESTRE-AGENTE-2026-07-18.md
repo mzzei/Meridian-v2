@@ -800,7 +800,7 @@ Quero que você: [OBJETIVO AQUI]
 | 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
 | 22 | Lacunas da auditoria (escanteios/xG/placar exato/faltas) | **FEITO** shell 101 (coleta + gap pass + paridade template↔schema) |
 | 23 | Substituir Meridian v1 pelo v2 (pós-Copa) | **DECIDIDO 2026-07-23**: privar o repo do v1 no GitHub (desliga o Pages — sem redirect, link antigo vira 404) e deixar o worker `meridian-proxy` de pé por ora. Pendência de zelo SEM prazo: o worker v1 não tem trava de Origin e carrega secrets AF/FD (mesmas chaves do v2 → cota compartilhada) — quando o dono quiser, `npx wrangler delete meridian-proxy` ou `wrangler secret delete AF_KEY/FD_KEY --name meridian-proxy` (login dele; NUNCA por sessão do agente). v2 intocado |
-| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO** 102·motor (`motor/engine.mjs` + `motor/SKILL.md` + `tests/motor.mjs`). Aberto: recorte comercial do handoff p/ comprador |
+| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO** 102·motor + recorte comercial: `motor/HANDOFF-ENGENHARIA.md` (decisões + 9 regras de manutenção, sem histórico interno/segredos) e `motor/MANIFEST.txt` (24 arquivos, validado pelo tests/motor.mjs) |
 
 ---
 
