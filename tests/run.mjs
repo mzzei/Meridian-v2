@@ -881,6 +881,48 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   }
 }
 
+// Shell 108: auditoria Botafogo × Vitória — xG estimado fora do campo + confiança calibrada
+{
+  const pr8 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  // (1) campo numérico de xG = SÓ medição (estimativa vive no lambda/*_logic)
+  assert(pr8.split('Campo numérico (xg_marcado/xg_sofrido) é SÓ para valor MEDIDO de fonte').length - 1 === 2, 'measured-only xG rule in both F2 prompts');
+  assert(!/Pode repetir a estimativa no campo/.test(pr8), 'old repeat-estimate-in-field wording removed');
+  // (2) teto de confiança nos DOIS prompts
+  assert(pr8.split('TETO DE CONFIANÇA (obrigatório)').length - 1 === 2, 'confidence-cap rule in both F2 prompts');
+
+  // (3) calibração por CÓDIGO
+  const N8 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  const raw = {
+    mandante: { nome: 'Botafogo', jogadores_chave: [{ nome: 'Igor Jesus', gols: 7, cartoes_amarelos: 2 }] },
+    visitante: { nome: 'Vitória', jogadores_chave: [{ nome: 'Lucas Arcanjo', posicao: 'GOL', observacao: 'boa fase' }], onze_provavel: [{ nome: 'Lucas Arcanjo', posicao: 'GOL' }] },
+  };
+  const mk = () => ({
+    contexto_analise: 'previa', confianca_geral: 'medio',
+    mandante: { nome: 'Botafogo' }, visitante: { nome: 'Vitória' },
+    sugestoes_ticket: [
+      { descricao: 'Dupla chance mandante', probabilidade: 0.75, fundamento: 'f', confianca: 'alta' },
+      { descricao: 'Mais de 8.5 escanteios', probabilidade: 0.55, fundamento: 'f', confianca: 'alta' },
+      { descricao: 'Mais de 3.5 cartões', probabilidade: 0.62, fundamento: 'f', confianca: 'media' },
+      { descricao: 'Lucas Arcanjo faz 3+ defesas', probabilidade: 0.5, fundamento: 'f', confianca: 'media' },
+      { descricao: 'Igor Jesus marca', probabilidade: 0.45, fundamento: 'f', confianca: 'media' },
+    ],
+  });
+  const p = mk(); N8.attachAnalysisDerived(p, raw);
+  const tk = p.sugestoes_ticket;
+  assert(tk[0].confianca === 'media' && /teto = confianca_geral/.test(tk[0].fundamento), 'alta capped to geral=medio (audited contradiction)');
+  assert(tk[1].confianca === 'media' && /escanteios sem dados/.test(tk[1].fundamento), 'escanteios market without data capped + reason');
+  assert(tk[2].confianca === 'media', 'cartões already media: geral cap keeps media');
+  assert(tk[3].confianca === 'media' || tk[3].confianca === 'baixa' ? tk[3].confianca === 'media' : false, 'player-without-stats market: media is the floor cap here (geral=medio)');
+  assert(tk[4].confianca === 'media' && !/rebaixada/.test(tk[4].fundamento), 'player WITH stats + within cap → untouched');
+  // com dados coletados E geral alto, nada é rebaixado (não pune análise bem lastreada)
+  const raw2 = { mandante: { nome: 'A', escanteios_por_jogo: 5.5, jogadores_chave: [{ nome: 'Fulano', cartoes_amarelos: 3 }] }, visitante: { nome: 'B' } };
+  const p2 = mk(); p2.confianca_geral = 'alto'; p2.sugestoes_ticket = [{ descricao: 'Mais de 8.5 escanteios', probabilidade: 0.6, fundamento: 'f', confianca: 'alta' }];
+  N8.attachAnalysisDerived(p2, raw2);
+  assert(p2.sugestoes_ticket[0].confianca === 'alta', 'well-grounded market with geral=alto keeps alta');
+  // meta-assert: sem a calibração, o caso auditado ficaria 'alta' com geral 'medio'
+  assert(mk().sugestoes_ticket[0].confianca === 'alta' && mk().confianca_geral === 'medio', 'meta: audited contradiction is real in input');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

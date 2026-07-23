@@ -256,13 +256,74 @@ function _fixDoubleChanceCoherence(parsed) {
   } catch {}
 }
 
+// ── Calibração de confiança por CÓDIGO (shell 108) ─────────────────────────
+// Auditoria real (Botafogo × Vitória): tickets "alta" com confianca_geral
+// "medio", e "alta"/"media" em escanteios/cartões cuja coleta explicitamente
+// NÃO trouxe dados (só proxies). Regras deterministas:
+// 1. Teto: confiança de ticket ≤ confianca_geral (alto→alta, medio→media,
+//    baixo→baixa). Rebaixamento é anotado no fundamento.
+// 2. Mercado sem dado coletado nunca fica acima de "media"; se o TETO geral já
+//    for menor, vale o menor. Detecção pelo rawFacts: escanteios sem médias
+//    plausíveis, cartões sem stats disciplinares, jogador citado sem números.
+const _CONF_RANK = { baixa: 0, media: 1, alta: 2 };
+const _GERAL_CAP = { baixo: 'baixa', medio: 'media', alto: 'alta' };
+function _calibrateConfidence(parsed, rawFacts) {
+  try {
+    const tickets = Array.isArray(parsed.sugestoes_ticket) ? parsed.sugestoes_ticket : [];
+    if (!tickets.length) return;
+    const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const geralCap = _GERAL_CAP[norm(parsed.confianca_geral)] || 'alta';
+    const plaus = (v, lo, hi) => v != null && v !== '' && isFinite(Number(v)) && Number(v) >= lo && Number(v) <= hi;
+    const sides = [rawFacts && rawFacts.mandante, rawFacts && rawFacts.visitante].filter(Boolean);
+    const temEscanteios = sides.some((t) => plaus(t.escanteios_por_jogo, 1, 9.9) || plaus(t.escanteios_sofridos_por_jogo, 1, 9.9));
+    const temDisciplina = sides.some((t) => (Array.isArray(t.jogadores_chave) ? t.jogadores_chave : []).some((p) => p && typeof p === 'object' && (p.cartoes_amarelos != null || p.faltas_cometidas_por_jogo != null)));
+    // jogadores com stats numéricos coletados (qualquer campo além de nome/posição)
+    const comStats = new Set();
+    sides.forEach((t) => (Array.isArray(t.jogadores_chave) ? t.jogadores_chave : []).forEach((p) => {
+      if (p && typeof p === 'object' && p.nome && Object.keys(p).some((k) => k !== 'nome' && k !== 'posicao' && k !== 'observacao' && p[k] != null && p[k] !== '')) comStats.add(norm(p.nome));
+    }));
+    const semStatsCitado = (txt) => {
+      // nome próprio no texto do ticket que NÃO está no conjunto com stats
+      for (const t of sides)
+        for (const arr of [t.onze_provavel, t.jogadores_chave])
+          for (const p of Array.isArray(arr) ? arr : []) {
+            const nm = norm(typeof p === 'string' ? p : p && p.nome);
+            if (nm && nm.length > 3 && txt.includes(nm) && !comStats.has(nm)) return true;
+          }
+      return false;
+    };
+    for (const tk of tickets) {
+      if (!tk || typeof tk !== 'object') continue;
+      const cur = norm(tk.confianca);
+      if (!(cur in _CONF_RANK)) continue;
+      const txt = norm(tk.descricao || '');
+      let cap = geralCap, motivo = `teto = confianca_geral "${norm(parsed.confianca_geral)}"`;
+      // motivo de MERCADO vence o genérico quando os tetos empatam (mais informativo);
+      // se o teto geral já é mais estrito (baixa), ele permanece — nunca sobe
+      const capMkt = (cond, label) => {
+        if (!cond) return;
+        if (_CONF_RANK[cap] > _CONF_RANK.media) cap = 'media';
+        if (_CONF_RANK[cap] >= _CONF_RANK.media) motivo = label;
+      };
+      capMkt(/escanteio|cantos/.test(txt) && !temEscanteios, 'escanteios sem dados coletados (proxies)');
+      capMkt(/cart[a]o|cart[o]es|amarelo/.test(txt) && !temDisciplina, 'cartões sem stats disciplinares coletados');
+      capMkt(semStatsCitado(txt), 'jogador citado sem números individuais coletados');
+      if (_CONF_RANK[cur] > _CONF_RANK[cap]) {
+        tk.confianca = cap;
+        tk.fundamento = String(tk.fundamento || '').trim() + ` [confiança rebaixada por código: ${motivo}]`;
+      }
+    }
+  } catch {}
+}
+
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
-  // ordem (shell 105): saneia xG=0 → recalcula mercados de gols pelos lambdas →
-  // reconcilia dupla chance (que pode depender de valores já recalculados)
+  // ordem (shell 105/108): saneia xG=0 → recalcula mercados de gols pelos lambdas
+  // → reconcilia dupla chance → calibra confiança (usa rawFacts como lastro)
   _sanitizeAnalysisTeamXg(parsed);
   _poissonReconcileGoalMarkets(parsed);
   _fixDoubleChanceCoherence(parsed);
+  _calibrateConfidence(parsed, rawFacts);
   // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
   // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).
   try {
