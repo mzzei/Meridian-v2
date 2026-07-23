@@ -35,10 +35,9 @@ query ancorada ("PARTIDA: A x B")
        · lacunas DECLARADAS no resultado — o motor diz o que não sabe
 ```
 
-Decisões já testadas e descartadas (não reabrir sem novo fato): thinking na Fase 2
-(gramática de structured outputs excede o limite da API em todas as variantes),
-prefill em modelos novos (400), schema completo da análise como gramática.
-Histórico completo: handoff mestre, invariantes 23/30/36.
+Limitações conhecidas da API (não re-tentar): extended thinking na Fase 2 exige
+gramática de structured outputs, e a gramática do relatório excede o limite de
+compilação da API; prefill de assistant devolve 400 nos modelos novos.
 
 ## INPUT — contrato de entrada
 
@@ -98,11 +97,11 @@ const { analysis, rawFacts, usage } =
 - `js/data/` — fontes, cascata, memória de fatos, cobertura, telemetria
 - `js/lib/intent.js`, `js/comp/competitions.js`, `js/state.js`, `js/expose.js`, `js/runtime.js`
 - `tests/motor.mjs` — prova de integração headless (`node tests/motor.mjs`)
-- Handoff de engenharia (decisões + histórico) — entregue na transição
+- `motor/HANDOFF-ENGENHARIA.md` — arquitetura e regras de funcionamento
 
 ## Handover técnico (roteiro da sessão de integração)
 
 1. `node tests/motor.mjs` na máquina do integrador → `MOTOR ALL PASSED` (sem chave, tudo stub).
 2. Rodar `analyzeMatch` com a chave real dele num jogo da rodada → inspecionar `analysis.lacunas` e `_lineupsFonte` juntos.
 3. Percorrer este SKILL.md seção por seção com o time dele.
-4. Entregar o handoff de engenharia e apontar os invariantes que não devem ser violados (thinking na F2, prefill, parse sempre via `parseAnalysisJson`).
+4. Percorrer o `HANDOFF-ENGENHARIA.md` — em especial a seção 3 (regras de funcionamento).

@@ -57,7 +57,7 @@ sobre os lambdas) — o modelo estima parâmetros, não porcentagens.
 global — o motor nunca vende estimativa como confirmação. Lacunas são declaradas
 no próprio resultado.
 
-## 3. Regras de manutenção (violá-las custa caro — todas têm cicatriz)
+## 3. Regras de funcionamento (não violar na manutenção)
 
 1. **Todo parse de saída de LLM passa por `parseAnalysisJson`.** Nunca
    `JSON.parse` seco nem regex de chaves — truncamento no teto de tokens é
@@ -66,15 +66,14 @@ no próprio resultado.
    famílias Sonnet/Opus rejeitam com 400. O motor tem auto-cura para modelos
    futuros, mas não reintroduza prefill como técnica principal.
 3. **Extended thinking na Fase 2 é proibido sem structured outputs — e a
-   gramática do relatório completo excede o limite de compilação da API.**
-   Foram testadas quatro variantes de schema (ingênuo, compacto, `$defs`,
-   agrupado com topo de 5 propriedades); todas recusadas com
-   "compiled grammar is too large". Não re-tente sem a API elevar o limite.
-   Thinking sem gramática produz prosa no lugar do JSON e derruba o relatório.
+   gramática do relatório completo excede o limite de compilação da API**
+   ("compiled grammar is too large"), mesmo em formas deduplicadas/agrupadas.
+   Não re-tente sem a API elevar o limite. Thinking sem gramática produz prosa
+   no lugar do JSON e derruba o relatório.
 4. **Structured outputs usa `additionalProperties:false` — logo, NUNCA pode um
    campo existir no contrato textual e faltar no schema** (o modelo fica
-   proibido de emiti-lo e o dado "some" silenciosamente). Há teste de paridade
-   template↔schema em `tests/` cobrindo isso; mantenha-o ao evoluir o schema.
+   proibido de emiti-lo e o dado "some" silenciosamente). Ao evoluir a coleta,
+   altere SEMPRE os dois juntos (template textual + schema).
 5. **`budget_tokens` e sampling params (`temperature` etc.) devolvem 400 nos
    modelos atuais** quando combinados com os recursos novos. Sonnet 5 exige
    `thinking:{type:'disabled'}` explícito quando não se quer thinking.
