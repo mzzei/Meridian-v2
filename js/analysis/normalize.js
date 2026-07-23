@@ -316,14 +316,76 @@ function _calibrateConfidence(parsed, rawFacts) {
   } catch {}
 }
 
+// ── PRÉVIA sem "jogo encerrado" no contexto (shell 109) ─────────────────────
+// Auditoria real (Corinthians × Remo): contexto_fase trazia "jogo encerrado no
+// intervalo com Corinthians 3-0" num card de PRÉVIA (retrospecto do 1º turno
+// contaminando a categorização do documento). Regra por código: em prévia,
+// sentença que AFIRMA o jogo analisado como ocorrido é removida do contexto e o
+// evento vira lacuna declarada (a informação não some — muda de lugar e ganha
+// rótulo honesto). Sentença de retrospecto rotulada ("no 1º turno…") sobrevive.
+const _FINISHED_RE = /(jogo|partida)\s+(encerrad|finalizad|terminad)|encerrad[oa]\s+no\s+intervalo|placar\s+final|termin(ou|ada)\s+\d+\s*[x×-]\s*\d+/i;
+function _sanitizePreviaContext(parsed) {
+  try {
+    if (parsed.contexto_analise !== 'previa') return;
+    for (const f of ['contexto_fase', 'fase']) {
+      const v = String(parsed[f] || '');
+      if (!v || !_FINISHED_RE.test(v)) continue;
+      const kept = v.split(/(?<=[.;!?])\s+/).filter((sent) => !_FINISHED_RE.test(sent));
+      parsed[f] = kept.join(' ').trim();
+      if (!Array.isArray(parsed.lacunas)) parsed.lacunas = [];
+      parsed.lacunas.push(`Linha afirmando jogo já encerrado foi removida de "${f}" por conflitar com o status de PRÉVIA (provável contaminação de retrospecto na coleta) — confirme o status real da partida.`);
+    }
+  } catch {}
+}
+
+// ── Desfalque × onze provável: conflito RESOLVIDO por código (shell 109) ────
+// Auditoria real: Marcelo Rangel simultaneamente em desfalques ("departamento
+// médico, status a confirmar") e no onze_provavel — (B) admitia a contradição
+// mas não resolvia. Regra determinística:
+// - desfalque FIRME (suspenso/lesionado/cirurgia/fora da temporada) → sai do
+//   onze (vira "A confirmar"), permanece em desfalques;
+// - desfalque INCERTO (dúvida/a confirmar/departamento médico/transição) →
+//   permanece no onze, SAI de desfalques e vira item de "incerteza" (impacto
+//   alto) — um jogador não pode estar nas duas listas ao mesmo tempo.
+const _FIRM_OUT_RE = /suspens|lesionad|les[aã]o\b|cirurgia|rompiment|fratur|fora da temporada|cortad/i;
+function _reconcileDesfalquesOnze(parsed) {
+  try {
+    const key = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)/g, '').trim();
+    for (const side of ['mandante', 'visitante']) {
+      const team = parsed[side];
+      const lu = parsed._lineups && parsed._lineups[side];
+      if (!team || !Array.isArray(team.desfalques) || !lu || !Array.isArray(lu.onze)) continue;
+      const kept = [];
+      for (const d of team.desfalques) {
+        const dTxt = typeof d === 'string' ? d : (d && d.nome) || '';
+        const dKey = key(dTxt);
+        if (!dKey) { kept.push(d); continue; }
+        const hit = lu.onze.find((p) => p && p.nome && (key(p.nome) === dKey || dKey.startsWith(key(p.nome)) || key(p.nome).startsWith(dKey)));
+        if (!hit) { kept.push(d); continue; }
+        const firm = _FIRM_OUT_RE.test(String(dTxt) + ' ' + String((d && d.motivo) || ''));
+        if (firm) {
+          hit.nome = `A confirmar (era ${hit.nome} — listado como desfalque)`;
+          kept.push(d);
+        } else {
+          if (!Array.isArray(parsed.incerteza)) parsed.incerteza = [];
+          parsed.incerteza.push({ fator: `${dTxt}: constava como desfalque E no onze provável — mantido no onze por o desfalque ser incerto; status a confirmar`, impacto: 'alto' });
+        }
+      }
+      team.desfalques = kept;
+    }
+  } catch {}
+}
+
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
-  // ordem (shell 105/108): saneia xG=0 → recalcula mercados de gols pelos lambdas
-  // → reconcilia dupla chance → calibra confiança (usa rawFacts como lastro)
+  // ordem (shell 105/108/109): saneia xG=0 → recalcula mercados de gols pelos
+  // lambdas → reconcilia dupla chance → calibra confiança → limpa contexto de
+  // prévia (desfalque×onze roda DEPOIS dos lineups, no fim desta função)
   _sanitizeAnalysisTeamXg(parsed);
   _poissonReconcileGoalMarkets(parsed);
   _fixDoubleChanceCoherence(parsed);
   _calibrateConfidence(parsed, rawFacts);
+  _sanitizePreviaContext(parsed);
   // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
   // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).
   try {
@@ -432,6 +494,9 @@ function attachAnalysisDerived(parsed, rawFacts) {
       }
     }
   } catch (_) {}
+
+  // shell 109: depende de _lineups já montado — resolve desfalque × onze
+  _reconcileDesfalquesOnze(parsed);
 
   // Schema marcado aqui; pads ficam para finalizeAnalysisPads (após auditoria)
   parsed._schema = ANALYSIS_SCHEMA;

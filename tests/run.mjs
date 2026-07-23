@@ -923,6 +923,56 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(mk().sugestoes_ticket[0].confianca === 'alta' && mk().confianca_geral === 'medio', 'meta: audited contradiction is real in input');
 }
 
+// Shell 109: auditoria Corinthians × Remo — contexto de prévia limpo + desfalque×onze resolvido + auditor recomputa
+{
+  const N9 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  // (1) prévia com "jogo encerrado 3-0" no contexto → sentença removida + lacuna
+  const p1 = {
+    contexto_analise: 'previa',
+    contexto_fase: 'Encerramento do 1º turno; confronto direto. Jogo encerrado no intervalo com Corinthians 3-0. Ambos vêm da pausa.',
+    lacunas: [],
+  };
+  N9.attachAnalysisDerived(p1, null);
+  assert(!/encerrado no intervalo/.test(p1.contexto_fase) && /pausa/.test(p1.contexto_fase), 'finished-match sentence removed, rest kept');
+  assert(p1.lacunas.some((l) => /conflitar com o status de PRÉVIA/.test(l)), 'removal declared in lacunas');
+  // retrospecto ROTULADO sobrevive; pós-jogo não é tocado
+  const p1b = { contexto_analise: 'previa', contexto_fase: 'No 1º turno o Corinthians venceu por 3-0.', lacunas: [] };
+  N9.attachAnalysisDerived(p1b, null);
+  assert(/3-0/.test(p1b.contexto_fase) && !p1b.lacunas.length, 'labeled retrospect survives');
+  const p1c = { contexto_analise: 'pos_jogo', contexto_fase: 'Jogo encerrado: 2-1.', lacunas: [] };
+  N9.attachAnalysisDerived(p1c, null);
+  assert(/encerrado/i.test(p1c.contexto_fase), 'pos_jogo context untouched');
+
+  // (2) desfalque × onze: incerto fica no onze e sai de desfalques; firme sai do onze
+  // _lineups pré-montado (em Node puro o builder depende do lineup.js classic;
+  // no app/motor ele existe — aqui exercitamos a reconciliação em si)
+  const mkLu = () => ({
+    contexto_analise: 'previa', confianca_geral: 'medio',
+    mandante: { nome: 'Corinthians', desfalques: [] },
+    visitante: { nome: 'Remo', escalacao_status: 'provavel', desfalques: ['Marcelo Rangel (goleiro — departamento médico, status a confirmar)', 'Fulano (suspenso)'] },
+    incerteza: [],
+    _lineups: { visitante: { nome: 'Remo', onze: [
+      { nome: 'Marcelo Rangel', posicao: 'GOL' }, { nome: 'Fulano', posicao: 'ZAG' }, { nome: 'Outro', posicao: 'LAT' },
+    ], banco: [], fonte: 'pesquisa' } },
+  });
+  const p2 = mkLu(); N9.attachAnalysisDerived(p2, null);
+  const onze9 = p2._lineups.visitante.onze.map((x) => x.nome);
+  assert(onze9.includes('Marcelo Rangel'), 'uncertain absence STAYS in XI (audited case)');
+  assert(!p2.visitante.desfalques.some((d) => /Rangel/.test(String(d))), 'uncertain absence LEAVES desfalques');
+  assert(p2.incerteza.some((i) => /Rangel/.test(i.fator) && i.impacto === 'alto'), 'conflict resolved into incerteza (alto)');
+  assert(onze9.some((n) => /A confirmar \(era Fulano/.test(n)), 'firm absence (suspenso) leaves XI as A confirmar');
+  assert(p2.visitante.desfalques.some((d) => /Fulano/.test(String(d))), 'firm absence stays in desfalques');
+  // meta: sem o fix, o conflito persistiria nas duas listas
+  assert(mkLu().visitante.desfalques.length === 2, 'meta: audited dual-listing is real in input');
+
+  // (3) auditor instruído a RECOMPUTAR antes de acusar números do código
+  const factsSrc9 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(factsSrc9.includes('REGRA DE ARITMÉTICA (shell 109)') && factsSrc9.includes('a chance de o erro ser SEU é alta'), 'auditor must recompute before flagging code-derived probs');
+  // prompt: prévia nunca afirma jogo ocorrido (nos 2 prompts F2)
+  const pr9 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert(pr9.split('CONTEXTO DE PRÉVIA:').length - 1 === 2, 'previa-context rule in both F2 prompts');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
