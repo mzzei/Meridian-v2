@@ -791,7 +791,7 @@ Quero que você: [OBJETIVO AQUI]
 | 18 | Contrato da API (adaptive thinking + prefill só Haiku) | **FEITO** shell 95 — inv. 30 e 36 reescritos; 3 caminhos validados no preview (stub) |
 | 19 | "compiled grammar is too large" no F2_SCHEMA | shell 96 ($defs) **RECUSADO de novo** → shell 97 (agrupamento: topo 19→5 props + _f2Unnest). **Reteste ao vivo pendente**: rode uma análise com o toggle ligado — se ✓, thinking+SO passam a valer; se recusar de novo, o memo desliga sozinho e o card continua saindo |
 | 20 | `★ [object Object]` na aba Desempenho | **FEITO** shell 96 (`_listLabel` em jogadores_chave/desfalques) |
-| 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) |
+| 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
 
 ---
 
