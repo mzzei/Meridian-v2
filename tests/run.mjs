@@ -796,6 +796,24 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(pr5.split('XG NUMÉRICO: desconhecido/não estimável = null — NUNCA 0').length - 1 === 2, 'null-not-zero rule in both F2 prompts');
 }
 
+// Shell 106: "xG marcado 0" vazando na UI (print real — card antigo salvo na biblioteca)
+{
+  const renderSrc106 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  const appSrc106 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  // formatador único, mesma faixa do sanitizador do 105
+  assert(renderSrc106.includes('function xgDisp'), 'xgDisp exists in render.js');
+  {
+    const _src = renderSrc106.slice(renderSrc106.indexOf('function xgDisp'), renderSrc106.indexOf('function tcard'));
+    const _f = new Function(_src + '; return xgDisp;')();
+    assert(_f(0) === '—' && _f('0') === '—', 'xG 0 renders as — (the reported leak)');
+    assert(_f(1.24) === 1.24 && _f(null) === '—' && _f(10.5) === '—', 'plausible passes; null/implausible → —');
+  }
+  // os DOIS pontos de exibição usam o formatador (nullish ?? deixava o 0 passar)
+  assert(renderSrc106.includes('xgDisp(t.xg_marcado)') && renderSrc106.includes('xgDisp(t.xg_sofrido)'), 'tcard (aba Desempenho) uses xgDisp');
+  assert((appSrc106.match(/xgDisp\(/g) || []).length >= 4, 'painel comparativo (app.js) uses xgDisp on all 4 xG cells');
+  assert(!/xg_marcado\?\?'—'|xg_sofrido\?\?'—'/.test(renderSrc106 + appSrc106), 'no raw nullish xG display left (0 would leak)');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

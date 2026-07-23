@@ -1708,7 +1708,9 @@ function updateRightSidebar(d,prob){
   }
 
   // Stats
-  const hxg=d.mandante?.xg_marcado??'—',axg=d.visitante?.xg_marcado??'—';
+  // xgDisp (render.js, shell 106): 0/implausível vira '—' — `0 ?? '—'` devolvia 0
+  // e o painel comparativo mostrava "xG marcado 0" em card antigo salvo (print real)
+  const hxg=xgDisp(d.mandante?.xg_marcado),axg=xgDisp(d.visitante?.xg_marcado);
   const hr=teamTablePos(d.mandante),ar=teamTablePos(d.visitante);
   const ph=Math.round(prob.home*100),pa=Math.round(prob.away*100);
   document.getElementById('rs-stats-list').innerHTML=`
@@ -1716,7 +1718,7 @@ function updateRightSidebar(d,prob){
     <div class="rs-srow"><span class="rs-sv-l">${ph}%</span><span class="rs-slbl">Vitória</span><span class="rs-sv-r">${pa}%</span></div>
     <div class="rs-sbar"><div class="rs-bh" data-w="${ph}" style="width:0%;transition:width .9s cubic-bezier(.22,.61,.36,1)"></div><div class="rs-ba" data-w="${pa}" style="width:0%;transition:width .9s cubic-bezier(.22,.61,.36,1)"></div></div>
     <div class="rs-srow"><span class="rs-sv-l">${hxg}</span><span class="rs-slbl">xG marcado</span><span class="rs-sv-r">${axg}</span></div>
-    <div class="rs-srow"><span class="rs-sv-l">${d.mandante?.xg_sofrido??'—'}</span><span class="rs-slbl">xG sofrido</span><span class="rs-sv-r">${d.visitante?.xg_sofrido??'—'}</span></div>
+    <div class="rs-srow"><span class="rs-sv-l">${xgDisp(d.mandante?.xg_sofrido)}</span><span class="rs-slbl">xG sofrido</span><span class="rs-sv-r">${xgDisp(d.visitante?.xg_sofrido)}</span></div>
     <div class="rs-srow"><span class="rs-sv-l">${hr}</span><span class="rs-slbl">Posição na tabela</span><span class="rs-sv-r">${ar}</span></div>`;
   document.getElementById('rs-stats').style.display='block';
   requestAnimationFrame(()=>{requestAnimationFrame(()=>{

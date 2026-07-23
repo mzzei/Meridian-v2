@@ -23,13 +23,23 @@ function _listLabel(x){
 }
 function _labelList(arr){return (Array.isArray(arr)?arr:[]).map(_listLabel).filter(Boolean);}
 
+// Exibição de xG (shell 106): 0 e valores implausíveis viram "—" NA TELA. O
+// sanitizador do 105 anula xG=0 nas análises novas, mas cards ANTIGOS salvos na
+// biblioteca ainda carregam 0 gravado — e `0 ?? '—'` devolve 0 (nullish não pega
+// zero; print real: painel comparativo com "xG marcado 0" do Remo). Faixa igual
+// à do sanitizador: 0.1–4.5 por time/jogo.
+function xgDisp(v){
+  if(v===null||v===undefined||v==='')return '—';
+  const n=Number(v);
+  return(!isFinite(n)||n<0.1||n>4.5)?'—':v;
+}
 function tcard(t){
   if(!t)return '';
   return `<div class="tname">${esc(t.nome||'—')}</div>
     <div class="irow"><span class="ilbl">Posição na tabela</span><span class="ival">${esc(teamTablePos(t))}</span></div>
     <div class="irow"><span class="ilbl">Forma</span><span class="ival" style="font-family:monospace;font-size:11px">${esc(t.forma_recente||'—')}</span></div>
-    <div class="irow"><span class="ilbl">xG marc.</span><span class="ival">${esc(t.xg_marcado??'—')}</span></div>
-    <div class="irow"><span class="ilbl">xG sofr.</span><span class="ival">${esc(t.xg_sofrido??'—')}</span></div>
+    <div class="irow"><span class="ilbl">xG marc.</span><span class="ival">${esc(xgDisp(t.xg_marcado))}</span></div>
+    <div class="irow"><span class="ilbl">xG sofr.</span><span class="ival">${esc(xgDisp(t.xg_sofrido))}</span></div>
     ${_labelList(t.desfalques).length?`<div class="irow"><span class="ilbl">Desf.</span><span class="ival">${_labelList(t.desfalques).map(esc).join(', ')}</span></div>`:''}
     <span class="spill ${t.escalacao_status==='confirmada'?'sp-ok':'sp-warn'}">${esc(t.escalacao_status)}</span>
     ${t.escalacao?`<div class="tesc">${esc(t.escalacao)}</div>`:''}
