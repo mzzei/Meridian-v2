@@ -20,6 +20,14 @@ function _pitchPlayer(p){return `<div class="p-player"><div class="p-dot">${_pos
 // try/catch do attachAnalysisDerived engolia → _lineups nunca montado → aba Escalação
 // vazia MESMO com dados (4º assassino silencioso: MODEL_PRICE, prefill, ctSideSection, este).
 function _luKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+// Item do banco pode chegar como STRING (schema F1) ou OBJETO {nome,posicao} em
+// cards de caminhos antigos — cru no esc() viraria "[object Object]" (shell 107,
+// mesma família do fix de jogadores_chave/desfalques do 96/render).
+function _bancoLbl(b){
+  if(typeof b==='string')return b;
+  if(b&&typeof b==='object')return b.nome||b.jogador||'';
+  return b==null?'':String(b);
+}
 // Técnico NÃO entra no mapa do campo — só em pitch-meta (fora do quadrado).
 function _isCoachLike(nome,pos,coachName){
   const n=String(nome||'').trim(),p=String(pos||'').trim().toLowerCase();
@@ -275,7 +283,7 @@ function _pitchTeam(t){
     <div class="pitch-hd"><div class="tname" style="margin-bottom:0">${nome}</div>${srcBadge}${formChip}</div>
     ${body}
     ${coach?`<div class="pitch-meta">👔 Técnico: <b>${esc(coach)}</b></div>`:''}
-    ${banco.length?`<div class="pitch-meta">🪑 Banco: ${banco.map(esc).join(' · ')}</div>`:''}
+    ${banco.length?`<div class="pitch-meta">🪑 Banco: ${banco.map(_bancoLbl).filter(Boolean).map(esc).join(' · ')}</div>`:''}
   </div>`;
 }
 

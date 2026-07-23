@@ -1703,7 +1703,7 @@ function updateRightSidebar(d,prob){
   // Insights
   if(d.eventos_provaveis?.length){
     document.getElementById('rs-insights-list').innerHTML=d.eventos_provaveis.slice(0,4).map(e=>`
-      <div class="rs-insight"><div class="rs-ins-dot"></div><div>${esc(e.evento)} — <strong>${Math.round((e.probabilidade||0)*100)}%</strong></div></div>`).join('');
+      <div class="rs-insight"><div class="rs-ins-dot"></div><div>${esc(e.evento)} — <strong>${pctDisp(e.probabilidade)}</strong></div></div>`).join('');
     document.getElementById('rs-insights').style.display='block';
   }
 

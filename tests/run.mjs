@@ -737,7 +737,9 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   // render: seção de escanteios SEMPRE com os dois times (lado vazio = "sem dado", não some)
   const renderSrc104 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
   {
-    const _src = renderSrc104.slice(renderSrc104.indexOf('function _cornerChips'), renderSrc104.indexOf('// ── Confronto tático'));
+    // shell 107: _cornerChips passou a usar statDisp — a extração leva os dois blocos
+    const _src = renderSrc104.slice(renderSrc104.indexOf('function statDisp'), renderSrc104.indexOf('function tcard'))
+      + renderSrc104.slice(renderSrc104.indexOf('function _cornerChips'), renderSrc104.indexOf('// ── Confronto tático'));
     const _cc = new Function('esc', _src + '; return _cornerChips;')((s) => String(s));
     const html = _cc({ mandante: null, visitante: { nome: 'Atlético-MG', feitos: 5.5 } }, 'Palmeiras', 'Atlético-MG');
     assert(/Palmeiras/.test(html) && /sem dado coletado/.test(html), 'time sem dado aparece nomeado com "sem dado" (não some)');
@@ -803,7 +805,8 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   // formatador único, mesma faixa do sanitizador do 105
   assert(renderSrc106.includes('function xgDisp'), 'xgDisp exists in render.js');
   {
-    const _src = renderSrc106.slice(renderSrc106.indexOf('function xgDisp'), renderSrc106.indexOf('function tcard'));
+    // shell 107: xgDisp virou wrapper de statDisp — extração começa em statDisp
+    const _src = renderSrc106.slice(renderSrc106.indexOf('function statDisp'), renderSrc106.indexOf('function tcard'));
     const _f = new Function(_src + '; return xgDisp;')();
     assert(_f(0) === '—' && _f('0') === '—', 'xG 0 renders as — (the reported leak)');
     assert(_f(1.24) === 1.24 && _f(null) === '—' && _f(10.5) === '—', 'plausible passes; null/implausible → —');
@@ -812,6 +815,70 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(renderSrc106.includes('xgDisp(t.xg_marcado)') && renderSrc106.includes('xgDisp(t.xg_sofrido)'), 'tcard (aba Desempenho) uses xgDisp');
   assert((appSrc106.match(/xgDisp\(/g) || []).length >= 4, 'painel comparativo (app.js) uses xgDisp on all 4 xG cells');
   assert(!/xg_marcado\?\?'—'|xg_sofrido\?\?'—'/.test(renderSrc106 + appSrc106), 'no raw nullish xG display left (0 would leak)');
+}
+
+// Shell 107 — VARREDURA ANTI-VAZAMENTO DE EXIBIÇÃO (pedido do dono: o padrão do
+// xgDisp/asserts do 106 aplicado a TODA exibição que precisa). Três famílias:
+// (A) stat numérico cru com ??/|| (0 fantasma vaza), (B) listas cruas no esc()
+// ([object Object]), (C) probabilidade ausente exibida como "0%".
+{
+  const UI_FILES = ['js/analysis/render.js', 'js/app.js', 'js/analysis/lineup.js', 'js/analysis/tab-helpers.js', 'js/ui/featured.js', 'js/ui/library.js', 'js/export/report.js'];
+  const srcs = UI_FILES.map((f) => [f, fs.readFileSync(path.join(ROOT, f), 'utf8')]);
+  const code = (s) => s.split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+  // (A) stats sensíveis NUNCA exibidos com fallback cru — sempre via formatador
+  const RAW_STAT = /(xg_marcado|xg_sofrido|escanteios_por_jogo|escanteios_sofridos_por_jogo|\.feitos|\.sofridos)\s*(\?\?|\|\|)\s*['"`]/;
+  for (const [f, s] of srcs) assert(!RAW_STAT.test(code(s)), `no raw stat fallback in ${f}`);
+  // meta-assert: a varredura PEGA o padrão proibido (não é no-op)
+  assert(RAW_STAT.test("x = d.mandante?.xg_marcado??'—'"), 'meta: sweep A catches the banned pattern');
+
+  // (B) toda lista no esc() passa por coerção de rótulo (nunca objeto cru)
+  let mapEscLines = 0;
+  for (const [f, s] of srcs)
+    for (const line of code(s).split('\n'))
+      if (line.includes('.map(esc)')) {
+        mapEscLines++;
+        assert(line.includes('_labelList(') || line.includes('_bancoLbl'), `raw .map(esc) in ${f}: ${line.trim().slice(0, 90)}`);
+      }
+  assert(mapEscLines >= 3, `sweep B saw the known call sites (${mapEscLines})`);
+  assert(!('_labelList(' && false), 'noop');
+  // meta: linha crua reprovaria
+  assert(!("${banco.map(esc)".includes('_labelList(') || "${banco.map(esc)".includes('_bancoLbl')), 'meta: sweep B catches raw list');
+
+  // (C) "%" de probabilidade nunca vem de `(p||0)*100` no TEXTO (só em largura de barra)
+  const RAW_PCT = /probabilidade\|\|0\)\s*\*\s*100\)\s*}\s*%/;
+  for (const [f, s] of srcs) assert(!RAW_PCT.test(code(s)), `no ghost 0% in ${f}`);
+  assert(RAW_PCT.test('${Math.round((e.probabilidade||0)*100)}%'), 'meta: sweep C catches ghost 0%');
+  const renderSrc107 = srcs.find(([f]) => f === 'js/analysis/render.js')[1];
+  assert((renderSrc107.match(/pctDisp\(/g) || []).length >= 5, 'pctDisp wired on all prob displays');
+  assert(/data-w="\$\{Math\.round\(\(e\.probabilidade\|\|0\)\*100\)\}"/.test(renderSrc107), 'bar widths keep ||0 (0 width is neutral, not a claim)');
+
+  // formatadores: unidade
+  {
+    const _src = renderSrc107.slice(renderSrc107.indexOf('function statDisp'), renderSrc107.indexOf('function tcard'));
+    const box = {}; new Function('exports', _src + '; exports.statDisp=statDisp; exports.xgDisp=xgDisp; exports.pctDisp=pctDisp;')(box);
+    assert(box.statDisp(0, 1, 9.9) === '—' && box.statDisp(5.5, 1, 9.9) === 5.5 && box.statDisp(12, 1, 9.9) === '—', 'statDisp range works');
+    assert(box.xgDisp(0) === '—' && box.xgDisp(1.24) === 1.24, 'xgDisp via statDisp');
+    assert(box.pctDisp(0.55) === '55%' && box.pctDisp(null) === '—' && box.pctDisp(undefined) === '—', 'pctDisp: ausente = —, nunca 0%');
+    assert(box.pctDisp(0) === '0%', 'pctDisp: zero REAL (número presente) ainda é 0% legítimo');
+  }
+  // chips de escanteios: 0 legado = "sem dado", não "0 a favor"
+  {
+    const _src = renderSrc107.slice(renderSrc107.indexOf('function statDisp'), renderSrc107.indexOf('function tcard'))
+      + renderSrc107.slice(renderSrc107.indexOf('function _cornerChips'), renderSrc107.indexOf('// ── Confronto tático'));
+    const _cc = new Function('esc', _src + '; return _cornerChips;')((s) => String(s));
+    const html = _cc({ mandante: { nome: 'A', feitos: 0, sofridos: 0 }, visitante: { nome: 'B', feitos: 5.1 } }, 'A', 'B');
+    assert(/sem dado coletado/.test(html) && !/>0 a favor/.test(html), 'legacy corner 0 renders as sem dado');
+    assert(/5\.1 a favor/.test(html), 'plausible corner still shown');
+  }
+  // banco: objeto vira nome, nunca [object Object]
+  {
+    const lineupSrc107 = fs.readFileSync(path.join(ROOT, 'js/analysis/lineup.js'), 'utf8');
+    const _src = lineupSrc107.slice(lineupSrc107.indexOf('function _bancoLbl'), lineupSrc107.indexOf('function _isCoachLike'));
+    const _bl = new Function(_src + '; return _bancoLbl;')();
+    assert(_bl('Wesley') === 'Wesley' && _bl({ nome: 'Allan', posicao: 'VOL' }) === 'Allan' && _bl(null) === '', '_bancoLbl coerces all shapes');
+    assert(!/\[object Object\]/.test(String(_bl({ nome: 'X' }))), 'no [object Object] from banco');
+  }
 }
 
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico

@@ -28,11 +28,18 @@ function _labelList(arr){return (Array.isArray(arr)?arr:[]).map(_listLabel).filt
 // biblioteca ainda carregam 0 gravado — e `0 ?? '—'` devolve 0 (nullish não pega
 // zero; print real: painel comparativo com "xG marcado 0" do Remo). Faixa igual
 // à do sanitizador: 0.1–4.5 por time/jogo.
-function xgDisp(v){
+// shell 107: generalizado — TODO stat numérico exibido passa por um formatador
+// com faixa de plausibilidade; valor cru/sentinela (0 fantasma, lixo de coleta
+// antiga) NUNCA chega à tela. Os testes VARREM o código e proíbem o padrão cru.
+function statDisp(v,lo,hi){
   if(v===null||v===undefined||v==='')return '—';
   const n=Number(v);
-  return(!isFinite(n)||n<0.1||n>4.5)?'—':v;
+  return(!isFinite(n)||n<lo||n>hi)?'—':v;
 }
+function xgDisp(v){return statDisp(v,0.1,4.5);}
+// Probabilidade exibida: ausente/inválida = '—', nunca "0%" fantasma (o `||0`
+// fica SÓ nas larguras de barra, onde 0 é neutro visual, não afirmação).
+function pctDisp(p){return(typeof p==='number'&&isFinite(p))?Math.round(p*100)+'%':'—';}
 function tcard(t){
   if(!t)return '';
   return `<div class="tname">${esc(t.nome||'—')}</div>
@@ -96,14 +103,16 @@ function _cfStatsChips(nome,arr){
 // seção capenga. Nomes vêm do card (hn/vn) para o lado ausente ter identidade.
 function _cornerChips(corners,hn,vn){
   if(!corners)return '';
-  const has=v=>v!==null&&v!==undefined&&v!=='';
+  // shell 107: "tem dado" = dado PLAUSÍVEL (1–9.9/jogo, faixa do sanitizador da
+  // coleta). Card legado com 0 gravado cai em "sem dado" em vez de exibir "0".
+  const has=v=>statDisp(v,1,9.9)!=='—';
   const one=(t,fallbackNome)=>{
     const nome=(t&&t.nome)||fallbackNome||'—';
     if(!t||(!has(t.feitos)&&!has(t.sofridos)))
       return `<div class="pstat-team"><div class="tname">${esc(nome)}</div><div><span class="cf-chip" style="opacity:.55">sem dado coletado nesta análise</span></div></div>`;
     const parts=[];
-    if(has(t.feitos))parts.push(`<span class="cf-chip">🚩 ${esc(t.feitos)} a favor/jogo</span>`);
-    if(has(t.sofridos))parts.push(`<span class="cf-chip">🛡️ ${esc(t.sofridos)} sofridos/jogo</span>`);
+    if(has(t.feitos))parts.push(`<span class="cf-chip">🚩 ${esc(statDisp(t.feitos,1,9.9))} a favor/jogo</span>`);
+    if(has(t.sofridos))parts.push(`<span class="cf-chip">🛡️ ${esc(statDisp(t.sofridos,1,9.9))} sofridos/jogo</span>`);
     return `<div class="pstat-team"><div class="tname">${esc(nome)}</div><div>${parts.join('')}</div></div>`;
   };
   return one(corners.mandante,hn)+one(corners.visitante,vn);
@@ -199,7 +208,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${d.sugestoes_ticket?.length?`<div class="tab-s">
       <div class="tab-h">4. Sugestões de Ticket</div>
-      ${d.sugestoes_ticket.map(t=>`<div class="ticket"><div class="ticket-head"><span class="ticket-desc">${esc(t.descricao)}</span><span class="ticket-prob">${Math.round((t.probabilidade||0)*100)}%</span></div><div class="ticket-reason">${esc(t.fundamento||'')}</div><span class="ticket-conf conf-${esc(t.confianca||'media')}">${esc(t.confianca||'média')} confiança</span></div>`).join('')}
+      ${d.sugestoes_ticket.map(t=>`<div class="ticket"><div class="ticket-head"><span class="ticket-desc">${esc(t.descricao)}</span><span class="ticket-prob">${pctDisp(t.probabilidade)}</span></div><div class="ticket-reason">${esc(t.fundamento||'')}</div><span class="ticket-conf conf-${esc(t.confianca||'media')}">${esc(t.confianca||'média')} confiança</span></div>`).join('')}
     </div>`:''}`;
 
   // ── Tab: Tática ──
@@ -226,7 +235,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${d.eventos_provaveis?.length?`<div class="tab-s">
       <div class="tab-h">4. Eventos Prováveis</div>
-      ${d.eventos_provaveis.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${Math.round((e.probabilidade||0)*100)}%</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(e.fundamento||'')}</div></div>`).join('')}
+      ${d.eventos_provaveis.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(e.fundamento||'')}</div></div>`).join('')}
     </div>`:''}
     ${(d.tecnico_mandante?.nome||d.tecnico_visitante?.nome)?`<div class="tab-s">
       <div class="tab-h">5. Perfil dos Técnicos</div>
@@ -271,7 +280,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${cfEventos.length?`<div class="tab-s">
       <div class="tab-h">2. Eventos Prováveis</div>
-      ${cfEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${Math.round((e.probabilidade||0)*100)}%</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(textFrom(e.fundamento||''))}</div></div>`).join('')}
+      ${cfEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(textFrom(e.fundamento||''))}</div></div>`).join('')}
     </div>`:''}
     ${cfRisco.length?`<div class="tab-s">
       <div class="tab-h">3. Jogadores sob Risco</div>
@@ -299,7 +308,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${ecEventos.length?`<div class="tab-s">
       <div class="tab-h">2. Eventos Prováveis</div>
-      ${ecEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${Math.round((e.probabilidade||0)*100)}%</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(textFrom(e.fundamento||''))}</div></div>`).join('')}
+      ${ecEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${esc(textFrom(e.fundamento||''))}</div></div>`).join('')}
     </div>`:''}
     ${ecStats?`<div class="tab-s">
       <div class="tab-h">Escanteios por Jogo · Coletados</div>
