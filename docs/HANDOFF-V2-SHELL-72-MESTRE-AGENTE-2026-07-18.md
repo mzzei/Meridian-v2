@@ -790,7 +790,7 @@ Quero que você: [OBJETIVO AQUI]
 | 11 | Code-review 87–89: achados baixos (4) | **FEITO** shell 91 (`a824bdb`) |
 | 12 | UI para trocar a senha avançada | **FEITO** shell 92 (override `meridian_adv_hash` no localStorage; hash público exibido p/ fixar no código) |
 | 13 | Rate-limit no Worker | **FEITO** 92·worker (binding nativo; validado em produção 30×200→429) |
-| 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto |
+| 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto (a chave ANTHROPIC do teste do motor já foi rotacionada em 2026-07-23; AF/FD seguem pendentes) |
 | 15 | Thinking na F2 com structured outputs | shells 93–97 → **REMOVIDO no shell 100** a pedido do dono (todas as gramáticas recusadas; ver inv. 36) |
 | 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local (na data; o HEAD agora é 95 — reconferir após o push). Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
 | 17 | Freeze ao trocar liga das estatísticas durante a análise | **FEITO** shell 94 (`fromSelector` em `setStatsComp`) |
@@ -800,7 +800,7 @@ Quero que você: [OBJETIVO AQUI]
 | 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
 | 22 | Lacunas da auditoria (escanteios/xG/placar exato/faltas) | **FEITO** shell 101 (coleta + gap pass + paridade template↔schema) |
 | 23 | Substituir Meridian v1 pelo v2 (pós-Copa) | **DECIDIDO 2026-07-23**: privar o repo do v1 no GitHub (desliga o Pages — sem redirect, link antigo vira 404) e deixar o worker `meridian-proxy` de pé por ora. Pendência de zelo SEM prazo: o worker v1 não tem trava de Origin e carrega secrets AF/FD (mesmas chaves do v2 → cota compartilhada) — quando o dono quiser, `npx wrangler delete meridian-proxy` ou `wrangler secret delete AF_KEY/FD_KEY --name meridian-proxy` (login dele; NUNCA por sessão do agente). v2 intocado |
-| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO + VALIDADO COM ANÁLISE REAL (2026-07-23)**: pacote extraído do zip rodou Botafogo × Vitória ao vivo em Node — ANÁLISE REAL OK, 123s, coletaOk true, fonte pesquisa, 7 tickets, 3 lacunas declaradas (vs ~7 da auditoria de ontem; placar exato OK, xG declarado como estimado; escanteios ainda null neste run — busca não trouxe, lacuna declarada). `motor/exemplo-integracao.mjs` entrou no pacote (26 arquivos). Chave usada no teste apareceu em print do dono → **rotacionar** |
+| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO + VALIDADO COM ANÁLISE REAL (2026-07-23)**: pacote extraído do zip rodou Botafogo × Vitória ao vivo em Node — ANÁLISE REAL OK, 123s, coletaOk true, fonte pesquisa, 7 tickets, 3 lacunas declaradas (vs ~7 da auditoria de ontem; placar exato OK, xG declarado como estimado; escanteios ainda null neste run — busca não trouxe, lacuna declarada). `motor/exemplo-integracao.mjs` entrou no pacote (26 arquivos). Chave do teste **JÁ ROTACIONADA** pelo dono (2026-07-23) |
 
 ---
 
