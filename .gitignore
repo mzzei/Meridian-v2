@@ -9,3 +9,5 @@ docs/ui-smoke-*.png
 
 # wrangler local cache (nunca commitar)
 worker/.wrangler/
+
+motor-meridian.zip
