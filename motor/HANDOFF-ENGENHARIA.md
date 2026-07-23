@@ -84,7 +84,13 @@ no próprio resultado.
    dados/busca trouxeram; incerteza vira "A confirmar" ou lacuna declarada.
 8. **Teste anti-regressão precisa de meta-assert** que prove que ele reprova o
    caso ruim — um smoke test que nunca falha é pior que nenhum.
-9. **Falha degrada, não quebra**: fonte fora do ar → cascata segue; coleta
+9. **Chat nunca supõe partida nem despeja JSON na resposta**: pergunta vaga sem
+   âncora retorna `need_context` ANTES de gastar LLM; resposta que pressupõe
+   partida em pergunta vaga vira `need_context`; estrutura JSON do modelo é
+   convertida em prosa. As regras de brevidade do chat (`CHAT_BREVITY`) e os
+   guards vêm de `pipeline-run.js` — o chat do motor É o chat calibrado, não
+   uma reimplementação.
+10. **Falha degrada, não quebra**: fonte fora do ar → cascata segue; coleta
    inteira falha → análise direta com `_coletaOk:false` e confiança menor.
 
 ## 4. Como evoluir

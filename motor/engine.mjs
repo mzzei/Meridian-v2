@@ -119,6 +119,7 @@ export async function createEngine(config = {}) {
     currentDateFull: () =>
       new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
     contextBlock: () => '',
+    personaBlock: () => '',
     getChatContext: () => '',
     fetchMemoryContext: async () => '',
     // progresso/UI → callbacks do integrador (ou no-op)
@@ -174,10 +175,125 @@ export async function createEngine(config = {}) {
 
   state.activeCompId = cfg.competition;
 
+  const { routeUserIntent } = await import(pathToFileURL(path.join(ROOT, 'js/lib/intent.js')).href);
+  const comp = await import(pathToFileURL(path.join(ROOT, 'js/comp/competitions.js')).href);
+
   const _prefillOk = (m) => /claude-haiku/.test(m || '');
   const _noThink = (m) => /claude-sonnet-5/.test(m || '');
 
   function setCompetition(id) { state.activeCompId = id; }
+
+  /** Espelha js/lib/intent.js — decide análise (card) × conversa × pedir times. */
+  function routeIntent(userMessage, opts = {}) {
+    return routeUserIntent(String(userMessage || ''), { hasAttachments: !!opts.hasAttachments });
+  }
+
+  /**
+   * chat(userMessage, {signal, history, context}) → interação do usuário final.
+   * MESMO comportamento do chat do app (persona + MODO CONVERSA + blocos de
+   * grounding + guards anti-JSON/anti-suposição), com uma diferença headless:
+   * onde o app abre POPUP, aqui retorna { type:'need_context' } — o host decide
+   * como perguntar. Retornos:
+   *   { type:'text', text, usage }        — resposta em prosa
+   *   { type:'need_context', question, reason } — NADA foi gasto com o LLM
+   *                                         (reason 'vague_query') ou a resposta
+   *                                         pressupôs partida não ancorada
+   *                                         (reason 'presupposed_match')
+   */
+  async function chat(userMessage, opts = {}) {
+    const query = String(userMessage || '').trim();
+    if (!query) return { type: 'need_context', question: 'Mensagem vazia — o que você quer saber?', reason: 'empty' };
+    const signal = opts.signal || new AbortController().signal;
+    const history = Array.isArray(opts.history) ? opts.history.slice(-8) : [];
+    const ctxIn = opts.context || {};
+    const usage = { inTokens: 0, outTokens: 0 };
+    const prog = (u) => cfg.onProgress(u);
+
+    // ── Gate de ambiguidade (zero suposição — ANTES de gastar LLM) ──
+    // Mesmo critério do app: pergunta vaga sobre "o jogo" sem âncora em lugar
+    // nenhum (mensagem, histórico ou contexto injetado) → devolve a pergunta.
+    const histText = history.map((m) => m.content || '').join('\n');
+    const anchorPool = [query, histText, ctxIn.scoreboard || '', ctxIn.placaresVerificados || '', ctxIn.attachmentsNote || ''].join('\n');
+    if (facts.isVagueMatchQuery(query) && !facts.hasExplicitMatchAnchor(anchorPool) && !/\[Contexto confirmado:/i.test(query)) {
+      return {
+        type: 'need_context',
+        reason: 'vague_query',
+        question: 'Qual jogo você quer comentar? Diga os dois times (ex.: "Flamengo x Palmeiras") ou a liga + data.',
+      };
+    }
+
+    // ── Grounding (mesmos blocos do app; host pode injetar, senão o motor coleta) ──
+    const inferred = (g.inferCompIdsFromText ? g.inferCompIdsFromText(query + '\n' + histText) : []) || [];
+    const espnIds = inferred.length ? inferred : comp.COMP_ORDER.slice();
+    const needsLive = facts._chatNeedsLiveData(query, false);
+    const needsScore = facts._chatNeedsScoreVerification(query) || needsLive;
+    const hasAnchor = facts.hasExplicitMatchAnchor(query) || facts.hasExplicitMatchAnchor(histText);
+    let liveData = ctxIn.scoreboard || '';
+    let scoreFacts = ctxIn.placaresVerificados || '';
+    if (!liveData && (needsLive || needsScore)) {
+      prog({ status: 'resolvendo jogo e status (ESPN)…', phase: 1 });
+      liveData = await (g.gatherEspnForChat ? g.gatherEspnForChat(espnIds).catch(() => '') : '');
+    }
+    if (!scoreFacts && needsScore && hasAnchor) {
+      prog({ status: 'confirmando resultado oficial (web)…', phase: 1 });
+      scoreFacts = await facts.fetchVerifiedMatchFacts(query, cfg.apiKey, signal, liveData).catch(() => '');
+    }
+    const metaComp = inferred.length
+      ? `=== COMPETIÇÕES INFERIDAS: ${inferred.map((id) => comp.compLabel(id)).join(' · ')} ===`
+      : `=== CONTEXTO: pode ser clube OU seleção (não se limite às ligas embutidas do app). ===`;
+    const scoreBlock = scoreFacts
+      ? `\n\n${scoreFacts}\n\nREGRA: o bloco PLACARES VERIFICADOS é a autoridade máxima. Sua opinião tática pode ser livre; o PLACAR e o STATUS do jogo (FT/LIVE) devem copiar esse bloco. Nunca diga outro placar.`
+      : (needsScore && hasAnchor ? `\n\n=== AVISO DE COLETA ===\nNão foi possível montar PLACARES VERIFICADOS nesta passagem. Você DEVE usar web_search agora (2+ fontes P1) antes de afirmar qualquer placar. PROIBIDO inventar placar de memória.\n=== FIM AVISO ===` : '');
+    const liveBlock = liveData
+      ? `\n\n=== DADOS REAIS ESPN (placares/tabelas; se divergir de PLACARES VERIFICADOS, prevalece PLACARES VERIFICADOS) ===\n${liveData}\n=== FIM ESPN ===`
+      : '';
+    const attBlock = ctxIn.attachmentsNote ? `\n\n=== ANEXO (processado pelo host) ===\n${ctxIn.attachmentsNote}\n=== FIM ANEXO ===` : '';
+
+    // ── Chamada (mesma persona + MODO CONVERSA + thinking desligado do app) ──
+    const body = {
+      model: cfg.model,
+      max_tokens: (liveData || scoreFacts || attBlock) ? 4500 : 3200,
+      system: [
+        { type: 'text', text: g.analystSystemPrompt(), cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: run.CHAT_BREVITY },
+      ],
+      messages: [
+        ...history,
+        { role: 'user', content: `DATA: ${g.currentDateFull()}\n${metaComp}${scoreBlock}${liveBlock}${attBlock}\n\nPERGUNTA: ${query}` },
+      ],
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: scoreFacts ? 2 : (hasAnchor ? 4 : 2) }],
+    };
+    if (_noThink(cfg.model)) body.thinking = { type: 'disabled' };
+    const reqHeaders = g.getReqHeaders(cfg.apiKey, []);
+
+    prog({ status: 'respondendo…', phase: 2 });
+    let text = '';
+    const messages = body.messages;
+    for (let iter = 0; iter < 8; iter++) {
+      const r = await run.streamOnce({ ...body, messages }, reqHeaders, (u) => prog({ ...u, phase: 2 }), signal);
+      usage.inTokens += r.inTokens || 0; usage.outTokens += r.outTokens || 0;
+      if (r.stopReason === 'tool_use' || r.stopReason === 'pause_turn') {
+        messages.push({ role: 'assistant', content: r.allContent });
+        if (r.stopReason === 'tool_use')
+          messages.push({ role: 'user', content: r.toolUses.map((t) => ({ type: 'tool_result', tool_use_id: t.id, content: '' })) });
+        continue;
+      }
+      text = r.text; break;
+    }
+
+    // ── Guards de saída (mesmos do app) ──
+    let clean = g.stripInternalReasoning ? g.stripInternalReasoning(text) : text;
+    if (run._chatLooksJson(clean)) {
+      const prose = run._chatJsonToProse(clean);
+      clean = prose || 'Não consegui montar uma resposta em texto — reformule a pergunta.';
+    }
+    // resposta pressupôs partida específica em pergunta vaga → contexto, não chute
+    if (g.cardPresupposedVagueMatch) {
+      const presup = g.cardPresupposedVagueMatch(clean, query);
+      if (presup) return { type: 'need_context', reason: 'presupposed_match', question: presup.question || 'Confirme qual partida você quer comentar.', usage };
+    }
+    return { type: 'text', text: String(clean || '').trim(), usage };
+  }
 
   /**
    * analyzeMatch(query, {signal}) → { analysis, rawFacts, usage }
@@ -299,5 +415,5 @@ export async function createEngine(config = {}) {
     return { analysis: parsed, rawFacts, usage };
   }
 
-  return { analyzeMatch, setCompetition };
+  return { analyzeMatch, chat, routeIntent, setCompetition };
 }

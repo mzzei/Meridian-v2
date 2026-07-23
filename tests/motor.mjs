@@ -90,5 +90,57 @@ assert(progress.some((s) => /Coleta/i.test(s)) && progress.some((s) => /Raciocin
 assert(anthropicCalls >= 2, 'F1 + F2 called the API (' + anthropicCalls + ' calls)');
 assert(typeof document === 'object' && document.getElementById('x') === null, 'document is the headless stub (no real DOM)');
 
+// ── Chat + routeIntent (mesmo comportamento do app, headless) ──
+{
+  // roteamento espelha intent.js
+  assert(engine.routeIntent('PARTIDA: Flamengo x Palmeiras').mode === 'analysis', 'routeIntent: query ancorada → analysis');
+  assert(engine.routeIntent('qual a filosofia do Abel Ferreira?').mode === 'chat', 'routeIntent: pergunta → chat');
+  const rNeed = engine.routeIntent('análise completa');
+  assert(rNeed.mode === 'need_teams' || rNeed.mode === 'chat', 'routeIntent: pedido sem times → need_teams/chat (' + rNeed.mode + ')');
+
+  // gate de ambiguidade: pergunta vaga SEM âncora → need_context SEM gastar LLM
+  const before = anthropicCalls;
+  const vague = await engine.chat('qual sua opinião sobre o jogo de hoje?');
+  assert(vague.type === 'need_context' && vague.reason === 'vague_query', 'chat: vago sem âncora → need_context');
+  assert(anthropicCalls === before, 'chat: gate NÃO gastou chamada de API');
+
+  // chat ancorado: responde em prosa com a persona + MODO CONVERSA no system
+  let chatBody = null;
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes('/v1/messages')) {
+      let b = null; try { b = JSON.parse(opts.body); } catch {}
+      if (b && Array.isArray(b.system) && b.system.some((s) => /MODO CONVERSA/.test(s.text || ''))) {
+        chatBody = b;
+        return sse('O clássico tende a poucos gols; o mercado de cartões costuma pagar melhor.');
+      }
+    }
+    return prevFetch(url, opts);
+  };
+  const reply = await engine.chat('Flamengo x Palmeiras: qual mercado tem melhor valor?', {
+    history: [{ role: 'user', content: 'contexto anterior' }, { role: 'assistant', content: 'ok' }],
+    context: { placaresVerificados: '=== PLACARES VERIFICADOS ===\n• Flamengo 2 x 1 Palmeiras | FT\n=== FIM ===' },
+  });
+  globalThis.fetch = prevFetch;
+  assert(reply.type === 'text' && /cartões/.test(reply.text), 'chat: resposta em prosa entregue');
+  assert(reply.usage.outTokens > 0, 'chat: usage contabilizado');
+  assert(chatBody && chatBody.system.length === 2 && /ANALISTA|analista|futebol/i.test(chatBody.system[0].text), 'chat: persona real do app no system[0]');
+  assert(chatBody.thinking && chatBody.thinking.type === 'disabled', 'chat: thinking desligado (Sonnet 5)');
+  assert(chatBody.messages.length === 3, 'chat: history (2) + turno atual');
+  assert(/PLACARES VERIFICADOS/.test(chatBody.messages[2].content) && /autoridade máxima/.test(chatBody.messages[2].content), 'chat: bloco de placares injetado + regra de autoridade');
+  assert(chatBody.tools && chatBody.tools[0].name === 'web_search', 'chat: web_search disponível');
+
+  // resposta em JSON nunca vaza crua: extrai prosa (guard do app)
+  globalThis.fetch = async (url, opts) => {
+    let b = null; try { b = JSON.parse(opts.body); } catch {}
+    if (b && Array.isArray(b.system) && b.system.some((s) => /MODO CONVERSA/.test(s.text || '')))
+      return sse('{"resposta":"O favoritismo é do mandante pelo retrospecto recente no clássico."}');
+    return prevFetch(url, opts);
+  };
+  const jsonReply = await engine.chat('Flamengo x Palmeiras: quem é favorito?');
+  globalThis.fetch = prevFetch;
+  assert(jsonReply.type === 'text' && /favoritismo é do mandante/.test(jsonReply.text) && !/[{}"]/.test(jsonReply.text.slice(0, 5)), 'chat: JSON do modelo vira prosa (nunca cru)');
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nMOTOR ALL PASSED');
 process.exit(failed ? 1 : 0);

@@ -1,8 +1,8 @@
 # SKILL — Motor Meridian de Análise de Futebol
 
-**O que é:** motor headless de análise pré/pós-jogo de futebol multi-liga (Brasileirão, Libertadores, Premier League, LaLiga, Champions). Pipeline em duas fases com portões anti-alucinação por código. Roda em Node ou browser, sem UI própria — o integrador constrói a apresentação.
+**O que é:** motor headless de análise pré/pós-jogo de futebol multi-liga (Brasileirão, Libertadores, Premier League, LaLiga, Champions) **+ chat calibrado do usuário final**. Pipeline em duas fases com portões anti-alucinação por código; o chat usa a mesma persona e as mesmas fontes verificadas. Roda em Node ou browser, sem UI própria — o integrador constrói a apresentação.
 
-**O que NÃO é:** não inclui frontend, chat, proxy/Worker, hosting nem chave de API. A chave Anthropic é sempre do integrador/usuário final.
+**O que NÃO é:** não inclui frontend, proxy/Worker, hosting nem chave de API. A chave Anthropic é sempre do integrador/usuário final.
 
 ---
 
@@ -58,6 +58,26 @@ const engine = await createEngine({
 
 const { analysis, rawFacts, usage } =
   await engine.analyzeMatch('PARTIDA: Flamengo x Palmeiras', { signal });
+
+// ── Chat do usuário final (mesma persona/calibração da análise) ──
+const reply = await engine.chat('Flamengo x Palmeiras: qual mercado tem melhor valor?', {
+  signal,
+  history: [],               // turnos anteriores {role:'user'|'assistant', content}
+  context: {                 // opcional — o host injeta o que tiver:
+    placaresVerificados: '', //   bloco "=== PLACARES VERIFICADOS ===" (autoridade máxima de placar)
+    scoreboard: '',          //   jogos do dia (desambiguação); sem ele o motor consulta a ESPN sozinho
+    attachmentsNote: '',     //   resumo de anexo processado pelo host
+  },
+});
+// reply.type === 'text'         → { text, usage }
+// reply.type === 'need_context' → { question, reason } — pergunta vaga sem âncora
+//   ('vague_query': NENHUM token foi gasto) ou resposta que pressupôs partida
+//   ('presupposed_match'). O host pergunta ao usuário e chama chat() de novo.
+
+// ── Roteamento (espelha o intent do app) ──
+engine.routeIntent(userMessage) // → { mode:'analysis'|'chat'|'need_teams', reason }
+// Padrão de uso: routeIntent decide; 'analysis' → analyzeMatch; 'chat' → chat;
+// 'need_teams' → peça os times ao usuário antes de qualquer chamada.
 ```
 
 **Regras de entrada:**

@@ -28,6 +28,16 @@ function _h(name) {
   throw new Error('[pipeline-run] host missing: ' + name);
 }
 
+// MODO CONVERSA (shell 88; içada p/ escopo de módulo no shell 102 — o motor
+// vendável reusa o MESMO texto): resposta SUCINTA em texto, sem card/tickets/
+// listões e sem overthink. O usuário pediu conversa direta.
+const CHAT_BREVITY='MODO CONVERSA — RESPOSTA SUCINTA E DIRETA:\n'
+  +'- Responda em TEXTO CORRIDO curto (1–4 frases; no máx. um parágrafo). Vá direto ao ponto.\n'
+  +'- Responda SÓ o que foi perguntado. NÃO gere card, tickets, tabela, JSON, seções numeradas nem listas longas.\n'
+  +'- NÃO repita dados que o usuário não pediu; nada de "raciocínio em voz alta" ou autocorreção — entregue a versão final.\n'
+  +'- Fundamente no que já está na conversa/dados; se faltar um dado essencial, diga em UMA linha em vez de inventar.\n'
+  +'- Sem alucinação: fatos voláteis (placar, escalação, lesões) só se vierem dos dados desta conversa.';
+const _CHAT_BREVITY=CHAT_BREVITY; // alias interno histórico (call sites do runChat)
 // Chat = prosa (shell 88). Se o modelo devolver estrutura, NUNCA despejar cru na bolha
 // (shell 89): detecta e tenta extrair um campo de texto legível antes de desistir.
 function _chatLooksJson(s){
@@ -156,14 +166,6 @@ async function runChat(){
     // monologue não pode vazar na bolha). Profundidade por modelo é só da análise padrão.
     const _chatBase=(atts.length||liveData||scoreFacts)?4500:3200;
     const _searchUses=scoreFacts?2:(hasAnchor?4:2);
-    // MODO CONVERSA (shell 88): resposta SUCINTA em texto, sem card/tickets/listões e
-    // sem overthink. O usuário pediu conversa direta — responder só o que foi perguntado.
-    const _CHAT_BREVITY='MODO CONVERSA — RESPOSTA SUCINTA E DIRETA:\n'
-      +'- Responda em TEXTO CORRIDO curto (1–4 frases; no máx. um parágrafo). Vá direto ao ponto.\n'
-      +'- Responda SÓ o que foi perguntado. NÃO gere card, tickets, tabela, JSON, seções numeradas nem listas longas.\n'
-      +'- NÃO repita dados que o usuário não pediu; nada de "raciocínio em voz alta" ou autocorreção — entregue a versão final.\n'
-      +'- Fundamente no que já está na conversa/dados; se faltar um dado essencial, diga em UMA linha em vez de inventar.\n'
-      +'- Sem alucinação: fatos voláteis (placar, escalação, lesões) só se vierem dos dados desta conversa.';
     const _chatBody={model:globalThis.currentModel,max_tokens:_chatBase,
       system:[
         {type:'text',text:_h('analystSystemPrompt')(),cache_control:{type:'ephemeral'}},
@@ -846,7 +848,11 @@ export {
   conversationalFallback,
   openHelpAnalysis,
   closeHelpAnalysis,
-  _analysisSummaryForThread
+  _analysisSummaryForThread,
+  // shell 102 — consumidos pelo motor vendável (mesmo comportamento do app)
+  CHAT_BREVITY,
+  _chatLooksJson,
+  _chatJsonToProse
 };
 
 expose({
