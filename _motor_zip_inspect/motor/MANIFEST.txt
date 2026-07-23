@@ -5,7 +5,6 @@ motor/engine.mjs
 motor/SKILL.md
 motor/HANDOFF-ENGENHARIA.md
 motor/MANIFEST.txt
-motor/exemplo-integracao.mjs
 tests/motor.mjs
 js/analysis/prompts.js
 js/analysis/pipeline-facts.js

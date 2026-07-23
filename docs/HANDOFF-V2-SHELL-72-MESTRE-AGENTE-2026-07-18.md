@@ -800,7 +800,7 @@ Quero que você: [OBJETIVO AQUI]
 | 21 | Demo para calls de handover | **FEITO** shell 98 (`?demo=1` — fixtures locais, zero API, badge, streaming simulado) · roteiro da call em `docs/DEMO-ROTEIRO-HANDOVER.md` (ordem das telas, fala por aba, perguntas prováveis, plano B em camadas) |
 | 22 | Lacunas da auditoria (escanteios/xG/placar exato/faltas) | **FEITO** shell 101 (coleta + gap pass + paridade template↔schema) |
 | 23 | Substituir Meridian v1 pelo v2 (pós-Copa) | **DECIDIDO 2026-07-23**: privar o repo do v1 no GitHub (desliga o Pages — sem redirect, link antigo vira 404) e deixar o worker `meridian-proxy` de pé por ora. Pendência de zelo SEM prazo: o worker v1 não tem trava de Origin e carrega secrets AF/FD (mesmas chaves do v2 → cota compartilhada) — quando o dono quiser, `npx wrangler delete meridian-proxy` ou `wrangler secret delete AF_KEY/FD_KEY --name meridian-proxy` (login dele; NUNCA por sessão do agente). v2 intocado |
-| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO** 102·motor + recorte comercial: `motor/HANDOFF-ENGENHARIA.md` (decisões + 9 regras de manutenção, sem histórico interno/segredos) e `motor/MANIFEST.txt` (24 arquivos, validado pelo tests/motor.mjs) |
+| 24 | Pacote de venda do motor (Skill/Input/Output/handover) | **FEITO + VALIDADO COM ANÁLISE REAL (2026-07-23)**: pacote extraído do zip rodou Botafogo × Vitória ao vivo em Node — ANÁLISE REAL OK, 123s, coletaOk true, fonte pesquisa, 7 tickets, 3 lacunas declaradas (vs ~7 da auditoria de ontem; placar exato OK, xG declarado como estimado; escanteios ainda null neste run — busca não trouxe, lacuna declarada). `motor/exemplo-integracao.mjs` entrou no pacote (26 arquivos). Chave usada no teste apareceu em print do dono → **rotacionar** |
 
 ---
 
