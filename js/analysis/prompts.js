@@ -73,6 +73,7 @@ VALIDAÇÃO CRUZADA DE CONFIANÇA: "confianca_geral":"alto" exige que os fatos c
 
 LINGUAGEM E ESCRITA:
 - Estilo direto e analítico — mantenha sempre
+- DESCRIÇÃO DOS CAMPOS NARRATIVOS (padrão fixo, NÃO depende do modelo escolhido): cada "fundamento" (eventos, tickets, cartões, escanteios), "diagnostico", "filosofia", "impacto_mercados", "ajustes_recentes" e "conclusao" deve ter 1–2 frases COMPLETAS que (a) citem o dado/número/proxy específico que sustenta a leitura e (b) expliquem POR QUE ele leva àquela probabilidade ou conclusão. Nunca um fragmento telegráfico nem uma cláusula solta ("defesa frágil", "mando de campo") — desenvolva o raciocínio. O nível de detalhe do card é o MESMO independentemente do modelo (Rápido/Padrão/Profundo): calibre pelo padrão descritivo, não pelo estilo default do modelo
 - Quando usar termo técnico (xG, lambda, Poisson, BTTS etc.), adicione entre parênteses uma explicação curta na primeira ocorrência: ex. "xG (gols esperados com base nas chances criadas)"
 - Evite acúmulo de abreviações e siglas num mesmo trecho — prefira escrever por extenso quando o contexto ainda não deixou claro
 - Não use jargões de mercado de apostas sem explicar o que significam
@@ -141,6 +142,7 @@ VALIDAÇÃO CRUZADA DE CONFIANÇA: os dados fornecidos vêm de fontes INDEPENDEN
 
 LINGUAGEM E ESCRITA:
 - Estilo direto e analítico — mantenha sempre
+- DESCRIÇÃO DOS CAMPOS NARRATIVOS (padrão fixo, NÃO depende do modelo escolhido): cada "fundamento" (eventos, tickets, cartões, escanteios), "diagnostico", "filosofia", "impacto_mercados", "ajustes_recentes" e "conclusao" deve ter 1–2 frases COMPLETAS que (a) citem o dado/número/proxy específico que sustenta a leitura e (b) expliquem POR QUE ele leva àquela probabilidade ou conclusão. Nunca um fragmento telegráfico nem uma cláusula solta ("defesa frágil", "mando de campo") — desenvolva o raciocínio. O nível de detalhe do card é o MESMO independentemente do modelo (Rápido/Padrão/Profundo): calibre pelo padrão descritivo, não pelo estilo default do modelo
 - Quando usar termo técnico (xG, lambda, Poisson, BTTS etc.), adicione entre parênteses uma explicação curta na primeira ocorrência
 - Evite acúmulo de abreviações e siglas num mesmo trecho — prefira escrever por extenso
 - Não use jargões de mercado de apostas sem explicar o que significam

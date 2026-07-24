@@ -829,6 +829,15 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(q.eventos_provaveis[4].probabilidade === R(pAtLeast(1, 1.9)), 'anytime scorer stays P(>=1)');
 }
 
+// Shell 113: descritividade dos cards independe do modelo — Opus escrevia fundamentos
+//   telegráficos vs Sonnet expansivo (mesmo prompt, sem padrão de extensão no contrato).
+//   Padrão fixo de descrição inserido nos DOIS prompts F2.
+{
+  const pr113 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert(pr113.split('DESCRIÇÃO DOS CAMPOS NARRATIVOS').length - 1 === 2, 'card descriptiveness standard in BOTH F2 prompts');
+  assert(pr113.split('NÃO depende do modelo escolhido').length - 1 === 2, 'standard is explicitly model-independent in both');
+}
+
 // Shell 106: "xG marcado 0" vazando na UI (print real — card antigo salvo na biblioteca)
 {
   const renderSrc106 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
