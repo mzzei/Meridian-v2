@@ -1081,22 +1081,24 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(!appSrc114.includes("'platina'") && !/html\[data-theme="platina"\]/.test(cssSrc114), 'meta: sweep would catch an unregistered theme');
 }
 
-// Shell 115: puxador + gestos da gaveta lateral no mobile (print do dono: seta na borda)
+// Shell 115→117: gaveta mobile por SWIPE (puxador visual REMOVIDO a pedido do dono —
+// 'o acesso à barra lateral deve ser por scroll horizontal'). O que fica: gestos
+// touch + backdrop com fade + slide com mola. O que NÃO pode voltar: o handle.
 {
-  const idx115 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const css115 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
-  const app115 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
-  assert(idx115.includes('id="sb-edge-handle"') && idx115.includes("onclick=\"toggleSidebar()\""), 'edge handle button in index');
-  assert(css115.includes('.sb-edge-handle{display:none}') && /@media\(max-width:820px\)\{[\s\S]*?\.sb-edge-handle\{/.test(css115), 'handle hidden on desktop, styled only <=820px');
-  assert(css115.includes('.sb-edge-handle.open{opacity:0;pointer-events:none'), 'handle hides while drawer is open');
-  assert(css115.includes('.sb-backdrop{display:block;opacity:0;pointer-events:none') && css115.includes('.sb-backdrop.open{opacity:1;pointer-events:auto}'), 'backdrop fades (mobile) instead of hard display toggle');
-  assert(/cubic-bezier\(\.22,\.9,\.3,1\.08\)/.test(css115), 'drawer slide has soft-spring popup curve');
-  // JS: handle sincronizado nos DOIS caminhos (toggle e close) + gestos passivos
-  assert((app115.match(/sb-edge-handle/g) || []).length >= 2, 'toggle AND close sync the handle state');
-  assert(app115.includes('function openSidebar') && app115.includes('initSidebarSwipe'), 'swipe gestures wired');
-  assert(app115.includes("{passive:true}"), 'touch listeners are passive (não trava scroll)');
-  assert(app115.includes('x0<=28') && app115.includes('Math.abs(dx)>44'), 'edge-start + horizontal-dominant thresholds');
-  assert(app115.includes('window.innerWidth>820'), 'gestures gated to mobile width');
+  const idx117 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const css117 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const app117 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  // anti-reintrodução: decisão de design do dono (2026-07-24)
+  assert(!idx117.includes('sb-edge-handle') && !css117.includes('sb-edge-handle') && !app117.includes('sb-edge-handle'), 'edge handle fully removed (owner decision: swipe-only)');
+  assert(!css117.includes('sbHandlePulse'), 'handle pulse keyframes removed');
+  // o acesso por gesto PERMANECE
+  assert(app117.includes('function openSidebar') && app117.includes('initSidebarSwipe'), 'swipe gestures kept (the mobile access path)');
+  assert(app117.includes('{passive:true}') && app117.includes('x0<=28') && app117.includes('Math.abs(dx)>44'), 'passive listeners + edge/horizontal thresholds kept');
+  assert(app117.includes('window.innerWidth>820'), 'gestures gated to mobile width');
+  assert(css117.includes('.sb-backdrop{display:block;opacity:0;pointer-events:none') && css117.includes('.sb-backdrop.open{opacity:1;pointer-events:auto}'), 'backdrop fade kept');
+  assert(css117.includes('cubic-bezier(.22,.9,.3,1.08)'), 'soft-spring slide kept');
+  // burger continua como acesso visível
+  assert(idx117.includes('class="m-burger"'), 'burger remains the visible affordance');
 }
 
 // Shell 116: review UI/UX (skill web-design-reviewer) — 3 achados corrigidos

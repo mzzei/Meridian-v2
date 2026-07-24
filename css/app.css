@@ -3023,32 +3023,13 @@ html[data-theme="ouro"] .ctx-prompt-kicker{color:#e6c87a!important}
    O drawer já deslizava via burger, mas o acesso não era percebido (print do
    dono: seta na borda esquerda). Puxador fixo na borda + swipe; backdrop ganha
    FADE (antes era display on/off seco) e o slide ganha curva com leve mola. */
-.sb-edge-handle{display:none}
 @media(max-width:820px){
-  .sb-edge-handle{
-    display:flex;align-items:center;justify-content:center;
-    position:fixed;left:0;top:50%;transform:translateY(-50%);
-    width:24px;height:72px;z-index:150;
-    border:1px solid var(--border);border-left:none;border-radius:0 12px 12px 0;
-    background:linear-gradient(160deg,var(--cream-mid),var(--cream));
-    color:var(--honey);cursor:pointer;padding:0;
-    box-shadow:2px 0 12px rgba(0,0,0,.22);
-    -webkit-tap-highlight-color:transparent;
-    transition:opacity .24s ease,transform .24s ease;
-    animation:sbHandlePulse 2.6s ease-in-out 2;
-  }
-  .sb-edge-handle:active{transform:translateY(-50%) scale(.94)}
-  .sb-edge-handle.open{opacity:0;pointer-events:none;transform:translateY(-50%) translateX(-8px)}
   /* backdrop com fade + leve blur (substitui o display seco dentro do mobile) */
   .sb-backdrop{display:block;opacity:0;pointer-events:none;
     transition:opacity .28s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
   .sb-backdrop.open{opacity:1;pointer-events:auto}
   /* slide com leve mola (popup): overshoot sutil na entrada */
   .l-sb{transition:transform .34s cubic-bezier(.22,.9,.3,1.08)!important}
-}
-@keyframes sbHandlePulse{
-  0%,100%{box-shadow:2px 0 12px rgba(0,0,0,.22)}
-  50%{box-shadow:2px 0 18px var(--aurora-glow)}
 }
 
 /* ═══ Touch targets mobile (shell 116 — review UI/UX com skill web-design-reviewer) ═══

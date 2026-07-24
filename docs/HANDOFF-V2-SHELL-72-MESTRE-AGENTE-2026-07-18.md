@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 116)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 117)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 116**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 117**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **116** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **117** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 116 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 117 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-23 · shell 116)
+## Estado atual (revisão 2026-07-23 · shell 117)
 
 | Shell | Entrega |
 |-------|---------|
@@ -761,19 +761,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **116** | **Review UI/UX completo (skill web-design-reviewer do dono)** — inspeção nos 4 viewports (375/768/1280/1920) + varredura programática (overflow/alt/aria/touch). Desktop/wide/settings/library limpos. 3 achados corrigidos: (P1) **gaveta mobile EMBAÇADA** (dono confirmou) — `.app` tem `z-index:1` (stacking context próprio), então o backdrop no body (z-150) pintava SOBRE o .app inteiro, incluindo a gaveta z-160 presa dentro; fix = backdrop movido para DENTRO do .app (mesmo contexto; medido: 3/3 pontos "BACKDROP"→"gaveta"). (P1) **badge demo estourava o viewport** (423px>375, left -24) e cobria o título — em ≤700px vira faixa fina full-width no topo + clearance do header (`body.demo-on`), estilo escopado no próprio demo.js. (P2) **touch targets 18–26px** → ≥28px em ≤640px (a-ic 21→28, ls-hist-item 26→34, #model-sel-btn 22→30 — era ID, não classe; a 1ª tentativa por classe falhou e foi pega na re-verificação). Nota de preview: cacheFirstAsset com ignoreSearch serve CSS velho ao trocar querystring — validar CSS exige limpar SW. 7 asserts; screenshots antes/depois |
 
+| **117** | **Puxador da gaveta REMOVIDO (decisão de design do dono)** — "o acesso à barra lateral deve ser por scroll horizontal no mobile". Excisão completa do `#sb-edge-handle` (botão no index, regras+keyframes no css, sincronização no app.js) com **assert anti-reintrodução** nos 3 arquivos. O que FICA como acesso mobile: **swipe da borda** (gestos do 115, validado com TouchEvent simulado: touchstart x=10 → touchend x=120 abre a gaveta) + burger no header. Backdrop atrás da gaveta (fix 116) e slide com mola preservados por assert. Testes do 115 reescritos (115→117) |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 116)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 117)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 116).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 117).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 116)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 117)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

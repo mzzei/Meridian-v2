@@ -1794,14 +1794,12 @@ function toggleSidebar(){
   const bd=document.getElementById('sb-backdrop');
   const open=sb.classList.toggle('open');
   bd.classList.toggle('open',open);
-  const h=document.getElementById('sb-edge-handle');if(h)h.classList.toggle('open',open);
 }
 function closeSidebar(){
   const sb=document.getElementById('l-sb');
   const bd=document.getElementById('sb-backdrop');
   sb.classList.remove('open');
   bd.classList.remove('open');
-  const h=document.getElementById('sb-edge-handle');if(h)h.classList.remove('open');
 }
 function openSidebar(){
   const sb=document.getElementById('l-sb');
