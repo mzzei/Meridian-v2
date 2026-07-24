@@ -773,6 +773,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **122** | **Disclaimer "O agente pode cometer erros…" removido do MOBILE** (pedido do dono; espaço vertical escasso no dock): `.i-disc{display:none}` no media ≤640px. Desktop mantém (block). Validado no runtime: 375px=none · 1100px=block |
 
+| **122·pkg** | **Empacotador com SANITIZAÇÃO** (`tools/package-motor.mjs` — docs/tooling, sem bump): o dono viu o cabeçalho do MANIFEST ("pacote de venda… ficam com o vendedor") no zip do cliente. O repo MANTÉM os comentários internos (histórico vale para manutenção aqui); o zip sai neutro: cabeçalho do MANIFEST reescrito, regex-subs em comentários ("do dono"→produto/API, "vendável" removido, "comprador"→integrador) e **auditoria pós-sanitização que ABORTA se sobrar termo interno** — pegou 2 variantes na 1ª rodada (padrão sem artigo + palavra quebrada em 2 linhas). Novo fluxo de release: `node tools/package-motor.mjs`. Validado: extração → MOTOR ALL PASSED + varredura independente = 0 resíduos |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
