@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=114">
+<link rel="stylesheet" href="css/app.css?v=115">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono | ouro) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono'||_t==='ouro')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -580,11 +580,17 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=114"></script>
+<script type="module" src="js/main.js?v=115"></script>
 
 
 <!-- Mobile sidebar backdrop -->
 <div class="sb-backdrop" id="sb-backdrop" onclick="closeSidebar()"></div>
+<!-- Puxador da gaveta lateral (mobile ≤820px, shell 115): o burger existia mas não era
+     percebido — o puxador fica na borda esquerda (onde o dono apontou no print) e o
+     swipe a partir da borda também abre. Some quando a gaveta está aberta. -->
+<button type="button" class="sb-edge-handle" id="sb-edge-handle" onclick="toggleSidebar()" aria-label="Abrir menu lateral" title="Menu">
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+</button>
 
 <!-- Mobile bottom navigation -->
 <nav class="m-nav" id="m-nav">

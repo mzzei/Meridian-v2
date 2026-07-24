@@ -1794,13 +1794,43 @@ function toggleSidebar(){
   const bd=document.getElementById('sb-backdrop');
   const open=sb.classList.toggle('open');
   bd.classList.toggle('open',open);
+  const h=document.getElementById('sb-edge-handle');if(h)h.classList.toggle('open',open);
 }
 function closeSidebar(){
   const sb=document.getElementById('l-sb');
   const bd=document.getElementById('sb-backdrop');
   sb.classList.remove('open');
   bd.classList.remove('open');
+  const h=document.getElementById('sb-edge-handle');if(h)h.classList.remove('open');
 }
+function openSidebar(){
+  const sb=document.getElementById('l-sb');
+  if(sb&&!sb.classList.contains('open'))toggleSidebar();
+}
+// ── Gestos da gaveta (mobile ≤820px — shell 115) ──────────────────────────
+// Swipe a partir da BORDA esquerda (início ≤28px) abre; swipe para a esquerda
+// com a gaveta aberta fecha. Horizontal domina (|dx|>|dy|) para não brigar com
+// scroll vertical. Passive: não bloqueia o scroll nativo.
+(function initSidebarSwipe(){
+  let x0=null,y0=null,fromEdge=false;
+  document.addEventListener('touchstart',function(e){
+    if(window.innerWidth>820||!e.touches||!e.touches.length)return;
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;fromEdge=x0<=28;
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(x0===null||window.innerWidth>820){x0=null;return;}
+    const t=(e.changedTouches&&e.changedTouches[0])||null;
+    if(!t){x0=null;return;}
+    const dx=t.clientX-x0,dy=t.clientY-y0;
+    const sb=document.getElementById('l-sb');
+    const open=sb&&sb.classList.contains('open');
+    if(Math.abs(dx)>44&&Math.abs(dx)>Math.abs(dy)*1.4){
+      if(!open&&fromEdge&&dx>0)openSidebar();
+      else if(open&&dx<0)closeSidebar();
+    }
+    x0=null;y0=null;fromEdge=false;
+  },{passive:true});
+})();
 
 // ─── Right sidebar featured sections (empty state) ────────────────────────
 /* featured → js/ui/featured.js */
