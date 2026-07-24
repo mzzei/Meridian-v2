@@ -796,6 +796,37 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   // prompt: xG desconhecido = null, nunca 0 (nos DOIS prompts F2)
   const pr5 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
   assert(pr5.split('XG NUMÉRICO: desconhecido/não estimável = null — NUNCA 0').length - 1 === 2, 'null-not-zero rule in both F2 prompts');
+
+  // Shell 112: auditoria Santos × Chapecoense — a reconciliação Poisson inflava mercados
+  //   por (a) ignorar a LINHA de mercados por time (P≥1 p/ qualquer "marca") e (b) tratar
+  //   mercados de PERÍODO como total do jogo. Correção: linha decide o k; período → sem carimbo.
+  const mk112 = () => ({
+    contexto_analise: 'previa',
+    mandante: { nome: 'Santos' }, visitante: { nome: 'Chapecoense' },
+    lambda: { home_mid: 1.9, away_mid: 1.2 },
+    eventos_provaveis: [
+      { evento: 'Santos marca mais de 1.5 gol', probabilidade: 0.85, fundamento: 'f' },       // ≥2 → 57%
+      { evento: 'Santos marca 2 ou mais gols', probabilidade: 0.85, fundamento: 'f' },         // ≥2 → 57%
+      { evento: 'Mais de 1.5 gol no 2º tempo', probabilidade: 0.82, fundamento: 'f' },         // período → intocado
+      { evento: 'Mais de 2.5 gols na partida', probabilidade: 0.40, fundamento: 'f' },         // total → 60%
+      { evento: 'Santos marca a qualquer momento', probabilidade: 0.50, fundamento: 'f' },     // ≥1 → 85%
+    ],
+  });
+  const _poi112 = (k, l) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
+  const pAtLeast = (k, l) => { let u = 0; for (let i = 0; i < k; i++) u += _poi112(i, l); return 1 - u; };
+  const pOver112 = (line) => { let under = 0; for (let t = 0; t <= Math.floor(line); t++) { let pt = 0; for (let i = 0; i <= t; i++) pt += _poi112(i, 1.9) * _poi112(t - i, 1.2); under += pt; } return 1 - under; };
+  const q = mk112(); N5.attachAnalysisDerived(q, null);
+  const R = (x) => Math.round(x * 100) / 100;
+  // (a) "marca +1.5" e "2 ou mais" → P(Santos ≥2), NÃO P(≥1); ~57%, nunca mais 85%
+  assert(q.eventos_provaveis[0].probabilidade === R(pAtLeast(2, 1.9)), `team +1.5 uses P(>=2) (${q.eventos_provaveis[0].probabilidade}=${R(pAtLeast(2,1.9))}, era 0.85)`);
+  assert(q.eventos_provaveis[1].probabilidade === R(pAtLeast(2, 1.9)), 'team "2 ou mais" uses P(>=2)');
+  assert(q.eventos_provaveis[0].probabilidade < 0.7, 'meta: inflated 85% is gone (now ~57%)');
+  // (b) mercado de PERÍODO fica com o modelo e NÃO é carimbado (fora do escopo dos lambdas)
+  assert(q.eventos_provaveis[2].probabilidade === 0.82 && !/recalculada/.test(q.eventos_provaveis[2].fundamento), 'period market untouched + unstamped');
+  // (c) total do jogo continua correto (regressão do shell 105 preservada)
+  assert(q.eventos_provaveis[3].probabilidade === R(pOver112(2.5)), 'total over 2.5 still from lambdas (~60%)');
+  // (d) "marca a qualquer momento" (sem linha) segue P(≥1)
+  assert(q.eventos_provaveis[4].probabilidade === R(pAtLeast(1, 1.9)), 'anytime scorer stays P(>=1)');
 }
 
 // Shell 106: "xG marcado 0" vazando na UI (print real — card antigo salvo na biblioteca)

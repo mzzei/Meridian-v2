@@ -185,16 +185,39 @@ function _poissonReconcileGoalMarkets(parsed) {
     const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const hn = norm(parsed.mandante && parsed.mandante.nome), vn = norm(parsed.visitante && parsed.visitante.nome);
     const pTotalOver = (line) => { let under = 0; for (let t = 0; t <= Math.floor(line); t++) { let pt = 0; for (let i = 0; i <= t; i++) pt += _poi(i, lh) * _poi(t - i, la); under += pt; } return 1 - under; };
+    const pTeamAtLeast = (k, l) => { let u = 0; for (let i = 0; i < k; i++) u += _poi(i, l); return 1 - u; };
     const bt = (1 - Math.exp(-lh)) * (1 - Math.exp(-la));
+    // REGRA-MÃE contra a repetição (auditoria Santos×Chape, shell 112): a reconciliação
+    // SÓ recalcula/carimba um mercado que mapeia com CERTEZA a uma fórmula de Poisson de
+    // jogo inteiro. Se não mapeia (período, linha ambígua), retorna null → NÃO toca e NÃO
+    // carimba: o valor do modelo fica (auditável). Carimbo indevido é pior que não mexer —
+    // ele mascara o erro E é blindado pelo backstop do auditor (shell 110).
     const calc = (t) => {
+      // ESCOPO: mercados de PERÍODO (1º/2º tempo, intervalo, etapa) não são modeláveis pelos
+      // lambdas de JOGO INTEIRO — o bug real tratava "1.5 gol no 2º tempo" como total da
+      // partida (82% em vez de ~46%). Fora do escopo → devolve ao modelo, sem carimbo.
+      if (/tempo|intervalo|\bht\b|\b1t\b|\b2t\b|\betapa\b/.test(t)) return null;
+      const teamHome = !!(hn && t.includes(hn)), teamAway = !!(vn && t.includes(vn));
+      // TOTAL over/under de gols do jogo (só quando NÃO é de um time específico)
       const mOU = t.match(/\b(mais|menos|over|under)\b[^0-9]{0,12}(\d+)[.,]5\s*(gols?|golos?)/);
-      if (mOU && !(hn && t.includes(hn)) && !(vn && t.includes(vn))) {
+      if (mOU && !teamHome && !teamAway) {
         const over = pTotalOver(Number(mOU[2]) + 0.5);
         return /menos|under/.test(mOU[1]) ? 1 - over : over;
       }
       if (/ambas(?: as)? equipes marcam|ambas marcam|btts/.test(t)) return /n[a]o\b|\bnao\b/.test(t) ? 1 - bt : bt;
-      const team = (hn && t.includes(hn)) ? lh : (vn && t.includes(vn)) ? la : null;
-      if (team != null && (/marca(?: a qualquer momento)?\b/.test(t) || /(mais de|over|>)\s*0[.,]5/.test(t)) && !/escanteio|cart[a]o|cantos/.test(t)) return 1 - Math.exp(-team);
+      // MERCADO POR TIME: a LINHA decide o k → P(time ≥ k). O bug (Santos×Chape): devolvia
+      // 1−e^−λ = P(≥1) para QUALQUER "marca", ignorando a linha — "Santos marca +1.5 gol"
+      // (≥2, ~57%) saía 85% (≥1). Agora "+N.5"→≥N+1, "N ou mais"→≥N, "marca"/"+0.5"→≥1.
+      const team = teamHome ? lh : teamAway ? la : null;
+      if (team != null && !/escanteio|cart[a]o|cantos|falta/.test(t)) {
+        let k = null;
+        const mLine = t.match(/(?:mais de|acima de|over|\+\s*de|>)\s*(\d+)[.,]5/);
+        const mMais = t.match(/\b(\d+)\s*(?:\+|ou mais)\s*(?:gols?|golos?)?/);
+        if (mLine) k = Number(mLine[1]) + 1;
+        else if (mMais) k = Number(mMais[1]);
+        else if (/marca(?: a qualquer momento)?\b|(?:mais de|over|>)\s*0[.,]5/.test(t)) k = 1;
+        if (k != null && k >= 1) return pTeamAtLeast(k, team);
+      }
       return null;
     };
     const all = [].concat(parsed.eventos_provaveis || [], parsed.sugestoes_ticket || []).filter((e) => e && typeof e === 'object');
