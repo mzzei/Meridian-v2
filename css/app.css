@@ -3050,3 +3050,13 @@ html[data-theme="ouro"] .ctx-prompt-kicker{color:#e6c87a!important}
   0%,100%{box-shadow:2px 0 12px rgba(0,0,0,.22)}
   50%{box-shadow:2px 0 18px var(--aurora-glow)}
 }
+
+/* ═══ Touch targets mobile (shell 116 — review UI/UX com skill web-design-reviewer) ═══
+   Medidos <28px a 375px: .a-ic 21px · .model-sel-btn 22px · .ua-btn 18px ·
+   .ls-hist-item 26px. Alvo mínimo ~28-32px em toque, sem mudar o visual desktop. */
+@media(max-width:640px){
+  .a-ic{min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center}
+  #model-sel-btn,.i-sel-btn{min-height:30px}
+  .ua-btn,#ua-btn{min-height:28px;display:inline-flex;align-items:center}
+  .ls-hist-item{min-height:34px}
+}

@@ -1099,6 +1099,27 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(app115.includes('window.innerWidth>820'), 'gestures gated to mobile width');
 }
 
+// Shell 116: review UI/UX (skill web-design-reviewer) — 3 achados corrigidos
+{
+  const idx116 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const css116 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const demo116 = fs.readFileSync(path.join(ROOT, 'js/demo.js'), 'utf8');
+  // P1: gaveta embaçada — backdrop DENTRO do .app (mesmo stacking context da gaveta;
+  // .app tem z-index:1, então no body o backdrop z-150 pintava SOBRE a gaveta z-160)
+  const iAside = idx116.indexOf('</aside>');
+  const iBd = idx116.indexOf('id="sb-backdrop"');
+  const iMain = idx116.indexOf('<main class="main"');
+  assert(iAside > -1 && iBd > iAside && iBd < iMain, 'backdrop lives INSIDE .app between aside and main (fixes blurred drawer)');
+  assert((idx116.match(/id="sb-backdrop"/g) || []).length === 1, 'single backdrop node');
+  // P1: badge demo — faixa no mobile + clearance do header (estourava 423px>375 e cobria o título)
+  assert(demo116.includes("classList.add('demo-on')") && demo116.includes('@media(max-width:700px)'), 'demo badge collapses to strip on mobile');
+  assert(demo116.includes('body.demo-on .m-hdr{margin-top:20px}'), 'header clearance under demo strip');
+  // P2: touch targets >=28px no mobile (medidos 18-26px)
+  assert(/@media\(max-width:640px\)\{\s*\n?\s*\.a-ic\{min-width:28px;min-height:28px/.test(css116), 'a-ic touch target');
+  assert(css116.includes('#model-sel-btn,.i-sel-btn{min-height:30px}'), 'model selector touch target (id, não classe)');
+  assert(css116.includes('.ls-hist-item{min-height:34px}'), 'history item touch target');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

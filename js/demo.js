@@ -208,6 +208,17 @@
     b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;background:#e8b44a;color:#141414;' +
       'font:600 12px/1.4 system-ui;padding:6px 12px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap';
     document.body.appendChild(b);
+    // Mobile (shell 116): o pill central estourava o viewport (423px > 375) e cobria o
+    // título do header. Em telas estreitas vira FAIXA fina no topo, e o header ganha
+    // clearance — sem tocar no app.css (estilo escopado ao modo demo).
+    document.body.classList.add('demo-on');
+    var st = document.createElement('style');
+    st.textContent = '@media(max-width:700px){' +
+      '#demo-badge{top:0!important;left:0!important;right:0!important;transform:none!important;' +
+      'border-radius:0!important;width:100%!important;box-sizing:border-box;text-align:center;' +
+      'font-size:10px!important;padding:3px 8px!important;overflow:hidden;text-overflow:ellipsis}' +
+      'body.demo-on .m-hdr{margin-top:20px}}';
+    document.head.appendChild(st);
     // chave ilustrativa direto no input (setar .value NÃO dispara o listener de
     // 'input' → nada é gravado no sessionStorage; ao sair do modo demo, some)
     var k = document.getElementById('api-key-input');
