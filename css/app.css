@@ -34,7 +34,7 @@
   --lime:#e8b44a;
   --lime-mid:#9ecfd4;
   --green:#6ba8a0;
-  --dim:#5c6b78;
+  --dim:#758693; /* shell 118: era #5c6b78 (3.26:1 no card — reprovava AA); 4.76:1 */
   --cool:#7eb8c9;
   --cool-pale:rgba(126,184,201,.14);
   --aurora-glow:rgba(232,180,74,.28);
@@ -808,7 +808,7 @@ html[data-theme="mono"] .ctx-prompt-other-ta{background:#fff!important;color:#1a
 /* Toast opaco (não herdar --deep claro / vidro); z-index acima do dock */
 #toast{
   position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(8px);
-  background:var(--toast-bg,#121a24);color:#f4efe6;font-size:12.5px;font-weight:500;
+  background:var(--toast-bg,#121a24);color:var(--toast-fg,#f4efe6);font-size:12.5px;font-weight:500;
   padding:10px 16px;border-radius:10px;
   border:1px solid rgba(158,207,212,.28);
   box-shadow:0 8px 28px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3);
@@ -1464,7 +1464,7 @@ body.wc-lite .ls-emblem-aura{animation:none!important}
   --acard-fg:#f4efe6;
   --acard-muted:#8a9aa6;
   --acard-mid:#b0bec9;
-  --acard-dim:#5c6b78;
+  --acard-dim:#758693;
   --acard-accent:#e8b44a;
   --acard-accent-2:#6ba8a0;
   --acard-tab-active:#f4efe6;
@@ -1701,7 +1701,7 @@ html[data-theme="mono"] .a-card .ct-van-a{background:rgba(0,0,0,.06);color:#222}
 .att-x:hover{color:var(--lime-mid);background:rgba(255,255,255,.08)}
 .ub-atts img{border:1px solid rgba(158,207,212,.18)}
 .ub-doc{background:rgba(255,255,255,.05);border:1px solid rgba(158,207,212,.15);color:var(--deep)}
-#toast{background:var(--toast-bg,#121a24)!important;border:1px solid rgba(158,207,212,.32)!important;color:#f4efe6!important}
+#toast{background:var(--toast-bg,#121a24)!important;border:1px solid var(--toast-border,rgba(158,207,212,.32))!important;color:var(--toast-fg,#f4efe6)!important}
 .i-analyze{background:linear-gradient(120deg,#e8b44a,#6ba8a0);color:#0c1016;border:none;font-weight:700;border-radius:12px;box-shadow:var(--pal-elev);transition:transform .15s,box-shadow .15s;min-width:0;max-width:100%}
 .i-analyze:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--pal-elev-hover)}
 .i-analyze:disabled{opacity:.45;cursor:not-allowed}
@@ -2150,6 +2150,13 @@ html[data-theme="verde"] .lib-match-btn{
    Ativado via html[data-theme="verde"]
    ══════════════════════════════════════════════ */
 html[data-theme="verde"]{
+  --surface-solid:#0c2418;
+  --menu-bg:#0c2418;
+  --menu-border:rgba(160,240,190,.28);
+  --menu-fg:#eef8ee;
+  --toast-bg:#0a2015;
+  --toast-border:rgba(160,240,190,.32);
+  --toast-fg:#f3faf2;
   --sidebar-black:#04130c;
   --amber-deep:#1aad70;
   --honey:#d6f95a;
@@ -2377,6 +2384,13 @@ html[data-theme="verde"] meta{color:inherit}
    ══════════════════════════════════════════════ */
 html[data-theme="mono"]{
   /* Preto do rail esquerdo (#1c1c1c) — ticker de notícias usa a mesma tinta */
+  --surface-solid:#262626;
+  --menu-bg:#262626;
+  --menu-border:rgba(255,255,255,.24);
+  --menu-fg:#f2f2f2;
+  --toast-bg:#222222;
+  --toast-border:rgba(255,255,255,.28);
+  --toast-fg:#f5f5f5;
   --sidebar-black:#1c1c1c;
   --amber-deep:#2a2a2a;
   --honey:#f0f0f0;
@@ -2882,6 +2896,13 @@ html[data-theme="verde"] .ntick-item::before{opacity:.5}
    base quase-preta quente (marrom-carvão), dourado champanhe como acento único,
    brilho de vela nos glows. Estrutura idêntica aos temas verde/mono. */
 html[data-theme="ouro"]{
+  --surface-solid:#1c1509;
+  --menu-bg:#1c1509;
+  --menu-border:rgba(216,192,138,.28);
+  --menu-fg:#f5eedd;
+  --toast-bg:#181106;
+  --toast-border:rgba(216,192,138,.32);
+  --toast-fg:#f2e9d8;
   --sidebar-black:#0b0804;
   --amber-deep:#8a6a2f;
   --honey:#e6c87a;
@@ -2908,7 +2929,7 @@ html[data-theme="ouro"]{
   --lime:#e6c87a;
   --lime-mid:#d8c08a;
   --green:#a08347;
-  --dim:#6e5f42;
+  --dim:#8a7a55; /* shell 118: era #6e5f42 (3.11:1 — reprovava AA); 4.59:1 */
   --cool:#d8b46a;
   --cool-pale:rgba(216,180,106,.14);
   --aurora-glow:rgba(230,200,122,.26);
@@ -3000,7 +3021,7 @@ html[data-theme="ouro"]{
   --acard-fg:#f2e9d8;
   --acard-muted:#94825f;
   --acard-mid:#c7b48e;
-  --acard-dim:#6e5f42;
+  --acard-dim:#8a7a55;
   --acard-accent:#e6c87a;
   --acard-accent-2:#a08347;
   --acard-tab-active:#f2e9d8;

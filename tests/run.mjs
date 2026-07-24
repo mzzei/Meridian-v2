@@ -1122,6 +1122,62 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(css116.includes('.ls-hist-item{min-height:34px}'), 'history item touch target');
 }
 
+// Shell 118: DESIGN SYSTEM (skill ui-design-system) — paridade de tokens + contraste AA
+{
+  const css118 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  // (1) PARIDADE: todo tema define o MESMO conjunto de vars — tema capenga = UI
+  // que "vaza" Aurora silenciosamente (foi o caso real de menu/toast até o 118)
+  const collect = (marker) => {
+    const out = new Set();
+    let idx = 0;
+    while ((idx = css118.indexOf(marker, idx)) !== -1) {
+      let i = idx + marker.length, depth = 1, body = '';
+      while (i < css118.length && depth > 0) { const ch = css118[i]; if (ch === '{') depth++; if (ch === '}') depth--; if (depth > 0) body += ch; i++; }
+      for (const m of body.matchAll(/--([a-z0-9-]+)\s*:/g)) out.add(m[1]);
+      idx = i;
+    }
+    return out;
+  };
+  const temas = { verde: collect('html[data-theme="verde"]{'), mono: collect('html[data-theme="mono"]{'), ouro: collect('html[data-theme="ouro"]{') };
+  const nomes = Object.keys(temas);
+  for (let a = 0; a < nomes.length; a++) for (let b = 0; b < nomes.length; b++) {
+    if (a === b) continue;
+    const falta = [...temas[nomes[a]]].filter((v) => !temas[nomes[b]].has(v));
+    assert(falta.length === 0, `token parity ${nomes[a]}→${nomes[b]} (faltando: ${falta.slice(0, 5).join(',') || '-'})`);
+  }
+  for (const t of nomes) for (const v of ['menu-bg', 'toast-bg', 'toast-fg', 'surface-solid'])
+    assert(temas[t].has(v), `surface token "${v}" themed in ${t}`);
+  // (2) CONTRASTE AA calculado NO TESTE (não confiança em olho): texto sobre o card
+  const hex = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  const lum = (rgb) => { const a = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; };
+  const ratio = (f, b) => { const l1 = lum(hex(f)), l2 = lum(hex(b)); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  const getVar = (block, name) => { const m = block.match(new RegExp('--' + name + '\\s*:\\s*(#[0-9a-fA-F]{3,6})')); return m && m[1]; };
+  // concatena TODOS os blocos do marcador (um tema tem vários: global, acard, ajustes)
+  const blockOf = (marker) => {
+    let body = '', idx = 0;
+    while ((idx = css118.indexOf(marker, idx)) !== -1) {
+      let j = idx + marker.length, depth = 1;
+      while (j < css118.length && depth > 0) { const ch = css118[j]; if (ch === '{') depth++; if (ch === '}') depth--; if (depth > 0) body += ch; j++; }
+      idx = j;
+    }
+    return body;
+  };
+  const pares = [
+    ['aurora', blockOf(':root{'), '#101820'], ['verde', blockOf('html[data-theme="verde"]{'), '#0a1a12'],
+    ['ouro', blockOf('html[data-theme="ouro"]{'), '#130d05'],
+  ];
+  for (const [tema, blk, cardBg] of pares) {
+    for (const tok of ['deep', 'mid', 'muted', 'dim']) {
+      const cor = getVar(blk, tok);
+      assert(cor, `${tema} defines --${tok}`);
+      const r = ratio(cor, cardBg);
+      assert(r >= 4.5, `${tema} --${tok} ${cor} contrast ${r.toFixed(2)} >= 4.5 (AA texto normal)`);
+    }
+  }
+  // meta-assert: o valor ANTIGO reprovaria (prova que o guard tem dentes)
+  assert(ratio('#5c6b78', '#101820') < 4.5 && ratio('#6e5f42', '#130d05') < 4.5, 'meta: old dim values would fail this guard');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
