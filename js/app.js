@@ -1215,14 +1215,14 @@ async function installPwaApp(){
 
 // ─── Tema de cor (Aurora | Verde | B&W mono) ─────────────────────────────
 const THEME_STORE='meridian_ui_theme';
-const THEME_IDS=['aurora','verde','mono'];
+const THEME_IDS=['aurora','verde','mono','ouro'];
 var currentTheme=(()=>{try{const v=localStorage.getItem(THEME_STORE);return THEME_IDS.includes(v)?v:'aurora';}catch{return'aurora';}})();
 const LOGO_AURORA='assets/logo-aurora.png';
 const LOGO_VERDE='assets/wc-trophy.png';
 function _applyBrandLogo(theme){
   // B&W reutiliza logo Aurora com filtro CSS; Verde usa troféu
   const src=theme==='verde'?LOGO_VERDE:LOGO_AURORA;
-  const alt=theme==='verde'?'Meridian':(theme==='mono'?'Meridian B&W':'Meridian Aurora');
+  const alt=theme==='verde'?'Meridian':(theme==='mono'?'Meridian B&W':(theme==='ouro'?'Meridian Ouro':'Meridian Aurora'));
   [document.getElementById('ls-brand-logo'),document.getElementById('wp-brand-logo'),document.querySelector('.ls-emblem-photo')].forEach(img=>{
     if(!img)return;
     if(img.getAttribute('src')!==src)img.setAttribute('src',src);
@@ -1277,6 +1277,21 @@ const SETTINGS_PANEL_SKINS={
     focus:'#222222',
     closeBorder:'rgba(0,0,0,0.2)',
     closeBg:'rgba(255,255,255,0.35)'
+  },
+  ouro:{
+    scrim:'rgba(6,4,2,0.56)',
+    // lib-comp-card Ouro (painel champanhe → bronze; mockup noir & dourado)
+    bg:'linear-gradient(148deg, #e9cf8a 0%, #cfa855 44%, #95713a 100%)',
+    bgSolid:'#b8965a',
+    border:'1px solid rgba(255,255,255,0.32)',
+    shadow:'var(--pal-elev-card)',
+    fg:'#1a1206',
+    muted:'rgba(26,18,6,0.72)',
+    inputBg:'rgba(255,255,255,0.5)',
+    inputBorder:'1px solid rgba(26,18,6,0.16)',
+    focus:'rgba(26,18,6,0.42)',
+    closeBorder:'rgba(26,18,6,0.18)',
+    closeBg:'rgba(255,255,255,0.28)'
   }
 };
 function _setImp(el,prop,val){if(el)el.style.setProperty(prop,val,'important');}
@@ -1353,7 +1368,7 @@ function setTheme(theme){
   try{localStorage.setItem(THEME_STORE,theme);}catch{}
   document.documentElement.setAttribute('data-theme',theme);
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.content=theme==='verde'?'#04130c':(theme==='mono'?'#b0b0b0':'#0c1016');
+  if(meta)meta.content=theme==='verde'?'#04130c':(theme==='mono'?'#b0b0b0':(theme==='ouro'?'#0b0804':'#0c1016'));
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===theme));
   _applyBrandLogo(theme);
   _syncSettingsTheme(theme);

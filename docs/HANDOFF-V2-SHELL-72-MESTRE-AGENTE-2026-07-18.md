@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 113)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 114)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 113**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 114**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **113** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **114** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 113 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 114 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-23 · shell 113)
+## Estado atual (revisão 2026-07-23 · shell 114)
 
 | Shell | Entrega |
 |-------|---------|
@@ -755,19 +755,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **113** | **Descritividade dos cards não pode depender do modelo** — o dono notou o Opus escrevendo `fundamento`/`diagnostico` telegráficos vs. o Sonnet expansivo. Investigação: Opus e Sonnet recebem tratamento **byte a byte idêntico** na F2 (mesmo prompt `getSystemPromptPhase2` escolhido por `useEnriched`, não por modelo; max_tokens 9000; thinking disabled; prefill só Haiku). O único delta é `searches` (Opus 3 > Sonnet 2 → mais fatos, não menos). Causa raiz: o contrato dizia QUAIS campos e a exigência FACTUAL, mas nunca um **padrão de extensão** dos campos narrativos — então cada modelo caía no seu default (Opus conciso, Sonnet expansivo). Fix (contrato decide, não o default do modelo): regra "DESCRIÇÃO DOS CAMPOS NARRATIVOS" nos DOIS prompts F2 — `fundamento`/`diagnostico`/`filosofia`/`impacto_mercados`/`ajustes_recentes`/`conclusao` com 1–2 frases completas citando o dado específico + o porquê, nível de detalhe MESMO em qualquer modelo (alvo escolhido pelo dono: igualar ao Sonnet). Zero código de execução tocado. 2 asserts (padrão presente + model-independent nos dois prompts) |
 
+| **114** | **Tema OURO (noir & dourado luxo)** — 4º tema, do mockup do dono (2026-07-24): base quase-preta quente (#0b0804/#241a0c), dourado champanhe (#e6c87a/#c9a24a) como acento único, blobs = luz de vela. Um tema novo exige **5 pontas** (agora com meta-assert): `THEME_IDS` + skin `SETTINGS_PANEL_SKINS` + meta theme-color (app.js) · script anti-flash pré-paint + botão do seletor (index.html) · 4 camadas CSS (`html[data-theme=ouro]` vars globais/spanel/elevação, `body`, `--acard-*`, `.theme-swatch-ouro`) — estrutura idêntica aos blocos verde/mono, herdando defaults Aurora (já âmbar) onde não sobrescreve. Painel de configurações champanhe→bronze com texto escuro. Validado no runtime: `setTheme(ouro)` aplica vars (`--honey #e6c87a`, `--acard-accent`), persiste, sobrevive a reload sem flash, botão ativo no seletor, meta color `#0b0804`. 11 asserts. UI-only (css/app/index fora do pacote vendável) → zip inalterado |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 110)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 114)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 110).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 114).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 110)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 114)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

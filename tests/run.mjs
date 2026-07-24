@@ -1061,6 +1061,26 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(pr9.split('CONTEXTO DE PRÉVIA:').length - 1 === 2, 'previa-context rule in both F2 prompts');
 }
 
+// Shell 114: tema OURO (noir & dourado — mockup do dono) integrado ao sistema de temas
+{
+  const appSrc114 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  const cssSrc114 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const idxSrc114 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  // registro completo: um tema novo precisa das 5 pontas (IDs, skin, meta, boot, botão)
+  assert(appSrc114.includes("const THEME_IDS=['aurora','verde','mono','ouro']"), 'ouro in THEME_IDS');
+  assert(/ouro:\{\s*\n?\s*scrim/.test(appSrc114), 'ouro skin in SETTINGS_PANEL_SKINS');
+  assert(appSrc114.includes("theme==='ouro'?'#0b0804'"), 'ouro meta theme-color');
+  assert(idxSrc114.includes("_t==='ouro'") , 'ouro accepted by pre-paint boot script (anti-flash)');
+  assert(idxSrc114.includes('data-theme="ouro"') && idxSrc114.includes('theme-swatch-ouro'), 'ouro button in theme selector');
+  // CSS: as 4 camadas visuais do tema
+  assert(/html\[data-theme="ouro"\]\{[\s\S]*?--sidebar-black/.test(cssSrc114), 'ouro global vars block');
+  assert(/html\[data-theme="ouro"\] body\{/.test(cssSrc114), 'ouro body background');
+  assert(/html\[data-theme="ouro"\]\{[\s\S]*?--acard-bg/.test(cssSrc114), 'ouro a-card vars block');
+  assert(cssSrc114.includes('.theme-swatch-ouro{'), 'ouro swatch');
+  // meta-assert: um tema INEXISTENTE reprovaria as mesmas checagens
+  assert(!appSrc114.includes("'platina'") && !/html\[data-theme="platina"\]/.test(cssSrc114), 'meta: sweep would catch an unregistered theme');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

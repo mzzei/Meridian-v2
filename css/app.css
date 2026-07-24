@@ -2876,3 +2876,145 @@ html[data-theme="verde"] .ntick-item,
 html[data-theme="verde"] .ntick-item::before{color:#06251a!important;opacity:1}
 html[data-theme="verde"] .ntick-item::before{opacity:.5}
 /* a-card mono: contraste já definido no bloco .main .a-card acima */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA OURO (shell 114) — noir & dourado luxo (mockup do dono, 2026-07-24):
+   base quase-preta quente (marrom-carvão), dourado champanhe como acento único,
+   brilho de vela nos glows. Estrutura idêntica aos temas verde/mono. */
+html[data-theme="ouro"]{
+  --sidebar-black:#0b0804;
+  --amber-deep:#8a6a2f;
+  --honey:#e6c87a;
+  --ochre:#c9a24a;
+  --count-amber:#8a6a2f;
+  --cream-soft:rgba(230,200,122,.05);
+  --ivory:#efe6d2;
+  --cyan-pale:#d8c08a;
+  --sky:#c9a24a;
+  --mint-dust:#a08347;
+  --slate:#1a1409;
+  --charcoal:#0b0804;
+  --cream:rgba(230,200,122,.045);
+  --cream-card:rgba(230,200,122,.07);
+  --cream-mid:rgba(230,200,122,.11);
+  --terra:#c9a24a;
+  --terra-pale:rgba(201,162,74,.16);
+  --terra-dark:#8a6a2f;
+  --deep:#f2e9d8;
+  --mid:#c7b48e;
+  --muted:#94825f;
+  --border:rgba(216,192,138,.15);
+  --white:rgba(230,200,122,.06);
+  --lime:#e6c87a;
+  --lime-mid:#d8c08a;
+  --green:#a08347;
+  --dim:#6e5f42;
+  --cool:#d8b46a;
+  --cool-pale:rgba(216,180,106,.14);
+  --aurora-glow:rgba(230,200,122,.26);
+  --aurora-cool-glow:rgba(201,162,74,.2);
+  /* Configurações · ouro = painel champanhe → bronze */
+  --sov-scrim:rgba(6,4,2,.56);
+  --spanel-bg:linear-gradient(148deg,#e9cf8a 0%,#cfa855 44%,#95713a 100%);
+  --spanel-border:rgba(255,255,255,.32);
+  --spanel-shadow:var(--pal-elev-card);
+  --spanel-fg:#1a1206;
+  --spanel-muted:rgba(26,18,6,.72);
+  --spanel-input-bg:rgba(255,255,255,.5);
+  --spanel-input-border:rgba(26,18,6,.16);
+  --spanel-focus:rgba(26,18,6,.42);
+  --spanel-focus-ring:rgba(26,18,6,.12);
+  /* Elevação Ouro: sombra densa (fundo quase preto) + fio de luz quente */
+  --pal-elev:
+    0 1px 2px rgba(0,0,0,.3),
+    0 4px 10px rgba(0,0,0,.32),
+    0 8px 18px rgba(6,4,2,.24),
+    inset 0 1px 0 rgba(255,240,200,.32);
+  --pal-elev-hover:
+    0 2px 4px rgba(0,0,0,.32),
+    0 6px 14px rgba(0,0,0,.34),
+    0 12px 24px rgba(6,4,2,.26),
+    inset 0 1px 0 rgba(255,240,200,.4);
+  --pal-elev-card:
+    0 2px 4px rgba(0,0,0,.32),
+    0 8px 18px rgba(0,0,0,.34),
+    0 16px 32px rgba(6,4,2,.26),
+    inset 0 1px 0 rgba(255,240,200,.26);
+  --pal-elev-card-hover:
+    0 3px 6px rgba(0,0,0,.34),
+    0 10px 22px rgba(0,0,0,.36),
+    0 18px 36px rgba(6,4,2,.28),
+    inset 0 1px 0 rgba(255,240,200,.34);
+  /* Loading / estrela — Ouro */
+  --brand-star-0:#f4de9c;
+  --brand-star-1:#e6c87a;
+  --brand-star-2:#c9a24a;
+  --thk-bg:linear-gradient(160deg,rgba(30,22,10,.8),rgba(16,11,5,.7));
+  --thk-border:rgba(216,180,106,.24);
+  --thk-glow:rgba(230,200,122,.5);
+  --thk-pill-bg:rgba(201,162,74,.15);
+  --thk-pill-fg:#e6c87a;
+  --thk-accent:#c9a24a;
+}
+html[data-theme="ouro"] body{
+  background:radial-gradient(120% 90% at 50% -10%,#241a0c 0%,#150e06 40%,#0b0804 78%)!important;
+  background-attachment:fixed!important;
+  color:var(--deep);
+}
+html[data-theme="ouro"] body::after{
+  background:
+    linear-gradient(180deg,rgba(11,8,4,.14) 0%,rgba(11,8,4,.06) 45%,rgba(11,8,4,.24) 100%),
+    radial-gradient(ellipse 88% 78% at 50% 45%,transparent 46%,rgba(6,4,2,.5) 100%)!important;
+}
+/* Blobs = luz de vela: pontos quentes baixos, como no mockup */
+html[data-theme="ouro"] .wc-blob1{
+  width:520px;height:520px;top:-140px;left:20%;bottom:auto;
+  background:radial-gradient(circle,rgba(230,200,122,.3),transparent 60%)!important;
+  filter:blur(46px)!important;
+}
+html[data-theme="ouro"] .wc-blob2{
+  width:460px;height:460px;bottom:-150px;right:8%;top:auto;
+  background:radial-gradient(circle,rgba(201,162,74,.26),transparent 58%)!important;
+  filter:blur(44px)!important;
+}
+html[data-theme="ouro"] .wc-blob3{
+  width:400px;height:400px;top:60%;left:12%;
+  background:radial-gradient(circle,rgba(255,214,140,.14),transparent 56%)!important;
+  filter:blur(50px)!important;
+}
+html[data-theme="ouro"] .wc-lime{
+  background:linear-gradient(100deg,#f4de9c,#e6c87a 45%,#c9a24a)!important;
+  -webkit-background-clip:text!important;background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;color:transparent!important;
+}
+html[data-theme="ouro"] .ls-name-agent.wc-lime{
+  background:linear-gradient(100deg,#f8e8b8 0%,#e6c87a 40%,#d0a850 75%,#e8cf90 100%)!important;
+  -webkit-background-clip:text!important;background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;opacity:1!important;
+}
+/* Card de análise — Ouro */
+html[data-theme="ouro"]{
+  --acard-bg:linear-gradient(180deg,#1c1509 0%,#130d05 55%,#0c0803 100%);
+  --acard-border:rgba(216,192,138,.18);
+  --acard-glow:rgba(230,200,122,.16);
+  --acard-fg:#f2e9d8;
+  --acard-muted:#94825f;
+  --acard-mid:#c7b48e;
+  --acard-dim:#6e5f42;
+  --acard-accent:#e6c87a;
+  --acard-accent-2:#a08347;
+  --acard-tab-active:#f2e9d8;
+  --acard-h:#e6c87a;
+  --acard-tile:linear-gradient(160deg,rgba(230,200,122,.07),rgba(230,200,122,.02));
+  --acard-tile-border:rgba(216,192,138,.15);
+  --acard-line:rgba(216,192,138,.13);
+  --acard-bar:rgba(230,200,122,.09);
+  --acard-fill:linear-gradient(90deg,#a08347,#e6c87a);
+}
+/* Ajustes pontuais (mesma família dos overrides verde/mono) */
+html[data-theme="ouro"] .ls-help-btn:hover{color:#e6c87a;border-color:rgba(201,162,74,.5);background:rgba(201,162,74,.1)}
+html[data-theme="ouro"] .help-kicker,
+html[data-theme="ouro"] .help-block-tag{color:#e6c87a!important}
+html[data-theme="ouro"] .help-btn-ok{background:linear-gradient(120deg,#e9cf8a,#c9a24a)!important;color:#1a1206!important}
+html[data-theme="ouro"] .ctx-prompt-kicker{color:#e6c87a!important}
+.theme-swatch-ouro{background:conic-gradient(from 140deg,#e6c87a,#f4de9c,#8a6a2f,#c9a24a,#e6c87a)}
