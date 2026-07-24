@@ -554,23 +554,61 @@ async function verifyLineupNames(rawFacts,apiKey,signal,onUpdate){
 // Ele NUNCA reescreve a análise (modelo barato reescrevendo o analista degradaria o
 // resultado): devolve ressalvas, e a fusão é feita por CÓDIGO — anota em "incerteza",
 // rebaixa confiança mal calibrada e carimba o selo de auditoria no card.
+// ── Backstop de convergência (shell 110) ──────────────────────────────────
+// A review do shell 109 mostrou o AUDITOR (Haiku) como fonte de "grave": ele acusou
+// uma probabilidade de erro CHUTANDO a conta (0.58 vs 0.53 correto) — e o _applyAudit
+// empurrava essa acusação falsa pro card como "Auditoria (grave)". O prompt do 109 pediu
+// que ele "refaça a conta", mas Haiku erra aritmética. Fix por CÓDIGO (filosofia do
+// projeto: código calcula probabilidade, o modelo não audita a conta): ressalva que ataca
+// um valor que o CÓDIGO já decidiu/carimbou (Poisson/dupla chance/confiança/desfalque×onze)
+// é DESCARTADA — código é a autoridade sobre esses valores; o auditor não.
+function _auditStampBlob(parsed){
+  try{return JSON.stringify(parsed).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}catch{return '';}
+}
+function _auditIsCodeFalsePositive(parsed,r,stampBlob){
+  const txt=(String(r.problema||'')+' '+String(r.onde||'')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const blob=stampBlob!==undefined?stampBlob:_auditStampBlob(parsed);
+  // (1) aritmética/probabilidade: código reconcilia por Poisson (105) e dupla chance (103).
+  //     O caso real: auditor acusou 0.53 de "erro" — código é a autoridade sobre o Poisson.
+  if(/incompat|nao bate|inconsist|arit|\bsoma|\bprob|lambda|poisson|\d\s*%|\d\.\d/.test(txt)
+     &&/recalculada por poisson|reconciliada por codigo|recalculada por codigo/.test(blob))return true;
+  // (2) confiança "alta demais": código já rebaixou/calibrou por ticket (108).
+  if(/confianc|confidence|calibrad|otimist|superestim|alto demais|elevad/.test(txt)
+     &&/confianca rebaixada por codigo/.test(blob))return true;
+  // (3) jogador em desfalques E no onze: código já reconciliou (109). Exige a
+  //     CO-OCORRÊNCIA (a contradição real) — "desfalque" solto marcaria por engano uma
+  //     alucinação legítima sobre um desfalque (falha pega no teste).
+  if((( /desfalque|ausenc|fora/.test(txt)&&/\bonze\b|escala|titular/.test(txt) )||/duas listas|nas duas|ambas as listas/.test(txt))
+     &&/a confirmar \(era .* listado como desfalque/.test(blob))return true;
+  return false;
+}
 function _applyAudit(parsed,v){
   if(!parsed||!v)return 0;
-  const rs=Array.isArray(v.ressalvas)?v.ressalvas.filter(r=>r&&r.problema).slice(0,4):[];
+  let rs=Array.isArray(v.ressalvas)?v.ressalvas.filter(r=>r&&r.problema):[];
+  const nBefore=rs.length;
+  const blob=_auditStampBlob(parsed);
+  rs=rs.filter(r=>!_auditIsCodeFalsePositive(parsed,r,blob)); // descarta falso positivo de código
+  const dropped=nBefore-rs.length;
+  rs=rs.slice(0,4);
   if(rs.length){
     parsed.incerteza=Array.isArray(parsed.incerteza)?parsed.incerteza:[];
     rs.forEach(r=>parsed.incerteza.push({fator:`Auditoria (${r.gravidade==='alta'?'grave':'atenção'}): ${r.problema}`,impacto:r.onde||'apontado na verificação automática pré-entrega'}));
   }
-  if(v.rebaixar_confianca===true&&parsed.confianca_geral==='alto')parsed.confianca_geral='medio';
-  parsed._audit={veredito:rs.length?'com_ressalvas':'aprovada',n:rs.length};
+  // Rebaixar só se sobrou ressalva LEGÍTIMA: se o auditor só trouxe falso positivo de
+  // código (todas descartadas), rebaixar a confiança pela "opinião" dele seria o mesmo
+  // falso positivo por outra via.
+  const allDroppedAsFP=nBefore>0&&rs.length===0;
+  if(v.rebaixar_confianca===true&&!allDroppedAsFP&&parsed.confianca_geral==='alto')parsed.confianca_geral='medio';
+  parsed._audit={veredito:rs.length?'com_ressalvas':'aprovada',n:rs.length,dropped};
   return rs.length;
 }
 async function verifyAnalysis(parsed,rawFacts,apiKey,signal,onUpdate){
   try{
     if(!parsed)return null;
     onUpdate&&onUpdate({status:'Auditando análise…',phase:2});
-    const SP=`Você é um AUDITOR de análises de futebol multi-campeonato (foco: ${compLabel(state.activeCompId)}). Recebe (A) FATOS COLETADOS e (B) a ANÁLISE final. NÃO refaça a análise; aponte apenas problemas OBJETIVOS e verificáveis nos dois blocos: `
-      +'1) INCONSISTÊNCIA NUMÉRICA — probabilidade de ticket incompatível com os lambdas declarados; múltipla cuja probabilidade combinada não bate com o produto das pernas; 1X2 que não soma ~100%. REGRA DE ARITMÉTICA (shell 109): probabilidades com nota "[prob. recalculada por Poisson…]" ou "[prob. reconciliada por código…]" foram DERIVADAS POR CÓDIGO dos lambdas — antes de acusar erro nelas, REFAÇA a conta mostrando os termos (P(N≤k)=e^-λ·Σλ^i/i!); se sua conta divergir da nota, a chance de o erro ser SEU é alta (caso real: auditor acusou 0.53 de "erro" chutando ~0.58 sem calcular; 0.53 estava certo para λ=2.8). Só aponte com a conta explícita no campo "problema". '
+    const SP=`Você é um AUDITOR de análises de futebol multi-campeonato (foco: ${compLabel(state.activeCompId)}). Recebe (A) FATOS COLETADOS e (B) a ANÁLISE final. NÃO refaça a análise; aponte apenas problemas OBJETIVOS e verificáveis nos dois blocos. `
+      +'VALORES DECIDIDOS POR CÓDIGO (shell 110) — NÃO AUDITE: as probabilidades, os mercados de gols, a coerência da dupla chance, a calibração da confiança e a reconciliação desfalque×onze são CALCULADOS E DECIDIDOS POR CÓDIGO (Poisson dos lambdas), não pelo modelo. Qualquer valor ou texto que carregue um carimbo entre colchetes — "[prob. recalculada por Poisson…]", "[prob. reconciliada por código…]", "[confiança rebaixada por código…]" — ou a marca "A confirmar (era … listado como desfalque)" é DECISÃO FINAL do código: NÃO o acuse de inconsistência numérica, confiança mal calibrada nem contradição interna. Você NÃO é a autoridade sobre a aritmética desses valores (caso real do shell 109: o auditor "corrigiu" 0.53→0.58 de cabeça; 0.53 estava certo para λ=2.8). '
+      +'1) INCONSISTÊNCIA NUMÉRICA — aponte APENAS violação de FAIXA, nunca "a conta deu diferente": 1X2 que não soma ~90–110%, ou um número claramente fora dos limites do critério 4. Aritmética de probabilidade (ticket vs lambdas, múltipla vs produto das pernas) é do CÓDIGO — não a recalcule nem a acuse. '
       +'2) FALTA DE LASTRO — afirmação factual central de (B) apresentada como MEDIDA/oficial que NÃO aparece em (A) (possível alucinação). Se (A) estiver vazio, pule este critério. NÃO é falta de lastro um valor rotulado como ESTIMADO (ex.: "xG estimado ~1.6 · de finalizações/grandes chances") derivado de proxies presentes em (A) — estimar é função legítima do analista; só marque se a estimativa NÃO tiver proxy nenhum em (A) ou for vendida como valor oficial. '
       +'3) CONFIANÇA MAL CALIBRADA — "alto"/"alta" apoiada em fonte única ou convivendo com lacunas graves declaradas. '
       +'4) VALOR IMPLAUSÍVEL — xG fora de 0–4, mais de ~45 jogos de liga para um jogador na temporada (sem copas), rating fora de 4–10, probabilidade fora de 1–95%. '

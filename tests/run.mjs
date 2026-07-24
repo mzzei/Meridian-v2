@@ -965,9 +965,38 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   // meta: sem o fix, o conflito persistiria nas duas listas
   assert(mkLu().visitante.desfalques.length === 2, 'meta: audited dual-listing is real in input');
 
-  // (3) auditor instruído a RECOMPUTAR antes de acusar números do código
+  // (3) shell 110 — auditor NÃO audita valores decididos por código; backstop derruba
+  //     o falso positivo do auditor sobre valores carimbados (o sinal que convergia:
+  //     nos shells 103→109 o "grave" migrou pra dentro do próprio auditor — ele "corrigiu"
+  //     0.53→0.58 de cabeça). O prompt tira a aritmética; o CÓDIGO garante o descarte.
   const factsSrc9 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
-  assert(factsSrc9.includes('REGRA DE ARITMÉTICA (shell 109)') && factsSrc9.includes('a chance de o erro ser SEU é alta'), 'auditor must recompute before flagging code-derived probs');
+  assert(factsSrc9.includes('VALORES DECIDIDOS POR CÓDIGO (shell 110)'), 'auditor prompt: code-decided values are off-limits');
+  assert(!/REFAÇA a conta|a chance de o erro ser SEU é alta/.test(factsSrc9), 'auditor no longer told to recompute arithmetic (Haiku fails it)');
+  // extrai os helpers PUROS do backstop e testa de verdade
+  const _fnBlob = factsSrc9.slice(factsSrc9.indexOf('function _auditStampBlob'), factsSrc9.indexOf('function _applyAudit'));
+  const _mk = new Function(_fnBlob + '\nreturn {b:_auditStampBlob,fp:_auditIsCodeFalsePositive};');
+  const { b: stampBlob, fp: isFP } = _mk();
+  const stamped = {
+    sugestoes_ticket: [{ mercado: 'Over 2.5', prob: 0.53, fundamento: 'saída [prob. recalculada por Poisson dos lambdas 1.6+1.2 (era 58%)]' }],
+    confianca_geral: 'medio', escalacao: '[confiança rebaixada por código: fonte única]',
+    _lineups: { visitante: { onze: [{ nome: 'A confirmar (era Rangel — listado como desfalque)' }] } },
+  };
+  const bare = { sugestoes_ticket: [{ mercado: 'Over 2.5', prob: 0.53, fundamento: 'sem carimbo nenhum' }] };
+  // (a) ressalva atacando a prob carimbada por Poisson → DESCARTADA
+  assert(isFP(stamped, { problema: 'Over 2.5 a 53% não bate com os lambdas', onde: 'ticket' }, stampBlob(stamped)),
+    'backstop drops audit false-positive on Poisson-stamped prob');
+  // (b) ressalva de confiança sobre valor já rebaixado por código → DESCARTADA
+  assert(isFP(stamped, { problema: 'confiança otimista demais para fonte única', onde: 'geral' }, stampBlob(stamped)),
+    'backstop drops confidence false-positive when code already lowered it');
+  // (c) ressalva de desfalque×onze já reconciliado por código → DESCARTADA
+  assert(isFP(stamped, { problema: 'Rangel aparece nos desfalques e no onze (contradição)', onde: 'escalação' }, stampBlob(stamped)),
+    'backstop drops desfalque×onze false-positive after code reconciled');
+  // (d) ressalva LEGÍTIMA (alucinação/lastro) NÃO é descartada mesmo com carimbos no card
+  assert(!isFP(stamped, { problema: 'afirma lesão de Neymar sem fonte nos fatos coletados', onde: 'desfalques' }, stampBlob(stamped)),
+    'backstop keeps a genuine lastro finding');
+  // (e) META: sem o carimbo, a MESMA ressalva numérica NÃO é descartada (é gated por código, não cego)
+  assert(!isFP(bare, { problema: 'Over 2.5 a 53% não bate com os lambdas', onde: 'ticket' }, stampBlob(bare)),
+    'meta: numerical ressalva survives when code did NOT stamp the value');
   // prompt: prévia nunca afirma jogo ocorrido (nos 2 prompts F2)
   const pr9 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
   assert(pr9.split('CONTEXTO DE PRÉVIA:').length - 1 === 2, 'previa-context rule in both F2 prompts');

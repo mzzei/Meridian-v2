@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 109)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 110)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 109**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 110**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -697,11 +697,11 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 109 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 110 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-22 · shell 109)
+## Estado atual (revisão 2026-07-23 · shell 110)
 
 | Shell | Entrega |
 |-------|---------|
@@ -747,19 +747,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **109** | **Auditoria Corinthians × Remo: 2 corrigidos + 1 em que o AUDITOR errou** — (1) **prévia com "jogo encerrado 3-0" no contexto** (contaminação de retrospecto): `_sanitizePreviaContext` remove por código a sentença que afirma o jogo analisado como ocorrido (regex `_FINISHED_RE`) e declara a remoção nas lacunas; retrospecto ROTULADO ("no 1º turno…") sobrevive; pos_jogo intocado. + regra CONTEXTO DE PRÉVIA nos 2 prompts. (2) **desfalque × onze simultâneo (Marcelo Rangel) RESOLVIDO por código**: `_reconcileDesfalquesOnze` (roda após `_lineups`) — desfalque FIRME (suspenso/lesionado/cirurgia) sai do onze (vira "A confirmar (era X)") e fica em desfalques; desfalque INCERTO (dúvida/dept. médico/a confirmar) fica no onze, SAI de desfalques e vira item de incerteza impacto alto — um jogador nunca nas duas listas. (3) **o "erro aritmético" do Over 2.5 era do AUDITOR**: 0.53 está CORRETO para λ=2.8 (P(≤2)=e^-2.8·(1+2.8+3.92)=0.47); o auditor chutou ~0.58 sem calcular. Fix: REGRA DE ARITMÉTICA no prompt do `verifyAnalysis` — probabilidade com nota "[recalculada por código]" exige que o auditor REFAÇA a conta com os termos antes de acusar. 14 asserts; validado no runtime. prompts+normalize+pipeline-facts no pacote → zip regenerado |
 
+| **110** | **Sinal de convergência da review corrigido: o AUDITOR virou fonte de falso positivo** — a review do 109 mostrou os "graves" migrando shell a shell (103→109) de defeito real do pipeline para borda cada vez mais fina até cair DENTRO do próprio auditor (ele "corrigiu" 0.53→0.58 de cabeça; 0.53 estava certo p/ λ=2.8). O 109 só remendou a aritmética pontual do Over 2.5 mandando o auditor "refazer a conta" — mas Haiku erra aritmética. Fix de **altitude certa** (filosofia do projeto: *código calcula probabilidade, o modelo não audita a conta*), em `pipeline-facts.js`, DUAS camadas: (1) **prompt** — critério #1 deixa de mandar recomputar e vira só checagem de FAIXA (1X2 soma ~90–110%, limites do critério 4); preâmbulo **"VALORES DECIDIDOS POR CÓDIGO"** declara Poisson/dupla chance/confiança/desfalque×onze como decisão final do código, fora do escopo do auditor. (2) **backstop determinístico** em `_applyAudit` (`_auditIsCodeFalsePositive` gated por carimbo): ressalva que ataca um valor carimbado por código (`recalculada por Poisson`, `reconciliada por código`, `confiança rebaixada por código`, `A confirmar (era … desfalque)`) é DESCARTADA antes de virar "Auditoria (grave):" no card, e rebaixar_confianca só vale se sobrou ressalva legítima. Cirúrgico por TÓPICO+CARIMBO (não número solto): critério (3) exige co-ocorrência desfalque+onze — o teste pegou que "desfalque" solto derrubava uma alucinação legítima sobre um desfalque. 7 asserts novos incl. **meta-assert** (sem carimbo a MESMA ressalva numérica sobrevive → prova que é gated, não cego) e teste que **prova que uma ressalva de lastro genuína NÃO é descartada**. Validado no runtime (v=110, verifyAnalysis exposto, 0 erro). pipeline-facts no pacote → zip regenerado |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 109)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 110)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 109).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 110).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 109)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 110)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode
