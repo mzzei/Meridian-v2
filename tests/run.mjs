@@ -1081,24 +1081,25 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(!appSrc114.includes("'platina'") && !/html\[data-theme="platina"\]/.test(cssSrc114), 'meta: sweep would catch an unregistered theme');
 }
 
-// Shell 115→117: gaveta mobile por SWIPE (puxador visual REMOVIDO a pedido do dono —
-// 'o acesso à barra lateral deve ser por scroll horizontal'). O que fica: gestos
-// touch + backdrop com fade + slide com mola. O que NÃO pode voltar: o handle.
+// Shell 115→117→121: no MOBILE a gaveta lateral NÃO EXISTE (decisão do dono,
+// 2026-07-24: "não seja demonstrada mais a barra e nem seja possível scrollar
+// para o lado esquerdo" — a bottom nav Chat/Biblioteca/Relatórios/Config é a
+// navegação). Anti-reintrodução de TODA a família: handle (117), swipe e burger
+// mobile (121). No desktop a sidebar segue inline, intocada.
 {
-  const idx117 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const css117 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
-  const app117 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
-  // anti-reintrodução: decisão de design do dono (2026-07-24)
-  assert(!idx117.includes('sb-edge-handle') && !css117.includes('sb-edge-handle') && !app117.includes('sb-edge-handle'), 'edge handle fully removed (owner decision: swipe-only)');
-  assert(!css117.includes('sbHandlePulse'), 'handle pulse keyframes removed');
-  // o acesso por gesto PERMANECE
-  assert(app117.includes('function openSidebar') && app117.includes('initSidebarSwipe'), 'swipe gestures kept (the mobile access path)');
-  assert(app117.includes('{passive:true}') && app117.includes('x0<=28') && app117.includes('Math.abs(dx)>44'), 'passive listeners + edge/horizontal thresholds kept');
-  assert(app117.includes('window.innerWidth>820'), 'gestures gated to mobile width');
-  assert(css117.includes('.sb-backdrop{display:block;opacity:0;pointer-events:none') && css117.includes('.sb-backdrop.open{opacity:1;pointer-events:auto}'), 'backdrop fade kept');
-  assert(css117.includes('cubic-bezier(.22,.9,.3,1.08)'), 'soft-spring slide kept');
-  // burger continua como acesso visível
-  assert(idx117.includes('class="m-burger"'), 'burger remains the visible affordance');
+  const idx121 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const css121 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const app121 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert(!idx121.includes('sb-edge-handle') && !css121.includes('sb-edge-handle') && !app121.includes('sb-edge-handle'), 'edge handle never returns (117)');
+  assert(!app121.includes('initSidebarSwipe') && !app121.includes('function openSidebar'), 'swipe gestures removed (121)');
+  assert((css121.match(/.l-sb{display:none}/g) || []).length === 2, 'sidebar display:none in BOTH mobile blocks (820/640)');
+  assert(!css121.includes('.l-sb.open') && !css121.includes('.m-burger{display:flex}'), 'no drawer-open rules nor mobile burger');
+  assert(!css121.includes('var(--dur-drawer) var(--ease-spring)'), 'drawer spring wiring removed with the drawer');
+  // a navegação mobile que SUBSTITUI a gaveta precisa existir
+  for (const id of ['mnav-chat', 'mnav-library', 'mnav-saved', 'mnav-settings'])
+    assert(idx121.includes('id="' + id + '"'), 'bottom nav has ' + id);
+  // funções seguem definidas (call sites de closeSidebar em onclicks) — no-op inofensivo
+  assert(app121.includes('function toggleSidebar') && app121.includes('function closeSidebar'), 'sidebar fns kept for call sites');
 }
 
 // Shell 116: review UI/UX (skill web-design-reviewer) — 3 achados corrigidos
@@ -1233,8 +1234,7 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(checked >= 150 && worst <= 1, `oklch round-trip exact (${checked} tokens, drift máx ${worst}/255)`);
   // (3) motion tokens definidos e LIGADOS (gaveta/backdrop usam var)
   assert(css120.includes('--dur-micro:160ms') && css120.includes('--ease-spring:cubic-bezier(.22,.9,.3,1.08)'), 'motion tokens defined');
-  assert(css120.includes('transition:transform var(--dur-drawer) var(--ease-spring)!important'), 'drawer wired to motion tokens');
-  assert(css120.includes('transition:opacity var(--dur-pop) var(--ease-out)'), 'backdrop wired to motion tokens');
+  // (wiring de gaveta/backdrop removido no shell 121 junto com o drawer mobile)
   // (4) entrada do card: transform+opacity apenas (regra de performance do skill)
   assert(/@keyframes cardIn\{from\{opacity:0;transform:translateY\(14px\)\}/.test(css120), 'cardIn keyframes (fade+rise)');
   assert(css120.includes('.a-card{animation:cardIn var(--dur-enter) var(--ease-out) both}'), 'card entrance via tokens');

@@ -1,2 +1,2 @@
 /** Versão do shell — única fonte (index/main/SW devem bater). */
-export const SHELL_VERSION = '120';
+export const SHELL_VERSION = '121';
