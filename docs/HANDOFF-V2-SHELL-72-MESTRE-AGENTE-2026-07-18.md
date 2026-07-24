@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 119)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 120)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 119**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 120**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **119** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **120** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 119 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 120 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-23 · shell 119)
+## Estado atual (revisão 2026-07-23 · shell 120)
 
 | Shell | Entrega |
 |-------|---------|
@@ -767,19 +767,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **119** | **Padronização de padrões + dark mode nativo (skill tailwind-design-system — CONCEITOS aplicados em CSS puro, sem migrar de stack)**: (1) **escala tipográfica** `--fs-3xs..--fs-xl` (9–18px) e **radius** `--radius-sm..--radius-pill` como tokens no :root; migração MECÂNICA de 234 font-sizes + 73 border-radius para `var()` — valores idênticos, zero drift visual (meias-medidas 8.5/10.5/12.5 preservadas de propósito); guard nos testes proíbe valor da escala cru voltar. Incidente no meio: o insert das definições falhou silencioso e 300+ usos apontavam para var inexistente — pego pelo próprio assert antes do commit. (2) **dark mode nativo**: `color-scheme:dark` (:root) / `light` (mono) — scrollbar/inputs/autofill do UA seguem o tema; `accent-color:var(--terra)` e `::selection` via tokens (1 regra serve os 4 temas — payoff da paridade do 118); `prefers-reduced-motion` GLOBAL (o antigo só cobria blobs); `<meta name=color-scheme>`. Validado no runtime (fs-2xs resolve 10px idêntico, radius por token, colorScheme dark, accent #d4a04a, ::selection presente) + screenshot sem drift. Recomendações p/ evolução registradas na conversa (OKLCH, camada semântica de superfície, @starting-style) |
 
+| **120** | **OKLCH nos tokens + motion tokens + tipo fluida (3 skills do dono, sem quebrar estrutura)**: (1) **160 tokens de cor convertidos hex→`oklch()`** com matemática exata (Ottosson) e **anotação `/* #hex */` em cada um** (fonte da verdade sRGB); round-trip com **drift ZERO** validado no conversor E no teste (150+ tokens re-verificados a cada run); prova final por **pixel de canvas** nos 4 temas — 8/8 idênticos ao pré-conversão (o "drift" do mono era expectativa errada minha: `--deep` mono sempre foi #1a1a1a). O guard de contraste do 118 lê a anotação hex. (2) **Motion tokens** (animation-systems): `--dur-micro/ui/pop/drawer/enter` + `--ease-out/in/spring`; gaveta e backdrop LIGADOS aos tokens (valores idênticos); **entrada fade+rise do card** (`cardIn` 420ms, só transform+opacity — regra de performance do skill; reduced-motion global anula). (3) **Tipo fluida** (responsive-design): `.a-title` com `clamp(1.22rem→1.55rem)`; par `100dvh` no spanel (único sem fallback). **Progressive-blur: interpretado e NÃO implementado** — 6 camadas de backdrop-filter fixas custam GPU no mobile (pitfall admitido pelo próprio skill) e o app já usa blur no backdrop da gaveta; registrado como opção estética para o hero de landing futura, não para o app denso |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 119)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 120)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 119).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 120).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 119)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 120)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

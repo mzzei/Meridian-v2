@@ -1151,7 +1151,14 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   const hex = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
   const lum = (rgb) => { const a = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; };
   const ratio = (f, b) => { const l1 = lum(hex(f)), l2 = lum(hex(b)); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
-  const getVar = (block, name) => { const m = block.match(new RegExp('--' + name + '\\s*:\\s*(#[0-9a-fA-F]{3,6})')); return m && m[1]; };
+  // shell 120: tokens agora são oklch(L% C H) /* #hex */ — o teste lê a ANOTAÇÃO hex
+  // (fonte da verdade do valor sRGB; round-trip com drift 0 garantido pelo bloco 120)
+  const getVar = (block, name) => {
+    const m = block.match(new RegExp('--' + name + '\\s*:\\s*(#[0-9a-fA-F]{3,6})'));
+    if (m) return m[1];
+    const o = block.match(new RegExp('--' + name + '\\s*:\\s*oklch\\([^)]*\\)\\s*/\\* (#[0-9a-f]{3,6}) \\*/'));
+    return o && o[1];
+  };
   // concatena TODOS os blocos do marcador (um tema tem vários: global, acard, ajustes)
   const blockOf = (marker) => {
     let body = '', idx = 0;
@@ -1195,6 +1202,45 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(css119.includes('::selection{background:var(--terra);color:var(--charcoal)}'), 'themed ::selection via tokens (1 rule, 4 themes)');
   assert(/prefers-reduced-motion: reduce\)\{\s*\n?\s*\*,\*::before,\*::after\{animation-duration:\.01ms/.test(css119), 'global reduced-motion kill-switch');
   assert(idx119.includes('name="color-scheme" content="dark light"'), 'meta color-scheme in index');
+}
+
+// Shell 120: OKLCH nos tokens + motion tokens + tipo fluida (skills do dono, sem quebrar estrutura)
+{
+  const css120 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  // (1) OKLCH: nenhum token de cor segue em hex cru; todos com anotação do hex original
+  assert((css120.match(/--[a-z0-9-]+\s*:\s*#[0-9a-fA-F]{3,6}\b(?!.*\*\/)/g) || []).length === 0, 'no raw hex color tokens remain');
+  const okTokens = css120.match(/--[a-z0-9-]+\s*:\s*oklch\([^)]*\)\s*\/\* #[0-9a-f]{3,6} \*\//g) || [];
+  assert(okTokens.length >= 150, `oklch tokens with hex annotation (${okTokens.length} >= 150)`);
+  // (2) round-trip EXATO: converte oklch de volta a sRGB e compara com a anotação (drift <= 1/255)
+  const lin2srgb = (v) => { v = Math.max(0, Math.min(1, v)); return Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)); };
+  const ok2rgb = (L, C, Hd) => {
+    const H = (Hd * Math.PI) / 180, a = C * Math.cos(H), b = C * Math.sin(H);
+    const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+    const m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+    const s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+    return [lin2srgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s), lin2srgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s), lin2srgb(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)];
+  };
+  const h2rgb = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((x) => x + x).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  let checked = 0, worst = 0;
+  for (const tok of okTokens) {
+    const m = tok.match(/oklch\(([\d.]+)% ([\d.]+) ([\d.]+)\)\s*\/\* (#[0-9a-f]{3,6}) \*\//);
+    if (!m) continue;
+    const back = ok2rgb(Number(m[1]) / 100, Number(m[2]), Number(m[3]));
+    const orig = h2rgb(m[4]);
+    worst = Math.max(worst, ...orig.map((v, i) => Math.abs(v - back[i])));
+    checked++;
+  }
+  assert(checked >= 150 && worst <= 1, `oklch round-trip exact (${checked} tokens, drift máx ${worst}/255)`);
+  // (3) motion tokens definidos e LIGADOS (gaveta/backdrop usam var)
+  assert(css120.includes('--dur-micro:160ms') && css120.includes('--ease-spring:cubic-bezier(.22,.9,.3,1.08)'), 'motion tokens defined');
+  assert(css120.includes('transition:transform var(--dur-drawer) var(--ease-spring)!important'), 'drawer wired to motion tokens');
+  assert(css120.includes('transition:opacity var(--dur-pop) var(--ease-out)'), 'backdrop wired to motion tokens');
+  // (4) entrada do card: transform+opacity apenas (regra de performance do skill)
+  assert(/@keyframes cardIn\{from\{opacity:0;transform:translateY\(14px\)\}/.test(css120), 'cardIn keyframes (fade+rise)');
+  assert(css120.includes('.a-card{animation:cardIn var(--dur-enter) var(--ease-out) both}'), 'card entrance via tokens');
+  // (5) tipo fluida + dvh
+  assert(css120.includes('font-size:clamp(1.22rem,1rem + 1.4vw,1.55rem)'), 'fluid a-title (clamp)');
+  assert(css120.includes('max-height:calc(100vh - 2rem);max-height:calc(100dvh - 2rem)'), 'spanel dvh pair (mobile viewport)');
 }
 
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
