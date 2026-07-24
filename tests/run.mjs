@@ -1178,6 +1178,25 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(ratio('#5c6b78', '#101820') < 4.5 && ratio('#6e5f42', '#130d05') < 4.5, 'meta: old dim values would fail this guard');
 }
 
+// Shell 119: padronização de padrões (escala tipográfica + radius) e dark mode nativo
+{
+  const css119 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const idx119 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  // escala tipográfica + radius como TOKENS (hierarquia brand→semantic do skill)
+  assert(css119.includes('--fs-2xs:10px') && css119.includes('--fs-base:14px') && css119.includes('--radius-pill:999px'), 'type scale + radius tokens defined');
+  // migração completa: NENHUM valor da escala segue cru no css (o guard que impede regressão)
+  assert((css119.match(/font-size\s*:\s*(9|10|11|12|13|14|15|18)px(?![.\d])/g) || []).length === 0, 'no raw scale font-sizes remain (all via var(--fs-*))');
+  assert((css119.match(/border-radius\s*:\s*(8|10|12|14|999)px\s*[;!}]/g) || []).length === 0, 'no raw scale radii remain (all via var(--radius-*))');
+  // meia-medidas (8.5/10.5/12.5) foram deliberadamente preservadas
+  assert(css119.includes('12.5px'), 'off-scale sizes untouched (no value drift)');
+  // dark mode NATIVO
+  assert(css119.includes(':root{color-scheme:dark;accent-color:var(--terra)}'), 'color-scheme + accent-color via token');
+  assert(css119.includes('html[data-theme="mono"]{color-scheme:light}'), 'mono is light for UA widgets');
+  assert(css119.includes('::selection{background:var(--terra);color:var(--charcoal)}'), 'themed ::selection via tokens (1 rule, 4 themes)');
+  assert(/prefers-reduced-motion: reduce\)\{\s*\n?\s*\*,\*::before,\*::after\{animation-duration:\.01ms/.test(css119), 'global reduced-motion kill-switch');
+  assert(idx119.includes('name="color-scheme" content="dark light"'), 'meta color-scheme in index');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
