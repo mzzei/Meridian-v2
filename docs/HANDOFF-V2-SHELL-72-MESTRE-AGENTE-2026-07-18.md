@@ -693,7 +693,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **109** em version/sw/index ×2 (código: HEAD ≥ `a824bdb`; docs: `e755d53`)  
+- [ ] `git pull` · `SHELL_VERSION` **113** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
