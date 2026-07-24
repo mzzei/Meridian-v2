@@ -3049,6 +3049,8 @@ html[data-theme="ouro"] .ctx-prompt-kicker{color:#e6c87a!important}
   #model-sel-btn,.i-sel-btn{min-height:30px}
   .ua-btn,#ua-btn{min-height:28px;display:inline-flex;align-items:center}
   .ls-hist-item{min-height:34px}
+  /* shell 122: disclaimer do rodapé removido do mobile (pedido do dono) — espaço vertical é escasso */
+  .i-disc{display:none}
 }
 
 /* ═══ Dark mode NATIVO (shell 119 — restaurado no 121, mesmo motivo) ═══ */

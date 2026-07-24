@@ -1121,6 +1121,8 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(/@media\(max-width:640px\)\{\s*\n?\s*\.a-ic\{min-width:28px;min-height:28px/.test(css116), 'a-ic touch target');
   assert(css116.includes('#model-sel-btn,.i-sel-btn{min-height:30px}'), 'model selector touch target (id, não classe)');
   assert(css116.includes('.ls-hist-item{min-height:34px}'), 'history item touch target');
+  // shell 122: disclaimer fora do mobile (pedido do dono)
+  assert(css116.includes('.i-disc{display:none}') && css116.indexOf('.i-disc{display:none}') > css116.indexOf('@media(max-width:640px)'), 'disclaimer hidden on mobile only (dentro do media block)');
 }
 
 // Shell 118: DESIGN SYSTEM (skill ui-design-system) — paridade de tokens + contraste AA
