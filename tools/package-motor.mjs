@@ -29,7 +29,7 @@ const MANIFEST_HEADER = [
   '# tests/motor.mjs valida que todos existem: node tests/motor.mjs',
 ].join('\n');
 // termos que NÃO podem existir no pacote entregue (auditoria pós-sanitização)
-const FORBIDDEN = /vendável|venda do motor|vendedor|comprador|\bdo dono\b|handoff mestre/i;
+const FORBIDDEN = /vendável|venda do motor|vendedor|comprador|\bdo dono\b|handoff mestre|roteiro da sessão/i;
 
 const manifest = fs.readFileSync(path.join(ROOT, 'motor/MANIFEST.txt'), 'utf8')
   .split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));

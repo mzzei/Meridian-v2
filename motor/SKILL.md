@@ -119,9 +119,11 @@ engine.routeIntent(userMessage) // → { mode:'analysis'|'chat'|'need_teams', re
 - `tests/motor.mjs` — prova de integração headless (`node tests/motor.mjs`)
 - `motor/HANDOFF-ENGENHARIA.md` — arquitetura e regras de funcionamento
 
-## Handover técnico (roteiro da sessão de integração)
+## Checklist de integração (self-service)
 
-1. `node tests/motor.mjs` na máquina do integrador → `MOTOR ALL PASSED` (sem chave, tudo stub).
-2. Rodar `analyzeMatch` com a chave real dele num jogo da rodada → inspecionar `analysis.lacunas` e `_lineupsFonte` juntos.
-3. Percorrer este SKILL.md seção por seção com o time dele.
-4. Percorrer o `HANDOFF-ENGENHARIA.md` — em especial a seção 3 (regras de funcionamento).
+Este pacote é entregue como arquivos — **não inclui call de handover nem suporte contínuo**. O caminho abaixo é autossuficiente:
+
+1. `node tests/motor.mjs` → deve terminar em `MOTOR ALL PASSED` (sem chave nenhuma; tudo roda com stubs).
+2. Rode `node motor/exemplo-integracao.mjs "PARTIDA: Time A x Time B"` com a sua chave via variável de ambiente `ANTHROPIC_KEY`, num jogo real da rodada → inspecione `analysis.lacunas` e `analysis._lineupsFonte` juntos (os dois dizem a verdade sobre a qualidade daquela análise).
+3. Leia este SKILL.md por inteiro — é o contrato de uso (INPUT/OUTPUT/garantias).
+4. Leia o `HANDOFF-ENGENHARIA.md` — em especial a seção 3 (regras de funcionamento que não devem ser violadas na manutenção).
