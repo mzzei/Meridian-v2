@@ -997,6 +997,25 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   // (e) META: sem o carimbo, a MESMA ressalva numérica NÃO é descartada (é gated por código, não cego)
   assert(!isFP(bare, { problema: 'Over 2.5 a 53% não bate com os lambdas', onde: 'ticket' }, stampBlob(bare)),
     'meta: numerical ressalva survives when code did NOT stamp the value');
+  // shell 111 — RISCO de suspensão ("pendurado") ≠ ausência do jogo atual. Caso real
+  // (Coritiba, Robson): auditor chamou de "contradição interna grave" o onze incluir um
+  // jogador a um amarelo da suspensão — mas ele está DISPONÍVEL; o risco é do jogo seguinte.
+  assert(factsSrc9.includes('RISCO DE SUSPENSÃO ≠ AUSÊNCIA (shell 111)'), 'auditor prompt: pendurado is available for THIS match');
+  const pendurado = {
+    visitante: { jogadores_chave: [{ nome: 'Robson', a_um_amarelo_da_suspensao: true, observacao: 'risco de suspensão (3º amarelo)' }] },
+    _lineups: { visitante: { onze: [{ nome: 'Robson', posicao: 'ATA' }] } },
+  };
+  const rPend = { problema: 'Contradição interna: Robson tem risco de suspensão (3º amarelo, pode estar fora) mas está no onze sem sinalizar', onde: 'escalacao_visitante' };
+  // (f) pendurado no onze acusado de contradição → DESCARTADO (código o manteve disponível)
+  assert(isFP(pendurado, rPend, stampBlob(pendurado)),
+    'backstop drops "pendurado in XI = contradiction" false-positive');
+  // (g) suspensão CONFIRMADA no onze (sem linguagem de risco) → NÃO descartada (seria legítima)
+  assert(!isFP(pendurado, { problema: 'Robson cumpre suspensão neste jogo mas aparece no onze', onde: 'escalacao' }, stampBlob(pendurado)),
+    'backstop keeps a CONFIRMED-suspension-in-XI finding (no risk language)');
+  // (h) META: sem pendurado nos DADOS, a mesma ressalva de risco NÃO é descartada (gated pelos dados)
+  const noPend = { visitante: { jogadores_chave: [{ nome: 'Robson' }] }, _lineups: { visitante: { onze: [{ nome: 'Robson' }] } } };
+  assert(!isFP(noPend, rPend, stampBlob(noPend)),
+    'meta: pendurado ressalva survives when data has NO suspension-risk note');
   // prompt: prévia nunca afirma jogo ocorrido (nos 2 prompts F2)
   const pr9 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
   assert(pr9.split('CONTEXTO DE PRÉVIA:').length - 1 === 2, 'previa-context rule in both F2 prompts');

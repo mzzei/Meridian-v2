@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '110';
+const SHELL_VERSION = '111';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [

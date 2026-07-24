@@ -580,6 +580,16 @@ function _auditIsCodeFalsePositive(parsed,r,stampBlob){
   //     alucinação legítima sobre um desfalque (falha pega no teste).
   if((( /desfalque|ausenc|fora/.test(txt)&&/\bonze\b|escala|titular/.test(txt) )||/duas listas|nas duas|ambas as listas/.test(txt))
      &&/a confirmar \(era .* listado como desfalque/.test(blob))return true;
+  // (4) RISCO de suspensão por acúmulo de amarelos ("pendurado") tratado como AUSÊNCIA do
+  //     jogo ATUAL: um jogador a um amarelo da suspensão está DISPONÍVEL agora — o risco é
+  //     de jogo FUTURO — e fica legitimamente no onze. O modelo de dados já separa isso
+  //     (campo a_um_amarelo_da_suspensao ≠ desfalque; o reconcile do 109 manteve o jogador
+  //     no onze). Caso real (Coritiba, Robson): auditor chamou de "contradição interna" o
+  //     onze incluir um pendurado. Gated: só descarta se os DADOS têm mesmo um pendurado
+  //     (senão uma acusação de suspensão CONFIRMADA no onze — que seria legítima — passa).
+  if(/onze|escala|titular|disponibil|contradi|suspens/.test(txt)
+     &&/risco de suspens|a um amarelo|pendurad|3\D{0,4}(amarelo|cartao)|pode (estar|ficar)\s+(de\s+)?(fora|suspenso)|acumul\w*\s+\w*\s*(amarelo|cartao)/.test(txt)
+     &&/a_um_amarelo_da_suspensao["':\s]+true|risco de suspens|pendurad|a um amarelo/.test(blob))return true;
   return false;
 }
 function _applyAudit(parsed,v){
@@ -607,7 +617,7 @@ async function verifyAnalysis(parsed,rawFacts,apiKey,signal,onUpdate){
     if(!parsed)return null;
     onUpdate&&onUpdate({status:'Auditando análise…',phase:2});
     const SP=`Você é um AUDITOR de análises de futebol multi-campeonato (foco: ${compLabel(state.activeCompId)}). Recebe (A) FATOS COLETADOS e (B) a ANÁLISE final. NÃO refaça a análise; aponte apenas problemas OBJETIVOS e verificáveis nos dois blocos. `
-      +'VALORES DECIDIDOS POR CÓDIGO (shell 110) — NÃO AUDITE: as probabilidades, os mercados de gols, a coerência da dupla chance, a calibração da confiança e a reconciliação desfalque×onze são CALCULADOS E DECIDIDOS POR CÓDIGO (Poisson dos lambdas), não pelo modelo. Qualquer valor ou texto que carregue um carimbo entre colchetes — "[prob. recalculada por Poisson…]", "[prob. reconciliada por código…]", "[confiança rebaixada por código…]" — ou a marca "A confirmar (era … listado como desfalque)" é DECISÃO FINAL do código: NÃO o acuse de inconsistência numérica, confiança mal calibrada nem contradição interna. Você NÃO é a autoridade sobre a aritmética desses valores (caso real do shell 109: o auditor "corrigiu" 0.53→0.58 de cabeça; 0.53 estava certo para λ=2.8). '
+      +'VALORES DECIDIDOS POR CÓDIGO (shell 110) — NÃO AUDITE: as probabilidades, os mercados de gols, a coerência da dupla chance, a calibração da confiança e a reconciliação desfalque×onze são CALCULADOS E DECIDIDOS POR CÓDIGO (Poisson dos lambdas), não pelo modelo. Qualquer valor ou texto que carregue um carimbo entre colchetes — "[prob. recalculada por Poisson…]", "[prob. reconciliada por código…]", "[confiança rebaixada por código…]" — ou a marca "A confirmar (era … listado como desfalque)" é DECISÃO FINAL do código: NÃO o acuse de inconsistência numérica, confiança mal calibrada nem contradição interna. Você NÃO é a autoridade sobre a aritmética desses valores (caso real do shell 109: o auditor "corrigiu" 0.53→0.58 de cabeça; 0.53 estava certo para λ=2.8). RISCO DE SUSPENSÃO ≠ AUSÊNCIA (shell 111): um jogador "pendurado"/"a um amarelo da suspensão"/"risco de suspensão (3º amarelo)" está DISPONÍVEL para ESTE jogo — o risco vale para o jogo SEGUINTE. Incluí-lo normalmente no onze é CORRETO; NÃO é contradição interna nem exige cenário de ausência nos tickets. Só é ausência a suspensão CUMPRIDA neste jogo (expulso/suspenso já confirmado), que apareceria em desfalques. '
       +'1) INCONSISTÊNCIA NUMÉRICA — aponte APENAS violação de FAIXA, nunca "a conta deu diferente": 1X2 que não soma ~90–110%, ou um número claramente fora dos limites do critério 4. Aritmética de probabilidade (ticket vs lambdas, múltipla vs produto das pernas) é do CÓDIGO — não a recalcule nem a acuse. '
       +'2) FALTA DE LASTRO — afirmação factual central de (B) apresentada como MEDIDA/oficial que NÃO aparece em (A) (possível alucinação). Se (A) estiver vazio, pule este critério. NÃO é falta de lastro um valor rotulado como ESTIMADO (ex.: "xG estimado ~1.6 · de finalizações/grandes chances") derivado de proxies presentes em (A) — estimar é função legítima do analista; só marque se a estimativa NÃO tiver proxy nenhum em (A) ou for vendida como valor oficial. '
       +'3) CONFIANÇA MAL CALIBRADA — "alto"/"alta" apoiada em fonte única ou convivendo com lacunas graves declaradas. '
