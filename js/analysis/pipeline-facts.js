@@ -462,6 +462,42 @@ async function fillDataGaps(rawFacts,apiKey,signal,onUpdate){
       }else if(data.stop_reason==='pause_turn'){msgs.push({role:'assistant',content:data.content});}
       else break;
     }
+    // ── RESGATE DE TÉCNICO (shell 123) ────────────────────────────────────
+    // Caso real: card saiu com "Técnico atual do Vitória não confirmado na coleta".
+    // Técnico de clube de 1ª divisão é dado PÚBLICO (Wikipedia/GE/ESPN sempre têm) —
+    // se após a passagem de gaps ainda estiver vazio, UMA busca dedicada por lado
+    // faltante (Haiku, 1 web_search, teto 400 tokens). Vazio de verdade só se até
+    // a busca focada falhar — aí a lacuna declarada é legítima.
+    for(const side of ['mandante','visitante']){
+      const tm=rawFacts[side];
+      if(!tm||!tm.nome||!_pgEmpty(tm.tecnico))continue;
+      if(signal.aborted)break;
+      onUpdate&&onUpdate({status:'Confirmando técnico de '+tm.nome+'…',phase:1});
+      try{
+        const _cReq={model:'claude-haiku-4-5-20251001',max_tokens:400,
+          system:'Responda APENAS JSON {"tecnico":""}. Busque o técnico ATUAL (hoje) do clube. É informação pública — Wikipedia/GE/ESPN sempre têm. Só devolva "" se a busca realmente não confirmar. NUNCA invente nem devolva técnico antigo: confirme que é o atual.',
+          messages:[{role:'user',content:'DATA: '+_h('currentDateFull')()+'. Quem é o técnico atual do '+tm.nome+' ('+_clGap+')?'}],
+          tools:[{type:'web_search_20250305',name:'web_search',max_uses:1}]};
+        let data2=null;
+        for(let k=0;k<3;k++){
+          const r2=await fetch(_h('getApiBase')()+'/v1/messages',{method:'POST',headers:_h('getReqHeaders')(apiKey),body:JSON.stringify(_cReq),signal});
+          if(!r2.ok)break;
+          data2=await r2.json();const u2=data2.usage||{};accIn+=u2.input_tokens||0;accOut+=u2.output_tokens||0;
+          if(data2.stop_reason==='tool_use'){
+            _cReq.messages.push({role:'assistant',content:data2.content});
+            _cReq.messages.push({role:'user',content:data2.content.filter(b=>b.type==='tool_use').map(b=>({type:'tool_result',tool_use_id:b.id,content:''}))});
+            continue;
+          }
+          if(data2.stop_reason==='pause_turn'){_cReq.messages.push({role:'assistant',content:data2.content});continue;}
+          break;
+        }
+        if(data2&&data2.stop_reason==='end_turn'){
+          const txt2=(data2.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+          const p2=parseAnalysisJson(txt2);
+          if(p2&&typeof p2.tecnico==='string'&&p2.tecnico.trim().length>2)tm.tecnico=p2.tecnico.trim();
+        }
+      }catch(e2){if(e2&&(e2.name==='AbortError'||e2.message==='cancelled'))throw e2;}
+    }
     return{inTokens:accIn,outTokens:accOut};
   }catch(e){if(e&&(e.name==='AbortError'||e.message==='cancelled'))throw e;return{inTokens:0,outTokens:0};}
 }

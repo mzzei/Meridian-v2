@@ -3065,3 +3065,6 @@ html[data-theme="mono"]{color-scheme:light}
    transform+opacity apenas (GPU); roda 1x na criação; reduced-motion global já anula. */
 @keyframes cardIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .a-card{animation:cardIn var(--dur-enter) var(--ease-out) both}
+
+/* Nota de ajuste por código no fundamento (shell 123) — discreta, auditável */
+.ev-adj{font-size:var(--fs-3xs);color:var(--acard-dim);margin-top:3px;font-style:italic;opacity:.85}

@@ -1245,6 +1245,34 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(css120.includes('max-height:calc(100vh - 2rem);max-height:calc(100dvh - 2rem)'), 'spanel dvh pair (mobile viewport)');
 }
 
+// Shell 123: resgate de técnico + régua de concretude + notas de código separadas
+{
+  const facts123 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  const pr123 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  const rend123 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  const css123 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  // (1) técnico vazio pós-gaps → busca DEDICADA (dado público; caso real Vitória)
+  assert(facts123.includes('RESGATE DE TÉCNICO (shell 123)'), 'coach rescue exists');
+  assert(facts123.includes("!_pgEmpty(tm.tecnico))continue") && facts123.includes('max_uses:1'), 'rescue only fires when coach empty; 1 search cap');
+  assert(facts123.includes('NUNCA invente nem devolva técnico antigo'), 'rescue demands CURRENT coach, no invention');
+  // (2) régua de concretude nos DOIS prompts F2
+  assert(pr123.split('RÉGUA DE CONCRETUDE (shell 123)').length - 1 === 2, 'concreteness rule in both F2 prompts');
+  assert(pr123.includes('PROIBIDO clichê sem número') && pr123.includes('"média contida"'), 'cliché ban with the audited example');
+  // (3) notas do código separadas do fundamento no render
+  assert(rend123.includes('function fundParts') && (rend123.match(/fundHtml\(/g) || []).length >= 5, 'fundHtml wired on all 4 reason sites');
+  assert(!/ev-reason">\$\{esc\((?:textFrom\()?[te]\.fundamento/.test(rend123), 'no raw fundamento display remains');
+  assert(css123.includes('.ev-adj{font-size:var(--fs-3xs)'), 'ev-adj styled via tokens');
+  {
+    const _src = rend123.slice(rend123.indexOf('function fundParts'), rend123.indexOf('function tcard'));
+    const box = {}; new Function('esc', 'exports', _src + '; exports.fundParts=fundParts; exports.fundHtml=fundHtml;')((s) => String(s), box);
+    const p = box.fundParts('Perfil defensivo dos dois. [prob. recalculada por Poisson dos lambdas 1.3+1.2 (era 72%)] [confiança rebaixada por código: teto = confianca_geral "baixo"]');
+    assert(p.main === 'Perfil defensivo dos dois.', 'main text clean of code notes');
+    assert(/recalculada por Poisson/.test(p.notes) && /rebaixada por código/.test(p.notes), 'both notes captured');
+    assert(box.fundParts('Sem notas aqui.').notes === '' && box.fundParts('Sem notas aqui.').main === 'Sem notas aqui.', 'no-note passthrough');
+    assert(/ev-adj/.test(box.fundHtml('x [prob. recalculada por Poisson (era 1%)]')) && !/ev-adj/.test(box.fundHtml('só texto')), 'ev-adj only when notes exist');
+  }
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
