@@ -777,6 +777,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **122·pkg2** | **SKILL.md do pacote: "Handover técnico (roteiro da sessão)" → "Checklist de integração (self-service)"** (feedback de review externo: no modelo só-zip, "sessão" soava como call inclusa). Linha explícita: "não inclui call de handover nem suporte contínuo"; passos reescritos em voz self-service (exemplo-integracao.mjs + env ANTHROPIC_KEY). "roteiro da sessão" entrou no FORBIDDEN do empacotador (classe não volta). Zip regenerado e verificado |
 
+| **122·pkg3** | **Falso alarme esclarecido**: o dono reviu "Handover técnico (roteiro da sessão)" — mas o SKILL.md canônico e o zip JÁ estavam corrigidos (122·pkg2); o texto antigo vivia nas pastas locais `_motor_zip_inspect2/3/4` (extrações de zips antigos, untracked). As 3 foram re-extraídas do zip atual. Lição p/ sessões futuras: antes de "corrigir" texto do pacote, conferir se a fonte é o canônico ou uma extração stale — `grep` no `motor/` + no zip decide em 10s |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
