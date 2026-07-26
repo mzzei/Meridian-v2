@@ -166,6 +166,7 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
     +'MÉTRICAS DE JOGADOR: 3–5 titulares com números reais de '+_cl+' — inclua cartoes_amarelos e faltas_cometidas_por_jogo (mercado disciplinar depende).\n'
     +'RESULTADOS RECENTES: SEMPRE com placar exato e mando — "V 2x1 Vasco (fora)", nunca só "V". Sem placar = busca incompleta.\n'
     +'xG e ESCANTEIOS/JOGO (a favor e sofridos): números públicos (Sofascore/FBref) — deixar null com busca disponível = falha de busca, não lacuna.\n'
+    +'VALORES LIMPOS: NUNCA copie tags de citação da busca (<cite…>) para os valores do JSON — só texto/número puro.\n'
     +'VALIDAÇÃO CRUZADA: 2+ fontes ativas → cite juntas; conflito real → "lacunas" (não "fonte X ausente").\n'
     +_activeNote+_covNote+_skipNote+_srcNote+'\n'+SOURCE_RULE+'\n'+GROUNDING_RULE;
   const SP=hasFd
@@ -296,17 +297,32 @@ function repairJson(s){
   return t;
 }
 // Extrai o objeto JSON da resposta do modelo, tolerando markdown e truncamento.
+// ── Tags de citação do web_search vazando em VALORES (shell 124) ───────────
+// Caso real (Grêmio × Fluminense): gols:'<cite index="2-5">10</cite>' e
+// observações inteiras embrulhadas em <cite> renderizavam como texto literal.
+// O modelo copia os spans citados da busca para dentro do JSON. Regra de
+// arquitetura: TODO JSON de LLM passa por parseAnalysisJson (invariante 33) —
+// então o strip aqui cobre TODAS as features estruturadas, atuais e futuras,
+// por construção. Mantém o conteúdo interno; remove só a marcação.
+const _CITE_TAG_RE=/<\/?(?:cite|citation|source|ref|antml[a-z]*)\b[^>]*>/gi;
+function stripCites(s){return String(s).replace(_CITE_TAG_RE,'');}
+function stripCiteDeep(x){
+  if(typeof x==='string')return _CITE_TAG_RE.test(x)?stripCites(x):x;
+  if(Array.isArray(x))return x.map(stripCiteDeep);
+  if(x&&typeof x==='object'){for(const k of Object.keys(x))x[k]=stripCiteDeep(x[k]);return x;}
+  return x;
+}
 function parseAnalysisJson(raw){
   const clean=(raw||'').replace(/```(?:json)?\s*/gi,'').replace(/```/g,'');
   const start=clean.indexOf('{');if(start<0)return null;
   const lastClose=clean.lastIndexOf('}');
   if(lastClose>start){
     const cand=clean.slice(start,lastClose+1);
-    try{return JSON.parse(cand);}catch{}
-    try{return JSON.parse(repairJson(cand));}catch{}
+    try{return stripCiteDeep(JSON.parse(cand));}catch{}
+    try{return stripCiteDeep(JSON.parse(repairJson(cand)));}catch{}
   }
   // Truncado no max_tokens (sem } final): repara do primeiro { até o fim.
-  try{return JSON.parse(repairJson(clean.slice(start)));}catch{}
+  try{return stripCiteDeep(JSON.parse(repairJson(clean.slice(start))));}catch{}
   return null;
 }
 function buildEnrichedQuery(query,rawFacts,ctx){
@@ -886,6 +902,8 @@ export {
   gatherFacts,
   repairJson,
   parseAnalysisJson,
+  stripCites,
+  stripCiteDeep,
   buildEnrichedQuery,
   fillDataGaps,
   FACTS_SCHEMA,

@@ -182,8 +182,19 @@ function _escRefreshBtn(d,cardId){
 }
 if(typeof window!=='undefined'){window.buildEscalacaoTab=buildEscalacaoTab;}
 
+// Cópia classic do strip de <cite> (shell 124): parseAnalysisJson já limpa análises
+// NOVAS na fonte; esta camada cobre cards ANTIGOS salvos na biblioteca (re-render) e
+// qualquer caminho futuro que injete objeto sem passar pelo parse. Dupla contenção.
+const _CITE_RE=/<\/?(?:cite|citation|source|ref|antml[a-z]*)\b[^>]*>/gi;
+function _stripCitesDeep(x){
+  if(typeof x==='string')return _CITE_RE.test(x)?x.replace(_CITE_RE,''):x;
+  if(Array.isArray(x))return x.map(_stripCitesDeep);
+  if(x&&typeof x==='object'){for(const k of Object.keys(x))x[k]=_stripCitesDeep(x[k]);return x;}
+  return x;
+}
 function renderResults(d,opts){
   opts=opts||{};
+  _stripCitesDeep(d); // legados da biblioteca
   _cardCount++;
   const id=_cardCount;
   // hid ANTES de montar as abas: a aba Escalação usa d._hid no botão de refresh.

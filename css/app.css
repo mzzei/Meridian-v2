@@ -3068,3 +3068,7 @@ html[data-theme="mono"]{color-scheme:light}
 
 /* Nota de ajuste por código no fundamento (shell 123) — discreta, auditável */
 .ev-adj{font-size:var(--fs-3xs);color:var(--acard-dim);margin-top:3px;font-style:italic;opacity:.85}
+
+/* Respiro entre seções do card (shell 124 — print: "Stats por Jogador" colava na seção acima) */
+.a-card .tab-s+.tab-s{margin-top:1.15rem}
+.a-card .tab-s .tab-h{margin-bottom:.55rem}

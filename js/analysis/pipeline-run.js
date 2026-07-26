@@ -15,6 +15,7 @@ import {
   _chatNeedsScoreVerification,
   fetchVerifiedMatchFacts,
   parseAnalysisJson,
+  stripCites,
   buildEnrichedQuery,
   fillDataGaps,
   verifyLineupNames,
@@ -261,7 +262,7 @@ async function runChat(){
       // estruturado (chatCardFrom/renderChatCard/cardToPlain) foi removido na decomposição
       // do monólito (26fbf9e) e derrubava o chat com "host missing: chatCardFrom" — e, além
       // do bug, o card não é o que o usuário quer aqui: resposta sucinta em prosa é o certo.
-      let clean=_h('stripInternalReasoning')(text||'');
+      let clean=stripCites(_h('stripInternalReasoning')(text||'')); // shell 124: tags <cite> da busca nunca chegam à bolha
       // JSON no chat (shell 89): o consumidor de card saiu no 88 — sem isto, um retorno
       // estruturado era DESPEJADO CRU na bolha. Tenta extrair o campo de texto; se não
       // der, pede reformulação em vez de mostrar `{...}` para o usuário.

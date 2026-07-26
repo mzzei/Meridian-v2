@@ -1273,6 +1273,41 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   }
 }
 
+// Shell 124: tags <cite> do web_search NUNCA vazam em NENHUMA feature (print real
+// Grêmio × Fluminense: gols:'<cite index="2-5">10</cite>' renderizado literal).
+// Estratégia de contenção em profundidade: (1) choke point — parseAnalysisJson
+// (por onde TODO JSON de LLM passa, invariante 33) faz strip profundo; (2) chat
+// prosa (não passa pelo parse) faz strip na saída; (3) render faz strip no objeto
+// (cobre cards LEGADOS salvos); (4) prompts proíbem na origem.
+{
+  const PF124 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/pipeline-facts.js')).href);
+  // (1) choke point: o caso REAL do print, ponta a ponta pelo parse
+  const dirty = '{"mandante":{"jogadores_chave":[{"nome":"Carlos Vinícius","gols":"<cite index=\\"2-5\\">10</cite>","observacao":"<cite index=\\"5-4,5-5\\">Retorna após suspensão</cite>"}]},"lacunas":["<cite index=\\"1-1\\">ok</cite>"]}';
+  const parsed124 = PF124.parseAnalysisJson(dirty);
+  assert(parsed124.mandante.jogadores_chave[0].gols === '10', 'cite tag stripped from numeric value (the audited case)');
+  assert(parsed124.mandante.jogadores_chave[0].observacao === 'Retorna após suspensão', 'cite wrapper stripped, content kept');
+  assert(parsed124.lacunas[0] === 'ok', 'deep strip reaches arrays');
+  assert(!JSON.stringify(parsed124).includes('<cite'), 'no cite tag survives the choke point');
+  // unit + genericidade (source/ref/citation também)
+  assert(PF124.stripCites('<source url="x">A</source> e <ref>B</ref> e <citation>C</citation>') === 'A e B e C', 'generic citation-family tags stripped');
+  assert(PF124.stripCites('texto com < e > legítimos 2<3') === 'texto com < e > legítimos 2<3', 'legit angle brackets untouched');
+  // meta-assert: sem o strip, o caso vazaria
+  assert(JSON.parse(dirty.replace(/\\\\"/g, '"').slice(0, 0) || '{"a":"<cite>x</cite>"}').a.includes('<cite'), 'meta: raw parse WOULD leak the tag');
+  // (2) chat prosa passa pelo strip
+  const run124 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert(run124.includes("stripCites(_h('stripInternalReasoning')(text||''))"), 'chat prose path stripped');
+  // (3) render: cópia classic aplicada NA ENTRADA do renderResults (cards legados)
+  const rend124 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  assert(rend124.includes('function _stripCitesDeep') && /renderResults\(d,opts\)\{\s*\n\s*opts=opts\|\|\{\};\s*\n\s*_stripCitesDeep\(d\);/.test(rend124), 'render strips legacy objects at entry');
+  // (4) prompts proíbem na origem (F1 coverNote + 2× F2)
+  const pr124 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  const fa124 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(pr124.split('VALORES LIMPOS').length - 1 === 2 && fa124.includes('VALORES LIMPOS'), 'no-cite rule at all 3 prompt sources');
+  // (5) espaçamento das seções do card (print: Stats por Jogador colava na de cima)
+  const css124 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  assert(css124.includes('.a-card .tab-s+.tab-s{margin-top:1.15rem}'), 'section breathing room');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
