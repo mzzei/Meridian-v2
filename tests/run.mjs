@@ -1308,6 +1308,34 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(css124.includes('.a-card .tab-s+.tab-s{margin-top:1.15rem}'), 'section breathing room');
 }
 
+// Shell 125: o strip de DADOS (124) não bastou — print real mostrou
+// '👔 Técnico: <cite index="3-7">Luís Castro</cite>' na aba Escalação, que o poll
+// re-renderiza chamando buildEscalacaoTab DIRETO (fora do renderResults, onde o
+// strip do 124 morava). Correção no CHOKE POINT DE EXIBIÇÃO: esc() — por onde TODO
+// texto renderizado passa. Nenhum caminho de UI, atual ou futuro, escapa.
+{
+  const app125 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  const rep125 = fs.readFileSync(path.join(ROOT, 'js/export/report.js'), 'utf8');
+  assert(app125.includes('const _ESC_CITE_RE=') && /function esc\(s\)\{[\s\S]*?_ESC_CITE_RE/.test(app125), 'esc() strips citation tags (display choke point)');
+  assert(app125.includes("if(t.indexOf('<')>=0)"), 'esc() gates the regex on "<" (no cost on plain text)');
+  assert(/replace\(\/<\\\/\?\(\?:cite\|citation\|source\|ref\|antml\[a-z\]\*\)/.test(rep125), 'export fallback strips too (standalone)');
+  // unidade do esc() real, extraído do fonte
+  {
+    const _src = app125.slice(app125.indexOf('const _ESC_CITE_RE='), app125.indexOf('function brandStar') > 0 ? app125.indexOf('function esc(s){') + app125.slice(app125.indexOf('function esc(s){')).indexOf('\n}') + 2 : app125.length);
+    const _esc = new Function(_src + '; return esc;')();
+    // o caso EXATO do print
+    assert(_esc('<cite index="3-7">Luís Castro</cite>') === 'Luís Castro', 'coach name renders clean (the audited case)');
+    assert(_esc('<cite index="1-6">Luis Zubeldía</cite>') === 'Luis Zubeldía', 'second side too');
+    // escape normal preservado — não viramos vetor de XSS ao remover tags
+    assert(_esc('<script>alert(1)</script>') === '&lt;script&gt;alert(1)&lt;/script&gt;', 'script tags still ESCAPED, not stripped');
+    assert(_esc('a & b "c" <d>') === 'a &amp; b &quot;c&quot; &lt;d&gt;', 'standard escaping intact');
+    assert(_esc(null) === '' && _esc(10) === '10', 'null/number handling intact');
+    // meta-assert: sem o strip, o caso do print vazaria escapado na tela
+    const _plain = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    assert(_plain('<cite index="3-7">Luís Castro</cite>').includes('cite index'), 'meta: old esc WOULD leak the tag to screen');
+  }
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

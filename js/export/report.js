@@ -14,8 +14,10 @@ function tKey(key) {
 
 function escHtml(s) {
   const fn = hostFn('esc');
-  if (fn) return fn(s);
+  if (fn) return fn(s); // herda o strip de citação do esc() do app (shell 125)
+  // fallback standalone: mesma garantia, para o export não depender do host
   return String(s == null ? '' : s)
+    .replace(/<\/?(?:cite|citation|source|ref|antml[a-z]*)\b[^>]*>/gi, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

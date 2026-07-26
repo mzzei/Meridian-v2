@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 124)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 125)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 124**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 125**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **124** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **125** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 124 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 125 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-23 · shell 124)
+## Estado atual (revisão 2026-07-23 · shell 125)
 
 | Shell | Entrega |
 |-------|---------|
@@ -783,19 +783,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **124** | **Tags `<cite>` do web_search vazando como texto (print Grêmio × Fluminense: `gols:<cite index=2-5>10</cite>` literal no card) — CONTENÇÃO EM PROFUNDIDADE, 4 camadas**: (1) **choke point** — `parseAnalysisJson` (por onde TODO JSON de LLM passa, inv. 33) ganha `stripCiteDeep` recursivo: strip da família cite/citation/source/ref/antml* mantendo o conteúdo; cobre TODAS as features estruturadas atuais e futuras POR CONSTRUÇÃO. (2) chat prosa (não passa pelo parse) → `stripCites` na saída. (3) render (classic) → `_stripCitesDeep(d)` na ENTRADA do renderResults — cobre cards LEGADOS salvos na biblioteca. (4) prompts (F1 coverNote + 2× F2): "VALORES LIMPOS — nunca copie tags de citação". + **respiro entre seções do card** (`.tab-s+.tab-s{margin-top:1.15rem}` — "Stats por Jogador" colava na seção acima). 12 asserts com o caso real ponta a ponta + `< >` legítimos intocados; validado no runtime (objeto legado limpo, respiro 18.4px). Nota de guerra: bash comeu `/` do regex 2× — a lição "regex por Edit/arquivo, nunca por bash -e" agora vale como regra de sessão |
 
+| **125** | **`<cite>` no TÉCNICO mesmo após o 124 — o strip estava na camada errada.** Print real: `👔 Técnico: <cite index="3-7">Luís Castro</cite>` na aba Escalação. Causa: o poll/botão de escalação re-renderiza chamando `buildEscalacaoTab` **DIRETO** (lineup-confirmed.js:217), fora do `renderResults` onde o strip do 124 morava — mesma classe para cards legados e export. Fix no **CHOKE POINT DE EXIBIÇÃO**: `esc()` (app.js) — por onde passa TODO texto renderizado (~80 call sites em render/lineup/library) — remove a família de tags de citação ANTES do escape, com gate `indexOf('<')` para não pagar regex em texto comum; `escHtml` do export herda (e o fallback standalone ganhou o mesmo strip). Agora nenhum caminho de UI, atual ou futuro, exibe tag de citação. **Sem virar vetor de XSS**: `<script>` continua ESCAPADO (assert dedicado, verificado no DOM real). Validado no runtime reproduzindo o caminho do print (técnico, banco e XI de 11 sujos → todos limpos). Camada de dados (124) permanece — defesa em profundidade real: dados + exibição |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 124)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 125)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 124).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 125).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 124)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 125)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

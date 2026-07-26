@@ -1443,7 +1443,18 @@ function pickModel(id){setModel(id);closeSelPops();}
 function scrollChat(){const c=document.getElementById('chat');setTimeout(()=>{c.scrollTop=c.scrollHeight;},60);}
 
 function fmt(n){return n>=1000?(n/1000).toFixed(1)+'k':String(n);}
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// CHOKE POINT DE EXIBIÇÃO (shell 125): TODO texto renderizado passa por esc().
+// O strip de dados (parseAnalysisJson, shell 124) cobre o que vem do LLM, mas
+// caminhos que re-renderizam FORA do renderResults — poll de escalação chamando
+// buildEscalacaoTab direto, cards legados, export — escapavam. Aqui a garantia
+// é estrutural: nenhuma tag de citação chega à tela por NENHUM caminho, atual ou
+// futuro. Gate por indexOf('<') para não pagar regex em texto comum.
+const _ESC_CITE_RE=/<\/?(?:cite|citation|source|ref|antml[a-z]*)\b[^>]*>/gi;
+function esc(s){
+  let t=String(s==null?'':s);
+  if(t.indexOf('<')>=0)t=t.replace(_ESC_CITE_RE,'');
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 // O schema pede array de strings em campos como "lacunas", mas o modelo às vezes
 // generaliza o padrão de outros arrays do schema (que SÃO objetos, ex. eventos_provaveis)
 // e devolve {campo:"...", motivo:"..."} em vez de string — String(objeto) vira
