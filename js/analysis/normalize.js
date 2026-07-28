@@ -209,7 +209,12 @@ function _poissonReconcileGoalMarkets(parsed) {
       // 1−e^−λ = P(≥1) para QUALQUER "marca", ignorando a linha — "Santos marca +1.5 gol"
       // (≥2, ~57%) saía 85% (≥1). Agora "+N.5"→≥N+1, "N ou mais"→≥N, "marca"/"+0.5"→≥1.
       const team = teamHome ? lh : teamAway ? la : null;
-      if (team != null && !/escanteio|cart[a]o|cantos|falta/.test(t)) {
+      // shell 126 (ultrareview bug_001): o guard singular deixava "cartões"/"amarelos"
+      // passar (norm() já removeu acentos: "cartões"→"cartoes" NÃO contém "cartao") —
+      // "Mais de 4.5 cartões do Corinthians" caía no ramo de GOLS do time e saía ~2%
+      // CARIMBADO (e o carimbo é imune ao auditor via backstop do 110). Plural+amarelo
+      // agora no guard, espelhando o _calibrateConfidence do 108 que já os conhecia.
+      if (team != null && !/escanteio|cartao|cartoes|amarelo|cantos|falta/.test(t)) {
         let k = null;
         const mLine = t.match(/(?:mais de|acima de|over|\+\s*de|>)\s*(\d+)[.,]5/);
         const mMais = t.match(/\b(\d+)\s*(?:\+|ou mais)\s*(?:gols?|golos?)?/);
@@ -383,7 +388,11 @@ function _reconcileDesfalquesOnze(parsed) {
         const dTxt = typeof d === 'string' ? d : (d && d.nome) || '';
         const dKey = key(dTxt);
         if (!dKey) { kept.push(d); continue; }
-        const hit = lu.onze.find((p) => p && p.nome && (key(p.nome) === dKey || dKey.startsWith(key(p.nome)) || key(p.nome).startsWith(dKey)));
+        // shell 126 (ultrareview bug_003): startsWith bidirecional casava por PREFIXO —
+        // onze "Silva" + desfalque "Silva Jr (suspenso)" reetiquetava o Silva saudável
+        // como "A confirmar"; "Igor Jesus" × desfalque "Igor" idem. Igualdade EXATA de
+        // key() basta: o strip de parênteses já cobre qualificadores ("(goleiro)" etc.).
+        const hit = lu.onze.find((p) => p && p.nome && key(p.nome) === dKey);
         if (!hit) { kept.push(d); continue; }
         const firm = _FIRM_OUT_RE.test(String(dTxt) + ' ' + String((d && d.motivo) || ''));
         if (firm) {

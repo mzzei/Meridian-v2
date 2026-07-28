@@ -1214,7 +1214,13 @@ html[data-theme="mono"] .ctx-prompt-other-ta{background:#fff!important;color:#1a
   /* shell 121: gaveta REMOVIDA do mobile (decisão do dono) — a bottom nav (Chat/
      Biblioteca/Relatórios/Config) é a navegação; sem drawer, swipe ou burger */
   .l-sb{display:none}
-  .main{margin:.45rem;border-radius:18px;height:calc(100vh - .9rem);height:calc(100dvh - .9rem)}
+  /* shell 126 (ultrareview bug_002): a sidebar some em ≤820 mas a bottom nav só
+     ligava em ≤640 — tablets portrait (iPad Mini 768, iPad Air 820, Surface Duo
+     720) ficavam SEM NENHUMA navegação. O gate da nav agora acompanha o mesmo
+     breakpoint em que a sidebar desaparece, com o respiro do main junto. */
+  .m-nav{display:block}
+  .main{margin:.45rem;border-radius:18px;height:calc(100vh - .9rem);height:calc(100dvh - .9rem);
+    padding-bottom:calc(54px + env(safe-area-inset-bottom,0))}
 }
 
 @media(max-width:640px){

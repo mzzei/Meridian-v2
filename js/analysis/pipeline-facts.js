@@ -380,7 +380,7 @@ function _teamResultsNeedScores(tm){
   if(!tm||!tm.nome)return false;
   const rr=Array.isArray(tm.resultados_recentes)?tm.resultados_recentes:[];
   if(!rr.length)return true;
-  return !rr.some(r=>/\d\s*[x×–-]\s*\d/.test(String(r||'')));
+  return !rr.some(r=>/\d\s*[xX×–—:-]\s*\d/.test(String(r||'')));
 }
 // Campos de ESCALAÇÃO do time (shell 85 / PARTE IX P1): técnico/formação/onze/banco vazios
 // disparam a passagem de gap — no V1 esses campos vinham no caminho AF; no Free multi-liga
@@ -411,7 +411,7 @@ function _mergeTeamPatch(rawFacts,timesArr){
     // sem placar ("V, V, D"); se o patch trouxe ao menos uma entrada COM placar exato,
     // a versão com números substitui a qualitativa. Nunca o contrário (não regride).
     if(_teamResultsNeedScores(tm)&&Array.isArray(src.resultados_recentes)
-      &&src.resultados_recentes.some(r=>/\d\s*[x×–-]\s*\d/.test(String(r||''))))
+      &&src.resultados_recentes.some(r=>/\d\s*[xX×–—:-]\s*\d/.test(String(r||''))))
       tm.resultados_recentes=src.resultados_recentes;
   });
 }

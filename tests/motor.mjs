@@ -142,5 +142,40 @@ assert(typeof document === 'object' && document.getElementById('x') === null, 'd
   assert(jsonReply.type === 'text' && /favoritismo é do mandante/.test(jsonReply.text) && !/[{}"]/.test(jsonReply.text.slice(0, 5)), 'chat: JSON do modelo vira prosa (nunca cru)');
 }
 
+// ── Shell 126 (ultrareview bug_004): prosa emitida ANTES de pause_turn não pode
+// ser perdida — o loop de chat deve ACUMULAR o texto entre continuações.
+{
+  const ssePause = (text, stop) => {
+    const events = [
+      { type: 'message_start', message: { usage: { input_tokens: 50 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', usage: { output_tokens: 20 }, delta: { stop_reason: stop } },
+    ];
+    return new Response(events.map((e) => 'data: ' + JSON.stringify(e)).join('\n\n') + '\n\n', { status: 200 });
+  };
+  let chatCall = 0;
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes('/v1/messages')) {
+      let b = null; try { b = JSON.parse(opts.body); } catch {}
+      if (b && Array.isArray(b.system) && b.system.some((s) => /MODO CONVERSA/.test(s.text || ''))) {
+        chatCall++;
+        // 1ª chamada: prosa inicial + pause_turn (continuação server-side de busca);
+        // 2ª: conclusão + end_turn. O bug antigo devolvia SÓ a parte B.
+        return chatCall === 1 ? ssePause('De acordo com as últimas informações, ', 'pause_turn')
+                              : ssePause('o Palmeiras é favorito por retrospecto.', 'end_turn');
+      }
+    }
+    return prevFetch(url, opts);
+  };
+  const replyP = await engine.chat('Flamengo x Palmeiras: quem é favorito?');
+  globalThis.fetch = prevFetch;
+  assert(replyP.type === 'text', 'pause_turn chat still resolves to text');
+  assert(replyP.text === 'De acordo com as últimas informações, o Palmeiras é favorito por retrospecto.', `pre-pause prose PRESERVED (got: "${replyP.text.slice(0, 60)}")`);
+  assert(chatCall === 2, 'loop continued through pause_turn exactly once');
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nMOTOR ALL PASSED');
 process.exit(failed ? 1 : 0);

@@ -273,12 +273,16 @@ export async function createEngine(config = {}) {
       const r = await run.streamOnce({ ...body, messages }, reqHeaders, (u) => prog({ ...u, phase: 2 }), signal);
       usage.inTokens += r.inTokens || 0; usage.outTokens += r.outTokens || 0;
       if (r.stopReason === 'tool_use' || r.stopReason === 'pause_turn') {
+        // shell 126 (ultrareview bug_004): prosa emitida ANTES do pause_turn/tool_use
+        // ia para o histórico (allContent) mas nunca para o `text` local — a resposta
+        // chegava ao integrador truncada no começo. Acumula a cada continuação.
+        text += r.text || '';
         messages.push({ role: 'assistant', content: r.allContent });
         if (r.stopReason === 'tool_use')
           messages.push({ role: 'user', content: r.toolUses.map((t) => ({ type: 'tool_result', tool_use_id: t.id, content: '' })) });
         continue;
       }
-      text = r.text; break;
+      text += r.text || ''; break;
     }
 
     // ── Guards de saída (mesmos do app) ──

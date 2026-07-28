@@ -1336,6 +1336,62 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   }
 }
 
+// Shell 126: achados do /code-review ultra (base b406494) — 4 dos 5 corrigidos aqui
+// (o 5º, engine.mjs, é coberto no tests/motor.mjs)
+{
+  const N6 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  // bug_001 (normal): mercado de CARTÕES por time nunca mais entra no ramo de gols.
+  // O caso do review: "Mais de 4.5 cartões do Corinthians" 0.55 virava ~0.02 CARIMBADO
+  // (e o carimbo é imune ao auditor pelo backstop do 110 — número errado blindado).
+  const p1 = {
+    contexto_analise: 'previa', mandante: { nome: 'Corinthians' }, visitante: { nome: 'Vasco' },
+    lambda: { home_mid: 1.5, away_mid: 0.9 },
+    eventos_provaveis: [],
+    sugestoes_ticket: [
+      { descricao: 'Mais de 4.5 cartões do Corinthians', probabilidade: 0.55, fundamento: 'f', confianca: 'media' },
+      { descricao: 'Corinthians recebe 2 ou mais cartões amarelos', probabilidade: 0.65, fundamento: 'f', confianca: 'media' },
+      { descricao: 'Corinthians marca mais de 1.5 gols', probabilidade: 0.9, fundamento: 'f', confianca: 'media' },
+    ],
+  };
+  N6.attachAnalysisDerived(p1, null);
+  assert(p1.sugestoes_ticket[0].probabilidade === 0.55 && !/recalculada/.test(p1.sugestoes_ticket[0].fundamento), 'plural cartões market untouched (the ultra finding)');
+  assert(p1.sugestoes_ticket[1].probabilidade === 0.65 && !/recalculada/.test(p1.sugestoes_ticket[1].fundamento), 'amarelos market untouched');
+  assert(/recalculada por Poisson/.test(p1.sugestoes_ticket[2].fundamento), 'genuine team-goals market STILL reconciled (guard não sobre-bloqueia)');
+  // bug_003 (nit): prefixo compartilhado não é o mesmo jogador
+  const p3 = {
+    contexto_analise: 'previa', confianca_geral: 'medio',
+    mandante: { nome: 'A', desfalques: [] },
+    visitante: { nome: 'B', desfalques: ['Silva Jr (suspenso)', 'Igor (suspenso)'] },
+    incerteza: [],
+    _lineups: { visitante: { nome: 'B', onze: [{ nome: 'Silva', posicao: 'ZAG' }, { nome: 'Igor Jesus', posicao: 'ATA' }], banco: [], fonte: 'pesquisa' } },
+  };
+  N6.attachAnalysisDerived(p3, null);
+  const nomes3 = p3._lineups.visitante.onze.map((x) => x.nome);
+  assert(nomes3.includes('Silva') && nomes3.includes('Igor Jesus'), 'shared-prefix players NOT relabeled (Silva ≠ Silva Jr; Igor Jesus ≠ Igor)');
+  assert(p3.visitante.desfalques.length === 2, 'both real absences stay in desfalques');
+  // igualdade exata (o caso legítimo do 109) continua funcionando
+  const p3b = { contexto_analise: 'previa', confianca_geral: 'medio', mandante: { nome: 'A', desfalques: [] }, visitante: { nome: 'B', desfalques: ['Marcelo Rangel (dept. médico, a confirmar)'] }, incerteza: [], _lineups: { visitante: { nome: 'B', onze: [{ nome: 'Marcelo Rangel', posicao: 'GOL' }], banco: [], fonte: 'pesquisa' } } };
+  N6.attachAnalysisDerived(p3b, null);
+  assert(p3b.visitante.desfalques.length === 0 && p3b.incerteza.length === 1, 'exact-match reconcile (Rangel) still works');
+  // bug_005 (nit): separadores X maiúsculo / em-dash / dois-pontos reconhecidos como placar
+  const facts126 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert((facts126.match(/\[xX×–—:-\]/g) || []).length === 2, 'score-separator class widened at BOTH call sites');
+  {
+    const _src = facts126.slice(facts126.indexOf('function _teamResultsNeedScores'), facts126.indexOf('async function fillDataGaps'));
+    const _fn = new Function(_src + '; return _teamResultsNeedScores;')();
+    assert(_fn({ nome: 'X', resultados_recentes: ['V 2X1 Vasco', 'D 1—0 Flu', 'V 3:1 Bahia'] }) === false, 'X/em-dash/colon scores recognized (no wasted gap search)');
+    assert(_fn({ nome: 'X', resultados_recentes: ['V', 'D', 'E'] }) === true, 'qualitative-only still flagged');
+  }
+  // bug_002 (normal): tablet 641–820px TEM navegação — o gate da bottom nav acompanha
+  // o breakpoint onde a sidebar some (assert CRUZA as larguras, o que o 121 não fazia)
+  const css126 = fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8');
+  const m820 = css126.indexOf('@media(max-width:820px){');
+  const m820end = css126.indexOf('@media(max-width:640px){', m820);
+  const bloco820 = css126.slice(m820, m820end);
+  assert(bloco820.includes('.l-sb{display:none}') && bloco820.includes('.m-nav{display:block}'), 'sidebar-off and bottom-nav-on live in the SAME 820px block');
+  assert(bloco820.includes('padding-bottom:calc(54px'), 'main clears the nav at tablet widths too');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
