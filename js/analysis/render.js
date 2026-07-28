@@ -239,7 +239,7 @@ function renderResults(d,opts){
   const tabTatica=`
     <div class="tab-s">
       <div class="tab-h">1. Probabilidades · Resultado</div>
-      ${[{lbl:hn,v:prob.home,lo:pL.home,hi:pH.home},{lbl:'Empate',v:prob.draw,lo:pL.draw,hi:pH.draw},{lbl:an,v:prob.away,lo:pL.away,hi:pH.away}].map(b=>`<div class="prow"><div class="pmeta"><span class="pname">${b.lbl}</span><span class="ppct">${pct(b.v)}</span></div><div class="btrack"><div class="bfill" data-w="${Math.round(b.v*100)}" style="transform:scaleX(0)"></div></div><div class="prange">faixa ${pct(b.lo)}–${pct(b.hi)}</div></div>`).join('')}
+      ${[{lbl:hn,v:prob.home,lo:pL.home,hi:pH.home},{lbl:'Empate',v:prob.draw,lo:pL.draw,hi:pH.draw},{lbl:an,v:prob.away,lo:pL.away,hi:pH.away}].map(b=>({...b,lo:Math.min(b.lo,b.hi),hi:Math.max(b.lo,b.hi)})).map(b=>`<div class="prow"><div class="pmeta"><span class="pname">${b.lbl}</span><span class="ppct">${pct(b.v)}</span></div><div class="btrack"><div class="bfill" data-w="${Math.round(b.v*100)}" style="transform:scaleX(0)"></div></div><div class="prange">faixa ${pct(b.lo)}–${pct(b.hi)}</div></div>`).join('')}
     </div>
     <div class="tab-s">
       <div class="tab-h">2. Mercados de Gols</div>
@@ -271,7 +271,7 @@ function renderResults(d,opts){
           ${d.tecnico_mandante.filosofia?`<div class="irow"><span class="ilbl">Filosofia</span><span class="ival">${esc(d.tecnico_mandante.filosofia)}</span></div>`:''}
           ${d.tecnico_mandante.ajustes_recentes?`<div class="tesc">${esc(d.tecnico_mandante.ajustes_recentes)}</div>`:''}
           ${d.tecnico_mandante.impacto_mercados?`<div class="tkeys">↪ ${esc(d.tecnico_mandante.impacto_mercados)}</div>`:''}
-        </div>`:'<div class="tcard"><div class="tname">${hn}</div><p class="tesc">Dados do técnico não disponíveis</p></div>'}
+        </div>`:`<div class="tcard"><div class="tname">${hn}</div><p class="tesc">Dados do técnico não disponíveis</p></div>`}
         ${d.tecnico_visitante?.nome?`<div class="tcard">
           <div class="tname">${an}</div>
           <div class="irow"><span class="ilbl">Treinador</span><span class="ival">${esc(d.tecnico_visitante.nome)}</span></div>
@@ -279,7 +279,7 @@ function renderResults(d,opts){
           ${d.tecnico_visitante.filosofia?`<div class="irow"><span class="ilbl">Filosofia</span><span class="ival">${esc(d.tecnico_visitante.filosofia)}</span></div>`:''}
           ${d.tecnico_visitante.ajustes_recentes?`<div class="tesc">${esc(d.tecnico_visitante.ajustes_recentes)}</div>`:''}
           ${d.tecnico_visitante.impacto_mercados?`<div class="tkeys">↪ ${esc(d.tecnico_visitante.impacto_mercados)}</div>`:''}
-        </div>`:'<div class="tcard"><div class="tname">${an}</div><p class="tesc">Dados do técnico não disponíveis</p></div>'}
+        </div>`:`<div class="tcard"><div class="tname">${an}</div><p class="tesc">Dados do técnico não disponíveis</p></div>`}
       </div>
     </div>`:''}
     ${confrontoHtml}`;
@@ -365,7 +365,10 @@ function renderResults(d,opts){
     <div class="disc">Análise estatística baseada em modelo de Poisson e dados reais · não é recomendação financeira</div>`;
 
   // ── Full card ──
-  const titleHtml=(d.partida||'Análise').replace(/×/g,'<span class="wc-gold">×</span>');
+  // shell 128 (review local): d.partida vem do LLM/biblioteca e era o ÚNICO campo do
+  // card fora do esc() — '<' no título virava HTML vivo no innerHTML. esc() primeiro;
+  // o '×' sobrevive ao escape e o replace decora depois.
+  const titleHtml=esc(d.partida||'Análise').replace(/×/g,'<span class="wc-gold">×</span>');
   // Modo do card (shell 76): MESMO shell/estética; pós-jogo só re-rotula abas + selo.
   const _mode=d.contexto_analise==='pos_jogo'?'pos_jogo':'previa';
   const _modeBadge=_mode==='pos_jogo'?'PÓS-JOGO':'PRÉVIA';

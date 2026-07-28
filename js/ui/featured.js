@@ -23,7 +23,8 @@ function _matchState(m){
 function _relTime(mins){
   if(mins<1)return'agora';
   if(mins<60)return'em '+Math.round(mins)+' min';
-  const h=Math.floor(mins/60),mm=Math.round(mins%60);
+  // shell 128 (review local): arredondar ANTES de decompor — mins=119.6 dava "em 1h 60min"
+  const t=Math.round(mins),h=Math.floor(t/60),mm=t%60;
   if(mins<24*60)return'em '+h+'h'+(mm?(' '+mm+'min'):'');
   const d=Math.round(mins/(24*60));
   return'em '+d+(d>1?' dias':' dia');
@@ -172,7 +173,9 @@ function _teamsHTML(compId){
   }
   return '<div class="rs-tg">'+teams.slice(0,6).map(function(team){
     const crest=teamBadge(team,32);
-    return '<div class="rs-team-badge" onclick="_esAnalyze(\'Analise '+esc(team)+'\')"><span class="rs-team-emblem">'+crest+'</span><span class="rs-team-name">'+esc(team)+'</span></div>';
+    // shell 128 (review local): esc() não escapa aspa simples — "Nott'm Forest" fechava a
+    // string JS do onclick (SyntaxError, card morto). Escape JS antes do esc(), como no live.
+    return '<div class="rs-team-badge" onclick="_esAnalyze(\'Analise '+esc(team.replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+'\')"><span class="rs-team-emblem">'+crest+'</span><span class="rs-team-name">'+esc(team)+'</span></div>';
   }).join('')+'</div>';
 }
 function _calendarHTML(compId){
@@ -191,7 +194,7 @@ function _calendarHTML(compId){
     const vh=esc((m.visitante||'').replace(/'/g,"\\'"));
     const click=s.state==='live'
       ?('openLiveByTeams(\''+mh+'\',\''+vh+'\')')
-      :('_esAnalyze(\'Analise '+esc(m.mandante||'')+' vs '+esc(m.visitante||'')+'\')');
+      :('_esAnalyze(\'Analise '+mh+' vs '+vh+'\')'); // shell 128: mh/vh já têm escape de aspa (o branch não-live não tinha)
     return '<div class="rs-cal-item" onclick="'+click+'">'
       +'<span class="rs-cal-date">'+dateHtml+'</span>'
       +'<span class="rs-cal-teams">'+esc(m.mandante||'?')+' × '+esc(m.visitante||'?')+'</span>'

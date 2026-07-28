@@ -98,7 +98,10 @@ function loadSchedule(force){
   }
   loadAllCompetitions(!!force);
   if(getAfKey()){
-    if(force){try{localStorage.removeItem('brsa_af_fixtures_v1');localStorage.removeItem('meridian_af_fixtures_'+_activeCompId);}catch{}}
+    // shell 128 (review local): as chaves antigas eram MORTAS (nada mais grava nelas) —
+    // o cache real de fixtures AF é 'meridian_af_fx_'+comp (football-apis.js getAfFixtures),
+    // então o refresh forçado não refrescava nada: agenda velha sobrevivia por todo o TTL.
+    if(force){try{localStorage.removeItem('meridian_af_fx_'+_activeCompId);}catch{}}
     loadAfData();
   }else if(getFdKey()){
     loadFdData();

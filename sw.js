@@ -8,7 +8,7 @@
  *
  * Versão única: SHELL_VERSION (espelha ?v= no index)
  */
-const SHELL_VERSION = '127';
+const SHELL_VERSION = '128';
 const CACHE_VERSION = 'meridian-v2-offline-v' + SHELL_VERSION;
 
 const SHELL = [
@@ -87,12 +87,17 @@ async function precacheAll() {
   );
 }
 
-async function matchCache(request) {
+// shell 128 (review local): o fallback para index.html valia para QUALQUER miss, mas
+// matchCache também serve cacheFirstAsset e networkFirstJs — offline, um JS/CSS/img fora
+// do precache recebia index.html como corpo ("Failed to load module script: MIME text/html")
+// e o 504 limpo nunca era alcançado. Index-fallback agora é opt-in do caminho de navegação.
+async function matchCache(request, { navFallback = false } = {}) {
   const cache = await caches.open(CACHE_VERSION);
   let hit = await cache.match(request);
   if (hit) return hit;
   hit = await cache.match(request, { ignoreSearch: true });
   if (hit) return hit;
+  if (!navFallback) return null;
   const base = self.registration.scope;
   return (
     (await cache.match(new URL('./index.html', base).href)) ||
@@ -119,7 +124,7 @@ async function networkFirstNav(req) {
       return res;
     }
   } catch (_) {}
-  const cached = await matchCache(req);
+  const cached = await matchCache(req, { navFallback: true });
   if (cached) return cached;
   return new Response(
     '<!doctype html><meta charset=utf-8><title>Meridian v2</title>' +

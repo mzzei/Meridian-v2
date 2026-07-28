@@ -1,6 +1,26 @@
 /* js/data/espn.js — ESPN unofficial API helpers */
 // ─── ESPN unofficial API (gratuito · sem key · Brasileirão bra.1) ────────
 var _espnLastError='';
+// shell 128 (review local): chaves de cache DATADAS ('meridian_results_<id>_<ymd>' e
+// 'meridian_espn_<comp>_<from>_<to>') nasciam novas a cada dia/liga e NUNCA eram
+// removidas — localStorage crescia até setItem falhar por quota (silenciado nos
+// try/catch, degradando todos os caches). Varredura no boot: mantém só as de hoje.
+(function _pruneDatedEspnCaches(){
+  try{
+    const ymd=(d)=>String(d.getFullYear())+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    const today=ymd(new Date());
+    // a janela do loadEspnComp é hoje−30/hoje+60 — a chave VIVA termina em hoje+60
+    const to60=ymd(new Date(Date.now()+60*864e5));
+    const dead=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);if(!k)continue;
+      const m1=k.match(/^meridian_results_.+_(\d{8})$/);
+      const m2=k.match(/^meridian_espn_.+_\d{8}_(\d{8})$/);
+      if((m1&&m1[1]!==today)||(m2&&m2[1]!==to60))dead.push(k);
+    }
+    dead.forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+  }catch{}
+})();
 async function fetchEspn(path,cacheKey,ttl=ESPN_TTL){
   let stale=null;
   try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c){if((Date.now()-c.ts)<ttl)return c.data;stale=c.data;}}catch{}

@@ -1429,6 +1429,41 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(!/terminou 3–0/.test(pPrev.contexto_fase || ''), 'en-dash finished-score sentence sanitized from prévia context');
 }
 
+// Shell 128: 9 achados confirmados do review local multi-agente (base histórica)
+{
+  const rndSrc8 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  // 1-2) fallback do card de técnico interpola hn/an (era string de aspas simples — "${hn}" literal na tela)
+  assert(!/:'<div class="tcard"><div class="tname">\$\{/.test(rndSrc8), 'coach-card fallback is a template literal, not a quoted string');
+  assert((rndSrc8.match(/:`<div class="tcard"><div class="tname">\$\{(hn|an)\}/g) || []).length === 2, 'both coach fallbacks interpolate the team name');
+  // 3) d.partida passa por esc() antes do innerHTML (era o único campo do card fora do choke point)
+  assert(/titleHtml=esc\(d\.partida\|\|'Análise'\)/.test(rndSrc8), 'd.partida escaped before innerHTML');
+  // 4) faixa lo–hi ordenada por linha (para o visitante, pL/pH invertem a perspectiva)
+  assert(/lo:Math\.min\(b\.lo,b\.hi\),hi:Math\.max\(b\.lo,b\.hi\)/.test(rndSrc8), 'lo–hi range sorted per outcome row');
+  // 5) refresh forçado da agenda AF remove a chave REAL do cache (as antigas eram mortas)
+  const schSrc8 = fs.readFileSync(path.join(ROOT, 'js/data/schedule.js'), 'utf8');
+  assert(schSrc8.includes("removeItem('meridian_af_fx_'+_activeCompId)"), 'force refresh clears the LIVE AF fixtures key');
+  assert(!schSrc8.includes('brsa_af_fixtures_v1'), 'dead AF keys no longer referenced');
+  // 6) chaves de cache ESPN datadas são varridas no boot (só as de hoje sobrevivem)
+  const espSrc8 = fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8');
+  assert(espSrc8.includes('_pruneDatedEspnCaches'), 'dated-key prune sweep exists');
+  assert(/meridian_results_\.\+_/.test(espSrc8) && espSrc8.includes('to60'), 'prune keeps today (results) and today+60 (espn window) keys');
+  // 7) apóstrofo em nome de time não quebra o onclick (Nott'm Forest)
+  const ftSrc8 = fs.readFileSync(path.join(ROOT, 'js/ui/featured.js'), 'utf8');
+  assert(/esc\(team\.replace\(\/\\\\\/g,'\\\\\\\\'\)\.replace\(\/'\/g,"\\\\'"\)\)/.test(ftSrc8), 'team-badge onclick JS-escapes quotes before esc()');
+  assert(ftSrc8.includes("_esAnalyze(\\'Analise '+mh+' vs '+vh+'\\')"), 'non-live calendar branch uses the escaped mh/vh');
+  // 8) _relTime nunca exibe "1h 60min"
+  assert(/const t=Math\.round\(mins\),h=Math\.floor\(t\/60\),mm=t%60/.test(ftSrc8), '_relTime rounds before decomposing');
+  // 9) findIndex da biblioteca casa o próprio objeto e usa o MESMO fallback dos 2 lados
+  const libSrc8 = fs.readFileSync(path.join(ROOT, 'js/ui/library.js'), 'utf8');
+  assert(libSrc8.includes('let idx=_schedule.indexOf(j)'), 'library resolves identity first (no self-duplication)');
+  assert(libSrc8.includes('(x.comp_id||_libCompId)===(j.comp_id||_libCompId)'), 'symmetric comp_id fallback in findIndex');
+  // 10) SW: fallback de index.html é opt-in da navegação — asset/JS offline recebe 504/null, não HTML
+  const swSrc8 = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  assert(swSrc8.includes('navFallback = false'), 'matchCache defaults to NO index fallback');
+  assert((swSrc8.match(/matchCache\(req, \{ navFallback: true \}\)/g) || []).length === 1, 'only the nav path opts into the index fallback');
+  assert((swSrc8.match(/matchCache\(req\)/g) || []).length === 2, 'asset and JS paths stay fallback-free');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

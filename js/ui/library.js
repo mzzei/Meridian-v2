@@ -171,7 +171,12 @@ function renderLibrary(){
     html+=`<div class="lib-day-hdr">${esc(hdr)}</div>`;
     grp[dateKey].forEach(j=>{
       // index na união _schedule (fillMatch)
-      let idx=_schedule.findIndex(x=>x.mandante===j.mandante&&x.visitante===j.visitante&&x.data_iso===j.data_iso&&(x.comp_id||'')===(j.comp_id||_libCompId));
+      // shell 128 (review local): o findIndex antigo comparava (x.comp_id||'') com o
+      // FALLBACK (j.comp_id||_libCompId) — item sem comp_id vindo do filtro da linha 144
+      // nunca casava CONSIGO MESMO e o push duplicava o próprio objeto na união.
+      // Identidade primeiro (cobre o objeto vindo do próprio _schedule), fallback igual dos 2 lados.
+      let idx=_schedule.indexOf(j);
+      if(idx<0)idx=_schedule.findIndex(x=>x.mandante===j.mandante&&x.visitante===j.visitante&&x.data_iso===j.data_iso&&(x.comp_id||_libCompId)===(j.comp_id||_libCompId));
       if(idx<0){// garante presença
         j.comp_id=j.comp_id||_libCompId;_schedule.push(j);idx=_schedule.length-1;
       }
