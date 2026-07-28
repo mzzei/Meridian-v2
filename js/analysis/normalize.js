@@ -214,14 +214,24 @@ function _poissonReconcileGoalMarkets(parsed) {
       // "Mais de 4.5 cartões do Corinthians" caía no ramo de GOLS do time e saía ~2%
       // CARIMBADO (e o carimbo é imune ao auditor via backstop do 110). Plural+amarelo
       // agora no guard, espelhando o _calibrateConfidence do 108 que já os conhecia.
-      if (team != null && !/escanteio|cartao|cartoes|amarelo|cantos|falta/.test(t)) {
+      // shell 127 (ultrareview base 165ea68): dois furos no ramo por-time, ambos saindo
+      // CARIMBADOS (imunes ao auditor pelo backstop do 110):
+      //  (a) o guard era só lista de EXCLUSÃO (cartão/escanteio…) — "Chutes ao gol do
+      //      Palmeiras mais de 5.5" (λ real ~15) caía como P(gols_time ≥ 6)=~0.05%.
+      //      Agora o ramo exige palavra de GOL/marca (allowlist), como o mOU já exigia.
+      //  (b) "Fluminense NÃO marca" casava o fallback /marca\b/ e devolvia P(≥1)=70%
+      //      quando a resposta é P(=0)=30% — inversão que o ramo BTTS já tratava.
+      if (team != null && /\bgols?\b|\bgolos?\b|\bmarca\b/.test(t) && !/escanteio|cartao|cartoes|amarelo|cantos|falta|chute|finaliz|impediment/.test(t)) {
         let k = null;
         const mLine = t.match(/(?:mais de|acima de|over|\+\s*de|>)\s*(\d+)[.,]5/);
-        const mMais = t.match(/\b(\d+)\s*(?:\+|ou mais)\s*(?:gols?|golos?)?/);
+        const mMais = t.match(/\b(\d+)\s*(?:\+|ou mais)\s*(?:gols?|golos?)/);
         if (mLine) k = Number(mLine[1]) + 1;
         else if (mMais) k = Number(mMais[1]);
         else if (/marca(?: a qualquer momento)?\b|(?:mais de|over|>)\s*0[.,]5/.test(t)) k = 1;
-        if (k != null && k >= 1) return pTeamAtLeast(k, team);
+        if (k != null && k >= 1) {
+          const pAtLeast = pTeamAtLeast(k, team);
+          return k === 1 && /\b(nao|sem)\b/.test(t) ? 1 - pAtLeast : pAtLeast;
+        }
       }
       return null;
     };
@@ -351,7 +361,7 @@ function _calibrateConfidence(parsed, rawFacts) {
 // sentença que AFIRMA o jogo analisado como ocorrido é removida do contexto e o
 // evento vira lacuna declarada (a informação não some — muda de lugar e ganha
 // rótulo honesto). Sentença de retrospecto rotulada ("no 1º turno…") sobrevive.
-const _FINISHED_RE = /(jogo|partida)\s+(encerrad|finalizad|terminad)|encerrad[oa]\s+no\s+intervalo|placar\s+final|termin(ou|ada)\s+\d+\s*[x×-]\s*\d+/i;
+const _FINISHED_RE = /(jogo|partida)\s+(encerrad|finalizad|terminad)|encerrad[oa]\s+no\s+intervalo|placar\s+final|termin(ou|ada)\s+\d+\s*[xX×–—:-]\s*\d+/i;
 function _sanitizePreviaContext(parsed) {
   try {
     if (parsed.contexto_analise !== 'previa') return;

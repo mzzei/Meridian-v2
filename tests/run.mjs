@@ -1392,6 +1392,43 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(bloco820.includes('padding-bottom:calc(54px'), 'main clears the nav at tablet widths too');
 }
 
+// Shell 127: achados do /code-review ultra (base 165ea68) — ramo por-time do Poisson
+{
+  const N7 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  const mk = (descricao, probabilidade) => ({
+    contexto_analise: 'previa', mandante: { nome: 'Palmeiras' }, visitante: { nome: 'Fluminense' },
+    lambda: { home_mid: 1.5, away_mid: 1.2 },
+    eventos_provaveis: [],
+    sugestoes_ticket: [{ descricao, probabilidade, fundamento: 'f', confianca: 'media' }],
+  });
+  // (a) mercado de stat do time SEM palavra de gol não entra no ramo — nem chega a carimbar
+  for (const d of ['Chutes ao gol do Palmeiras mais de 5.5', 'Impedimentos do Fluminense mais de 3.5', 'Palmeiras recebe 4 ou mais faltas']) {
+    const p = mk(d, 0.5);
+    N7.attachAnalysisDerived(p, null);
+    // "chutes ao gol" contém "gol" mas está na denylist de chute — o teste cobre os dois guardas
+    assert(p.sugestoes_ticket[0].probabilidade === 0.5 && !/recalculada/.test(p.sugestoes_ticket[0].fundamento), 'team stat market untouched: ' + d);
+  }
+  // (b) "não marca" → P(=0), não P(≥1): com λ=1.2, correto é e^-1.2 ≈ 0.30 (não 0.70)
+  const pNao = mk('Fluminense não marca gols', 0.5);
+  N7.attachAnalysisDerived(pNao, null);
+  assert(pNao.sugestoes_ticket[0].probabilidade === 0.3, '"não marca" inverted to P(=0)≈30% (was returning P(≥1)=70%)');
+  // afirmativo continua P(≥1)
+  const pSim = mk('Fluminense marca a qualquer momento', 0.5);
+  N7.attachAnalysisDerived(pSim, null);
+  assert(pSim.sugestoes_ticket[0].probabilidade === 0.7, 'affirmative "marca" still P(≥1)≈70%');
+  // mercado por-time legítimo com linha continua reconciliado (guard não sobre-bloqueia)
+  const pLinha = mk('Palmeiras marca mais de 1.5 gols', 0.9);
+  N7.attachAnalysisDerived(pLinha, null);
+  assert(/recalculada por Poisson/.test(pLinha.sugestoes_ticket[0].fundamento), 'genuine team-goals line market STILL reconciled');
+  // nit: _FINISHED_RE usa a MESMA classe de separadores ampliada no shell 126
+  const nrmSrc7 = fs.readFileSync(path.join(ROOT, 'js/analysis/normalize.js'), 'utf8');
+  assert(/termin\(ou\|ada\)\\s\+\\d\+\\s\*\[xX×–—:-\]/.test(nrmSrc7), '_FINISHED_RE uses the widened separator class');
+  const pPrev = mk('qualquer', 0.5);
+  pPrev.contexto_fase = 'Palmeiras terminou 3–0 na estreia. Ambos vêm da pausa.';
+  N7.attachAnalysisDerived(pPrev, null);
+  assert(!/terminou 3–0/.test(pPrev.contexto_fase || ''), 'en-dash finished-score sentence sanitized from prévia context');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
