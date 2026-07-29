@@ -123,7 +123,9 @@ async function gatherFacts(query,apiKey,signal,onUpdate,maxSearches){
   ];
   let _skipNote='';
   try{
-    const filtered=_h('phase1FilterTopics')(topics,_compId,hasFd,_teams);
+    // shell 129: passa o TEXTO estruturado (não o booleano) — a cobertura por dimensão só
+    // pula a busca do que realmente veio. Texto vazio → nada coberto → busca tudo (fail-safe).
+    const filtered=_h('phase1FilterTopics')(topics,_compId,(_ctx.apiText||''),_teams);
     if(filtered&&Array.isArray(filtered.topics)&&filtered.topics.length){
       topics=filtered.topics;
       _skipNote=filtered.skipNote||'';
@@ -875,8 +877,11 @@ JSON:
       }else break;
     }
     if(!acc)return'';
-    const m=acc.match(/\{[\s\S]*\}/);
-    let parsed=null;try{if(m)parsed=JSON.parse(m[0]);}catch{}
+    // shell 129 (review local): era JSON.parse CRU — violação do invariante 33 justo no
+    // caminho alimentado por web_search, que é DE ONDE vêm as tags <cite>. Sem o strip, os
+    // nomes de time/competição entravam citados no bloco de PLACARES que vai ao prompt da F2.
+    // parseAnalysisJson ainda ganha cerca-de-código e reparo de JSON truncado de brinde.
+    const parsed=parseAnalysisJson(acc);
     if(parsed&&Array.isArray(parsed.matches)&&parsed.matches.length){
       const lines=parsed.matches.map(x=>{
         const st=String(x.status||'UNKNOWN').toUpperCase();

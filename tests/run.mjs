@@ -1464,6 +1464,85 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert((swSrc8.match(/matchCache\(req\)/g) || []).length === 2, 'asset and JS paths stay fallback-free');
 }
 
+// Shell 129: os 10 achados do review local que ficaram SEM verificação (limite de sessão).
+// Verificados à mão no código: 9 reais (corrigidos aqui), 1 falso positivo (cardByHid já
+// usa CSS.escape e os hid são alfanuméricos por construção — nada a fazer).
+{
+  const runSrc9 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  // 1-2) SSE do chat: UTF-8 multibyte partido entre chunks + evento SSE partido entre chunks
+  assert(!/dec\.decode\(value\)\.split/.test(runSrc9), 'no raw decode+split left in any SSE loop');
+  assert((runSrc9.match(/dec\.decode\(value,\{stream:true\}\)/g) || []).length === 2, 'both chat SSE loops decode in streaming mode');
+  assert((runSrc9.match(/_lines=_buf\.split\('\\n'\);_buf=_lines\.pop\(\)\?\?''/g) || []).length === 2, 'both chat SSE loops keep a partial-line buffer');
+  // prova funcional do padrão: acento e evento partidos ao meio são reconstruídos
+  {
+    const enc = new TextEncoder();
+    const sse = 'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"análise"}}\n';
+    const bytes = enc.encode(sse);
+    const cut = sse.indexOf('análise') + 8; // corta DENTRO do "á" (2 bytes) e no meio do evento
+    const dec9 = new TextDecoder();
+    let buf = '', out = '';
+    for (const chunk of [bytes.slice(0, cut), bytes.slice(cut)]) {
+      buf += dec9.decode(chunk, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try { const j = JSON.parse(line.slice(5).trim()); if (j.delta?.type === 'text_delta') out += j.delta.text; } catch {}
+      }
+    }
+    assert(out === 'análise', 'split multibyte + split SSE event survive the buffered loop');
+    // e o padrão ANTIGO realmente perdia tudo (guarda de meta-teste)
+    let outOld = '';
+    const decOld = new TextDecoder();
+    for (const chunk of [bytes.slice(0, cut), bytes.slice(cut)]) {
+      for (const line of decOld.decode(chunk).split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        try { const j = JSON.parse(line.slice(5).trim()); if (j.delta?.type === 'text_delta') outOld += j.delta.text; } catch {}
+      }
+    }
+    assert(outOld === '', 'meta: the old pattern silently dropped the whole event');
+  }
+  // 3) invariante 33: fetchVerifiedMatchFacts (alimentado por web_search) não faz parse cru
+  const factsSrc9 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
+  assert(factsSrc9.includes('const parsed=parseAnalysisJson(acc)'), 'verified-scores block goes through parseAnalysisJson');
+  assert(!/let parsed=null;try\{if\(m\)parsed=JSON\.parse/.test(factsSrc9), 'raw JSON.parse removed from the web_search-fed path');
+  // 4) cobertura por dimensão: só a CLASSIFICAÇÃO não pode cobrir resultados/forma
+  const fmSrc9 = fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js')).toString();
+  assert(fmSrc9.includes('const _hasDim ='), 'coverage is dimension-aware');
+  {
+    const _fn = new Function(
+      'factsMemIsFresh', 'FACTS_MEM_TEAM_DIMS',
+      fmSrc9.slice(fmSrc9.indexOf('function factsMemCoveredDims')).split('\n}')[0] + '\n}; return factsMemCoveredDims;'
+    )(() => false, []);
+    const soTabela = _fn('brsa', '=== CLASSIFICAÇÃO (ESPN) ===\n1 Flamengo 40', []);
+    assert(soTabela.has('tabela') && !soTabela.has('resultados') && !soTabela.has('forma'), 'standings-only text does NOT claim resultados/forma');
+    const comRes = _fn('brsa', '=== RESULTADOS (O) ===\nFla 2x0 Vasco', []);
+    assert(comRes.has('resultados') && comRes.has('forma') && !comRes.has('tabela'), 'results-only text covers resultados/forma but not tabela');
+    assert(_fn('brsa', '', []).size === 0, 'empty structured text covers nothing (fail-safe → searches everything)');
+    assert(_fn('brsa', true, []).has('tabela'), 'legacy boolean still accepted');
+  }
+  assert(factsSrc9.includes("phase1FilterTopics')(topics,_compId,(_ctx.apiText||''),_teams)"), 'caller passes the structured TEXT, not the boolean');
+  // 5) tema ouro não fica grudado no painel de Configurações
+  const appSrc9 = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert(appSrc9.includes("const _themeCls=THEME_IDS.map((t)=>'theme-'+t)"), 'settings panel derives theme classes from THEME_IDS');
+  assert(!/classList\.remove\('theme-aurora','theme-verde','theme-mono'\)/.test(appSrc9), 'no hardcoded 3-theme removal list left');
+  // 6) tranca avançada: falha de sessionStorage fecha a tranca, não abre
+  assert(/let _unlocked=false;\s*try\{_unlocked=sessionStorage\.getItem/.test(appSrc9), 'adv-lock reads sessionStorage inside try (storage failure = locked)');
+  // 7) fallback de comp_id igual nos dois pontos do featured
+  const ftSrc9 = fs.readFileSync(path.join(ROOT, 'js/ui/featured.js'), 'utf8');
+  assert(!/\(m\.comp_id\|\|''\)===id/.test(ftSrc9), 'stats card no longer uses the divergent empty-string fallback');
+  assert((ftSrc9.match(/\(m\.comp_id\|\|_activeCompId\)===id/g) || []).length === 2, 'stats card and schedule helper agree on the comp_id fallback');
+  // 8) tema ouro tem fundo no relatório exportado
+  const prSrc9 = fs.readFileSync(path.join(ROOT, 'css/print-report.css'), 'utf8');
+  assert(/html\[data-theme="ouro"\]\s*\{\s*background:/.test(prSrc9), 'print report styles the ouro theme background');
+  assert((prSrc9.match(/html\[data-theme="[a-z]+"\]/g) || []).length === 4, 'all 4 themes have a report background rule');
+  // 9) ponte HTML sem nome duplicado
+  const brSrc9 = fs.readFileSync(path.join(ROOT, 'js/html-bridge.js'), 'utf8');
+  {
+    const names = brSrc9.slice(brSrc9.indexOf('HTML_ONCLICK_API'), brSrc9.indexOf('];', brSrc9.indexOf('HTML_ONCLICK_API'))).match(/'[a-zA-Z_$][\w$]*'/g) || [];
+    assert(names.length > 20 && new Set(names).size === names.length, 'HTML_ONCLICK_API has no duplicate entries');
+  }
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

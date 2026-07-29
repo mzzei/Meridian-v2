@@ -4,6 +4,9 @@ html,body{height:auto!important;overflow:auto!important}
 html[data-theme="aurora"],html:not([data-theme]) { background:#0c1016!important; }
 html[data-theme="verde"] { background:#04130c!important; }
 html[data-theme="mono"] { background:#b8b8b8!important; }
+/* shell 129 (review local): ouro é tema desde o 114 e não tinha regra — o relatório
+   exportado saía com o fundo do tema anterior/claro sob texto pensado para fundo escuro. */
+html[data-theme="ouro"] { background:#0b0804!important; }
 .app,.l-sb,.r-sb,.m-nav,.wc-blobs,.sb-backdrop,.sov,.ctx-prompt-ov,.help-ov,.lpov,.wov{display:none!important}
 .rep-wrap{max-width:880px;margin:0 auto;padding:2rem 1.25rem 4rem}
 .rep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid rgba(158,207,212,.15);flex-wrap:wrap}

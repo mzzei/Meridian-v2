@@ -24,7 +24,6 @@ export const HTML_ONCLICK_API = [
   'toggleContextEditor',
   'applyContext',
   'toggleModelPop',
-  'clearAll',
   'toggleRun',
   'pickModel',
   'toggleStatsCompPop',

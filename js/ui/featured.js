@@ -50,7 +50,10 @@ function _copaStatsHTML(compId){
   const st=_compStatus[id]||{};
 
   // Jogos disputados / agendados — filtrados pelo campeonato do seletor
-  const sched=(_schedByComp[id]&&_schedByComp[id].length)?_schedByComp[id]:_schedule.filter(m=>(m.comp_id||'')===id);
+  // shell 129 (review local): o fallback aqui era (m.comp_id||'') e no _schedForStatsComp é
+  // (m.comp_id||_activeCompId) — jogos legados sem comp_id entravam no calendário e sumiam
+  // do card de Estatísticas da MESMA liga ("sem jogos" em cima, lista de jogos embaixo).
+  const sched=(_schedByComp[id]&&_schedByComp[id].length)?_schedByComp[id]:_schedule.filter(m=>(m.comp_id||_activeCompId)===id);
   const jogados=results.length;
   const liveNow=sched.filter(m=>_matchState(m).state==='live').length;
   const futuros=sched.filter(m=>{const s=_matchState(m).state;return s==='upcoming';}).length;

@@ -142,10 +142,21 @@ function factsMemCoveredDims(compId, hasStructured, teams) {
   const covered = new Set();
   const teamList = Array.isArray(teams) ? teams.filter((t) => String(t || '').trim()) : [];
 
-  if (hasStructured || factsMemIsFresh(compId, 'api_tabela', '_liga')) {
+  // shell 129 (review local): hasStructured era um booleano ÚNICO ("veio ALGUM bloco") e
+  // cobria tabela E resultados/forma de uma vez — com só a CLASSIFICAÇÃO na mão, resultados
+  // e forma eram marcados como cobertos, as buscas eram puladas E o prompt ainda mandava o
+  // modelo confiar nos "DADOS DA API" que nunca chegaram. Agora, quando o chamador passa o
+  // TEXTO estruturado, a cobertura é por marcador de bloco. Booleano segue aceito (legado).
+  const _hasDim = (dim) => {
+    if (typeof hasStructured !== 'string') return !!hasStructured;
+    return dim === 'tabela'
+      ? /===\s*CLASSIFICAÇÃO/i.test(hasStructured)
+      : /===\s*RESULTADOS/i.test(hasStructured);
+  };
+  if (_hasDim('tabela') || factsMemIsFresh(compId, 'api_tabela', '_liga')) {
     covered.add('tabela');
   }
-  if (hasStructured || factsMemIsFresh(compId, 'api_resultados', '_liga')) {
+  if (_hasDim('resultados') || factsMemIsFresh(compId, 'api_resultados', '_liga')) {
     covered.add('resultados');
     covered.add('forma');
   }

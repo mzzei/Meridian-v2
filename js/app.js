@@ -1300,9 +1300,13 @@ function _syncSettingsTheme(theme){
   const sov=document.getElementById('sov');
   const panel=sov&&sov.querySelector('.spanel');
   if(!sov||!panel)return;
-  sov.classList.remove('theme-aurora','theme-verde','theme-mono');
+  // shell 129 (review local): a lista era fixa em 3 e o tema OURO (shell 114) ficou de fora —
+  // quem abrisse Configurações no ouro e trocasse de tema mantinha 'theme-ouro' grudado no
+  // overlay/painel. Derivar de THEME_IDS impede que o 5º tema reabra o mesmo buraco.
+  const _themeCls=THEME_IDS.map((t)=>'theme-'+t);
+  sov.classList.remove(..._themeCls);
   sov.classList.add('theme-'+theme);
-  panel.classList.remove('theme-aurora','theme-verde','theme-mono');
+  panel.classList.remove(..._themeCls);
   panel.classList.add('theme-'+theme);
   // Overlay: scrim + blur (fundo fora do card)
   _setImp(sov,'background',skin.scrim);
@@ -1968,7 +1972,12 @@ function resetAdvPassword(){
   let _checking=false;
   det.addEventListener('toggle',async function(){
     if(!det.open||_checking)return;
-    if(sessionStorage.getItem('meridian_adv_unlock')==='1')return;
+    // shell 129 (review local): esta leitura estava FORA do try — onde sessionStorage joga
+    // (cookies bloqueados, aba privada restrita), o handler estourava ANTES do det.open=false
+    // e o painel avançado ficava aberto sem senha. Falha de storage agora = tranca fechada.
+    let _unlocked=false;
+    try{_unlocked=sessionStorage.getItem('meridian_adv_unlock')==='1';}catch{}
+    if(_unlocked)return;
     det.open=false;
     _checking=true;
     try{

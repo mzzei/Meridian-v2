@@ -225,9 +225,17 @@ async function runChat(){
       _revealAgent();
       bubble.innerHTML=_h('simpleMd')(clean);_h('scrollChat')();
     };
+    // shell 129 (review local): decode SEM {stream:true} + split sem buffer de linha —
+    // (a) acento partido entre chunks virava U+FFFD ("an�lise"; pt-BR é cheio de multibyte);
+    // (b) evento SSE partido entre chunks era PERDIDO INTEIRO (a metade 1 não parseia e cai
+    // no catch, a metade 2 não começa com "data:") — texto sumia da resposta em silêncio.
+    // Mesmo padrão que o streamOnce já usava certo.
+    let _buf='';
     while(true){
       const{done,value}=await reader.read();if(done)break;
-      for(const line of dec.decode(value).split('\n')){
+      _buf+=dec.decode(value,{stream:true});
+      const _lines=_buf.split('\n');_buf=_lines.pop()??'';
+      for(const line of _lines){
         if(!line.startsWith('data:'))continue;
         const d=line.slice(5).trim();if(d==='[DONE]')continue;
         try{const j=JSON.parse(d);
@@ -384,9 +392,12 @@ async function conversationalFallback(query,apiKey,reqHeaders,signal){
   _h('parseRateLimitHeaders')(res);
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`Erro ${res.status}`);}
   let text='';const reader=res.body.getReader(),dec=new TextDecoder();
+  let _buf=''; // shell 129: mesmo fix de UTF-8 + evento partido do runChat (ver comentário lá)
   while(true){
     const{done,value}=await reader.read();if(done)break;
-    for(const line of dec.decode(value).split('\n')){
+    _buf+=dec.decode(value,{stream:true});
+    const _lines=_buf.split('\n');_buf=_lines.pop()??'';
+    for(const line of _lines){
       if(!line.startsWith('data:'))continue;
       const d=line.slice(5).trim();if(d==='[DONE]')continue;
       try{const j=JSON.parse(d);
