@@ -1642,6 +1642,91 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   assert(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').includes('id="fail-counters"'), 'advanced panel shows the counters');
 }
 
+// Shell 131: 10 achados confirmados do 2º passe de review no app.js (4 áreas × verify 2-de-3)
+{
+  const appSrcB = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  // (1) brasões: alias de primeira palavra REMOVIDO — Atlético Nacional não herda o do Galo
+  {
+    const _src = appSrcB.slice(appSrcB.indexOf('const _teamLogos={}'), appSrcB.indexOf('function teamBadge'));
+    const box = {};
+    new Function('exports', 'const TEAM_LOGO_SEED={};' + _src.replace('_seedTeamLogos();', '') +
+      '; exports.reg=_registerTeamLogo; exports.url=_teamCrestUrl;')(box);
+    box.reg('Atlético-MG', 'https://a.espncdn.com/galo.png');
+    box.reg('América-MG', 'https://a.espncdn.com/coelho.png');
+    assert(box.url('Atlético-MG') === 'https://a.espncdn.com/galo.png', 'exact name still resolves');
+    assert(box.url('Atlético Nacional') === '', 'Atlético Nacional does NOT inherit Galo crest (by behavior)');
+    assert(box.url('América de Cali') === '', 'América de Cali does NOT inherit Coelho crest');
+  }
+  // (2) URL de brasão escapada no src (vem de API externa)
+  assert((appSrcB.match(/src="\$\{esc\(url\)\}"/g) || []).length === 2, 'crest URL escaped in both img builders');
+  // (3) _ctxResumeMode: reset no cancel + destino guardado/restaurado no reopen
+  assert(/_lastCtxPromptPayload\._dest=_ctxResumeMode/.test(appSrcB), 'cancel stores the origin destination');
+  assert(/_ctxResumeMode='chat';\s*\}\s*\n\s*function confirmContextPrompt/.test(appSrcB.replace(/\/\/[^\n]*\n/g, '\n').replace(/\n{2,}/g, '\n')) || appSrcB.includes("_ctxResumeMode='chat';\n}"), 'cancel resets the global mode');
+  assert(appSrcB.includes('_ctxResumeMode=_lastCtxPromptPayload._dest'), 'reopen restores the stored destination');
+  // (4) poda de stubs em LOOP (cobre o caminho cancelar→reabrir)
+  assert(/while\(_chatThread\.length&&_chatThread\[_chatThread\.length-1\]\.role==='assistant'&&\s*\n?\s*\/pedido de contexto\|sugest/.test(appSrcB), 'trailing assistant stubs pruned in a loop');
+  {
+    // comportamento da poda: fio do caminho cancelar→reabrir fica com 0 sobras
+    const thread = [
+      { role: 'user', content: 'análise completa X x Y' },
+      { role: 'assistant', content: '[pedido de contexto via popup]' },
+      { role: 'assistant', content: '[sugestão: definir contexto]' },
+    ];
+    while (thread.length && thread[thread.length - 1].role === 'assistant' &&
+      /pedido de contexto|sugest[aã]o:\s*definir contexto/i.test(thread[thread.length - 1].content || '')) thread.pop();
+    if (thread.length && thread[thread.length - 1].role === 'user') thread.pop();
+    assert(thread.length === 0, 'cancel→reopen thread fully pruned (algorithm proof)');
+  }
+  // (5) troca de idioma repinta o painel aberto
+  assert(/sov\.style\.display==='flex'.*_syncSettingsTheme\(currentTheme\)/.test(appSrcB), 'applyLang repaints settings skin when panel open');
+  // (6) initDataKeys sem leitura crua de localStorage
+  {
+    const iife = appSrcB.slice(appSrcB.indexOf('(function initDataKeys()'), appSrcB.indexOf('// Carrega o histórico persistido'));
+    assert(!/const \w+=localStorage\.getItem/.test(iife), 'no raw localStorage reads left in initDataKeys');
+    assert(iife.includes('const _lsGet=') && (iife.match(/_lsGet\(/g) || []).length === 4, 'tolerant reader defined and used for all 4 keys');
+  }
+  // (7) teto de anexos onde a lista cresce (por comportamento)
+  {
+    const _src = appSrcB.slice(appSrcB.indexOf('function _pushAtt'), appSrcB.indexOf('function removeAttachment'));
+    const toasts = [];
+    const box = {};
+    new Function('exports', 'toast', 'renderAttachChips',
+      'let _attachments=[],_attSeq=0;const ATT_MAX_COUNT=6;' + _src + '; exports.push=_pushAtt; exports.list=()=>_attachments;'
+    )(box, (m) => toasts.push(m), () => {});
+    for (let i = 0; i < 10; i++) box.push({ kind: 'image', name: 'a' + i, data: 'x', size: 1 });
+    assert(box.list().length === 6, '10 simultaneous adds cap at 6 (the async bypass, by behavior)');
+    assert(toasts.some((m) => /Máximo de 6/.test(m)), 'excess add explains itself');
+  }
+  // (8) amostra de FPS descartada quando a aba se oculta
+  assert(appSrcB.includes('if(document.hidden)return;') && /delta>1000\)\{document\.removeEventListener/.test(appSrcB), 'hidden-tab gap discards the FPS sample instead of counting as jank');
+  // (9) destrave vem antes da persistência da sessão
+  {
+    const blk = appSrcB.slice(appSrcB.indexOf('(function initAdvLock'), appSrcB.indexOf('// ─── Thinking na Fase 2'));
+    const iOpen = blk.indexOf('det.open=true');
+    const iSet = blk.indexOf("sessionStorage.setItem('meridian_adv_unlock'");
+    assert(iOpen > 0 && iSet > iOpen, 'correct password unlocks BEFORE (and independent of) sessionStorage persistence');
+    assert(/try\{sessionStorage\.setItem\('meridian_adv_unlock','1'\);\}catch\{\}/.test(blk), 'persistence failure swallowed');
+  }
+  // (10) timer do stopThinking captura o elemento (por comportamento, com timers controlados)
+  {
+    const _src = appSrcB.slice(appSrcB.indexOf('function stopThinking'), appSrcB.indexOf('// ─── Token bar'));
+    const timers = [];
+    const mkEl = () => ({ removed: false, remove() { this.removed = true; } });
+    const elA = mkEl(), elB = mkEl();
+    const box = {};
+    new Function('exports', 'document', 'setTimeout', 'fmt',
+      'let _thkInterval=null,_thkStart=Date.now(),_thkTokCount=0,_thkEl=null;' + _src +
+      '; exports.stop=stopThinking; exports.set=(e)=>{_thkEl=e}; exports.get=()=>_thkEl;'
+    )(box, { getElementById: () => null }, (fn) => timers.push(fn), (x) => x);
+    box.set(elA);
+    box.stop(true);          // agenda remoção de elA
+    box.set(elB);            // "startThinking" da execução seguinte, antes do timer
+    timers.forEach((fn) => fn());
+    assert(elA.removed && !elB.removed, 'stale timer removes ONLY its own element (by behavior)');
+    assert(box.get() === elB, 'new indicator survives the stale timer');
+  }
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

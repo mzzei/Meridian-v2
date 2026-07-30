@@ -38,9 +38,11 @@ function _registerTeamLogo(name,url){
   if(!name||!url)return;
   const k=_normTeamKey(name);if(!k)return;
   _teamLogos[k]=url;
-  // atalhos: última palavra ("Gama" não; "Vasco da Gama" → também "vasco" se seed)
-  const parts=k.split(' ');
-  if(parts.length>=2&&parts[0].length>=5)_teamLogos[parts[0]]=_teamLogos[parts[0]]||url;
+  // shell 131 (review app.js): o alias de primeira palavra reintroduzia o "match mágico"
+  // que o comentário do _teamCrestUrl proíbe — "Atlético-MG" criava 'atletico' e o fallback
+  // por prefixo dava o brasão do Galo ao Atlético Nacional (Série A e Libertadores coexistem
+  // na UI); idem América-MG→América de Cali, IDV→Independiente. Alias REMOVIDO: só chave
+  // exata do nome completo (o seed continua tendo seus aliases explícitos).
 }
 function _seedTeamLogos(){
   Object.entries(TEAM_LOGO_SEED).forEach(([k,id])=>{_teamLogos[k]=_ESPN_CREST(id);});
@@ -59,14 +61,15 @@ function teamBadge(name,sz){
   sz=sz||32;
   const n=(name||'').trim();
   const url=_teamCrestUrl(n);
-  if(url)return `<img class="team-crest rs-crest" src="${url}" alt="${esc(n)}" width="${sz}" height="${sz}" loading="lazy" style="width:${sz}px;height:${sz}px" onerror="this.outerHTML='<span class=rs-flag-fb>⚽</span>'">`;
+  // shell 131: URL vem de API externa (ESPN/AF) — esc() no atributo como todo o resto
+  if(url)return `<img class="team-crest rs-crest" src="${esc(url)}" alt="${esc(n)}" width="${sz}" height="${sz}" loading="lazy" style="width:${sz}px;height:${sz}px" onerror="this.outerHTML='<span class=rs-flag-fb>⚽</span>'">`;
   return `<span class="rs-flag-fb">⚽</span>`;
 }
 function _teamCrest(name,sz){
   sz=sz||28;
   const url=_teamCrestUrl(name);
   if(!url)return'';
-  return`<img class="team-crest" src="${url}" width="${sz}" height="${sz}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" style="width:${sz}px;height:${sz}px">`;
+  return`<img class="team-crest" src="${esc(url)}" width="${sz}" height="${sz}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" style="width:${sz}px;height:${sz}px">`;
 }
 
 // Country → ISO 3166-1 alpha-2 (flagcdn.com codes). Flag emoji don't render on Windows,
@@ -733,6 +736,8 @@ function showContextResumeHint(){
 function reopenDeferredContextPrompt(){
   removeCtxResumeHint();
   const pending=_pendingCtxQuery||'';
+  // shell 131: restaura o destino original (análise vs chat) guardado no cancelamento
+  if(_lastCtxPromptPayload&&_lastCtxPromptPayload._dest)_ctxResumeMode=_lastCtxPromptPayload._dest;
   if(_lastCtxPromptPayload&&_lastCtxPromptPayload.options&&_lastCtxPromptPayload.options.length){
     openContextPromptPopup({
       question:_lastCtxPromptPayload.question,
@@ -754,10 +759,15 @@ function closeContextPromptPopup(){
   const hadPayload=!!(_lastCtxPromptPayload&&_lastCtxPromptPayload.options&&_lastCtxPromptPayload.options.length);
   if(pending&&String(pending).trim()&&hadPayload){
     // não zera _pendingCtxQuery nem _lastCtxPromptPayload — reabrir precisa deles
+    // shell 131 (review app.js): guarda o DESTINO junto do payload para o reopen…
+    try{_lastCtxPromptPayload._dest=_ctxResumeMode;}catch{}
     showContextResumeHint();
   }else{
     _pendingCtxQuery=null;
   }
+  // …e limpa o modo global SEMPRE no cancelamento: sem isso, um chat vago posterior
+  // herdava 'analysis' de um popup cancelado e a pergunta de opinião virava card completo.
+  _ctxResumeMode='chat';
 }
 function confirmContextPrompt(){
   let text='';
@@ -789,18 +799,14 @@ function confirmContextPrompt(){
   saveChatContext(merged.slice(0,4000));
 
   if(pending&&String(pending).trim()){
-    // remove stub "[pedido de contexto via popup]" do fio
-    if(_chatThread.length&&_chatThread[_chatThread.length-1].role==='assistant'){
-      const last=_chatThread[_chatThread.length-1].content||'';
-      if(/pedido de contexto/i.test(last))_chatThread.pop();
-    }
-    // remove também o user duplicado que será recriado — mantemos 1 user no fio
+    // shell 131 (review app.js): os 3 pops em ordem FIXA só funcionavam no confirm direto
+    // ([user, A-pedido]); no caminho cancelar→reabrir o fio termina [user, A-pedido,
+    // A-sugestão] e sobrava [user, A-pedido] + user reforçado — pergunta 2× no request.
+    // Agora: poda TODOS os stubs de assistant no topo, depois o user duplicado (1 só).
+    while(_chatThread.length&&_chatThread[_chatThread.length-1].role==='assistant'&&
+      /pedido de contexto|sugest[aã]o:\s*definir contexto/i.test(_chatThread[_chatThread.length-1].content||''))_chatThread.pop();
+    // remove o user duplicado que será recriado — mantemos 1 user no fio
     if(_chatThread.length&&_chatThread[_chatThread.length-1].role==='user')_chatThread.pop();
-    // remove stub de sugestão de contexto se for a última
-    if(_chatThread.length&&_chatThread[_chatThread.length-1].role==='assistant'){
-      const last=_chatThread[_chatThread.length-1].content||'';
-      if(/sugest[aã]o:\s*definir contexto/i.test(last))_chatThread.pop();
-    }
     const ta=document.getElementById('match-input');
     // reforça a pergunta com o jogo escolhido (evita o modelo chutar de novo)
     const reinforced=pending+'\n\n[Contexto confirmado: '+text+']';
@@ -1097,6 +1103,13 @@ function applyLang(){
   // Lang buttons sync (não misturar com .theme-btn)
   document.querySelectorAll('.lang-btn[data-lang]').forEach(b=>b.classList.toggle('active',b.dataset.lang===currentLang));
   document.querySelectorAll('.theme-btn[data-theme]').forEach(b=>b.classList.toggle('active',b.dataset.theme===currentTheme));
+  // shell 131 (review app.js): _syncSettingsTheme grava estilos INLINE !important nos
+  // .lang-btn conforme o estado do momento — trocar idioma com o painel aberto deixava o
+  // PT pintado de ativo e o EN de inativo (o inline vence a classe). Repinta se visível.
+  try{
+    const sov=document.getElementById('sov');
+    if(sov&&sov.style.display==='flex'&&typeof _syncSettingsTheme==='function')_syncSettingsTheme(currentTheme);
+  }catch{}
 }
 
 // ─── Welcome popup ────────────────────────────────────────────────────────
@@ -1570,7 +1583,13 @@ function _readB64(file,cb){
   reader.onload=()=>{const data=String(reader.result).split(',')[1]||'';if(!data){toast('Arquivo vazio ou ilegível.');return;}cb(data);};
   reader.readAsDataURL(file);
 }
-function _pushAtt(att){att.id=++_attSeq;_attachments.push(att);renderAttachChips();}
+function _pushAtt(att){
+  // shell 131 (review app.js): o teto era checado só em addAttachment, SÍNCRONO — selecionar
+  // 10 imagens de uma vez passava 10× na checagem antes do 1º onload do FileReader e todas
+  // entravam (10×5MB no payload). A checagem vale onde a lista realmente cresce.
+  if(_attachments.length>=ATT_MAX_COUNT){toast(`Máximo de ${ATT_MAX_COUNT} anexos por mensagem.`);return;}
+  att.id=++_attSeq;_attachments.push(att);renderAttachChips();
+}
 function removeAttachment(id){_attachments=_attachments.filter(a=>a.id!==id);renderAttachChips();}
 function clearAttachments(){_attachments=[];renderAttachChips();}
 function renderAttachChips(){
@@ -1631,7 +1650,11 @@ function stopThinking(done=true){
   const s=Math.floor((Date.now()-_thkStart)/1000);
   const ev=document.getElementById('thk-elapsed-val');const tl=document.getElementById('thk-tok-live');const lb=document.getElementById('thk-label');
   if(ev)ev.textContent=s+'s';if(tl)tl.textContent=fmt(_thkTokCount)+' tokens';
-  if(done){if(lb)lb.textContent='concluído';setTimeout(()=>{if(_thkEl){_thkEl.remove();_thkEl=null;}},1000);}
+  // shell 131 (review app.js): o timer lia a VARIÁVEL global — se um novo startThinking
+  // rodasse em <1s (clique rápido no popup de jogo), o timer stale apagava o indicador da
+  // execução NOVA e a análise inteira rodava sem progresso. Captura o elemento no closure
+  // e só remove se ainda for o atual.
+  if(done){if(lb)lb.textContent='concluído';const el=_thkEl;setTimeout(()=>{el.remove();if(_thkEl===el)_thkEl=null;},1000);}
   else{_thkEl.remove();_thkEl=null;}
 }
 
@@ -1873,14 +1896,24 @@ function setPerfMode(on){
 function _measurePerfAndApply(){
   if(getPerfModePref()!==null)return; // usuário já escolheu explicitamente: nunca remede
   if(document.body.classList.contains('wc-lite'))return; // já está no modo leve, nada a fazer
-  let frames=0,start=null,last=null,maxDelta=0,jankFrames=0;
+  // shell 131 (review app.js): rAF PAUSA com a aba oculta — trocar de aba no meio da
+  // amostra de 2s fazia o delta do retorno valer segundos/minutos → "engasgo" falso,
+  // modo leve auto-ativado num dispositivo capaz (e preso até desmarcar na mão, porque a
+  // remedição early-returna no wc-lite). Aba oculta ou delta de ocultação → amostra fora.
+  if(document.hidden)return;
+  let frames=0,start=null,last=null,maxDelta=0,jankFrames=0,aborted=false;
+  const _onHide=()=>{aborted=true;};
+  document.addEventListener('visibilitychange',_onHide,{once:true});
   function tick(ts){
+    if(aborted||document.hidden){document.removeEventListener('visibilitychange',_onHide);return;} // amostra contaminada: descarta
     if(start===null){start=ts;last=ts;}
     const delta=ts-last;last=ts;
+    if(delta>1000){document.removeEventListener('visibilitychange',_onHide);return;} // gap de ocultação/oclusão, não jank real
     if(delta>maxDelta)maxDelta=delta;
     if(delta>80)jankFrames++; // >80ms entre frames = engasgo visível (equivalente a <12,5fps naquele instante)
     frames++;
     if(ts-start<2000){requestAnimationFrame(tick);return;}
+    document.removeEventListener('visibilitychange',_onHide);
     const fps=frames/((ts-start)/1000);
     if(fps<45||maxDelta>150||jankFrames>=3){
       applyPerfMode(true);
@@ -1985,8 +2018,11 @@ function resetAdvPassword(){
       if(p==null)return;
       const h=await advPassHash(p);
       if(h===_advCurrentHash()){ // override do localStorage (UI de troca) > constante
-        sessionStorage.setItem('meridian_adv_unlock','1');
+        // shell 131 (review app.js): o setItem vinha ANTES do destrave, no mesmo try — no
+        // ambiente de storage bloqueado que o 129 reconheceu, senha CERTA não abria nunca.
+        // Persistir a sessão é opcional; destravar não é.
         det.open=true;
+        try{sessionStorage.setItem('meridian_adv_unlock','1');}catch{}
       }else{
         try{toast('Senha incorreta.');}catch{alert('Senha incorreta.');}
       }
@@ -2003,9 +2039,14 @@ try{localStorage.removeItem('meridian_f2_think');}catch(e){}
 
 // ─── Data API key listeners ───────────────────────────────────────────────
 (function initDataKeys(){
+  // shell 131 (review app.js): estas eram as ÚNICAS leituras de localStorage do arquivo
+  // fora de try — com storage bloqueado (política corporativa/aba privada), o SecurityError
+  // escapava da IIFE e MATAVA todo o script clássico dali para baixo (textarea sem listener,
+  // histórico/tema/idioma não aplicados). Leitura tolerante, como o resto do app já faz.
+  const _lsGet=(k)=>{try{return localStorage.getItem(k)||'';}catch{return'';}};
   // API-Football
   const afInp=document.getElementById('af-key-input');
-  const afSaved=localStorage.getItem(AF_KEY_STORE)||'';
+  const afSaved=_lsGet(AF_KEY_STORE);
   // com Worker configurado, testa mesmo sem chave local (secret AF_KEY pode existir lá)
   if(afSaved||getWorkerUrl()){if(afSaved)afInp.value=afSaved;setTimeout(loadAfData,200);}else{updateAfStatus('','não configurado');}
   let _afDeb=null;
@@ -2022,7 +2063,7 @@ try{localStorage.removeItem('meridian_f2_think');}catch(e){}
   });
   // football-data.org
   const fdInp=document.getElementById('fd-key-input');
-  const saved=localStorage.getItem(FD_KEY_STORE)||'';
+  const saved=_lsGet(FD_KEY_STORE);
   // idem FD: Worker pode ter a secret FD_KEY
   if(saved||getWorkerUrl()){if(saved)fdInp.value=saved;setTimeout(loadFdData,200);}else{updateFdStatus('','não configurado');}
   let _fdDeb=null;
@@ -2039,7 +2080,7 @@ try{localStorage.removeItem('meridian_f2_think');}catch(e){}
   });
   // StatsBomb
   const sbInp=document.getElementById('sb-key-input');
-  const sbSaved=localStorage.getItem(SB_KEY_STORE)||'';
+  const sbSaved=_lsGet(SB_KEY_STORE);
   if(sbSaved){sbInp.value=sbSaved;document.getElementById('sb-status').textContent='configurado';document.getElementById('sb-status').className='ds-status ok';}
   sbInp.addEventListener('change',function(){
     const v=this.value.trim();
@@ -2048,7 +2089,7 @@ try{localStorage.removeItem('meridian_f2_think');}catch(e){}
   });
   // Opta
   const opInp=document.getElementById('op-key-input');
-  const opSaved=localStorage.getItem(OP_KEY_STORE)||'';
+  const opSaved=_lsGet(OP_KEY_STORE);
   if(opSaved){opInp.value=opSaved;document.getElementById('op-status').textContent='configurado';document.getElementById('op-status').className='ds-status ok';}
   opInp.addEventListener('change',function(){
     const v=this.value.trim();
