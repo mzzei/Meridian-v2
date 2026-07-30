@@ -64,7 +64,7 @@ function _fmLoad() {
 function _fmSave(db) {
   try {
     localStorage.setItem(FACTS_MEM_STORE, JSON.stringify(db));
-  } catch {}
+  } catch { globalThis.meridianFail?.('facts-mem-write'); } // shell 130: memória que não persiste deixa rastro
 }
 
 function _fmKey(compId, dim, entity) {

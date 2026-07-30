@@ -252,7 +252,7 @@ async function runChat(){
             if(j.message?.diagnostics?.cache_miss_reason)console.debug('[cache-diag chat] miss:',j.message.diagnostics.cache_miss_reason.type);
           }
           if(j.type==='message_delta'&&j.usage){globalThis.tokenState.lastOut=(j.usage.output_tokens||0);globalThis.tokenState.sessionOut+=j.usage.output_tokens||0;}
-        }catch{}
+        }catch{globalThis.meridianFail?.('sse-chat-parse');} // shell 130: falha contada, não muda o fluxo
       }
     }
     // Pós-processamento: limpa raciocínio, extrai JSON, bloqueia suposição de jogo
@@ -404,7 +404,7 @@ async function conversationalFallback(query,apiKey,reqHeaders,signal){
         if(j.type==='content_block_delta'&&j.delta?.type==='text_delta'){text+=j.delta.text;bubble.innerHTML=_h('simpleMd')(text);_h('scrollChat')();}
         if(j.type==='message_start'&&j.message?.usage){globalThis.tokenState.lastIn=j.message.usage.input_tokens||0;globalThis.tokenState.sessionIn+=globalThis.tokenState.lastIn;}
         if(j.type==='message_delta'&&j.usage){globalThis.tokenState.lastOut=j.usage.output_tokens||0;globalThis.tokenState.sessionOut+=j.usage.output_tokens||0;}
-      }catch{}
+      }catch{globalThis.meridianFail?.('sse-chat-parse');}
     }
   }
   if(!text)throw new Error('sem resposta');
@@ -804,7 +804,7 @@ async function streamOnce(body,headers,onUpdate,signal,url=''){url=url||_h('getA
       for(const line of lines){
         if(!line.startsWith('data: '))continue;
         const raw=line.slice(6).trim();if(raw==='[DONE]')break outer;
-        let e;try{e=JSON.parse(raw);}catch{continue;}
+        let e;try{e=JSON.parse(raw);}catch{globalThis.meridianFail?.('sse-f2-parse');continue;}
         switch(e.type){
           case 'message_start':
             inTokens=e.message?.usage?.input_tokens??0;

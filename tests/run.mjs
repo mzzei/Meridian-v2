@@ -216,7 +216,14 @@ assert(!renderSrc.includes('normalizeAnalysisPayload(d)'), 'render does not norm
   const runSrc7 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
   const factsSrcX = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-facts.js'), 'utf8');
   // Q0: proveniência por time + precedência api>pesquisa>modelo>inferida
-  assert(luSrc2.includes('_LU_FONTE_RANK') && /api:\s*3[\s\S]{0,40}inferida:\s*0/.test(luSrc2), 'ranking de fonte api>pesquisa>modelo>inferida');
+  // shell 130 (frente 3): assert de regex sobre o fonte-rank convertido em COMPORTAMENTO —
+  // extrai _luWorseFonte e prova a ordem api>pesquisa>modelo>inferida pelo resultado.
+  {
+    const _src = luSrc2.slice(luSrc2.indexOf('const _LU_FONTE_RANK'), luSrc2.indexOf('function _stripCoachFromLineupText'));
+    const _wf = new Function(_src + '; return _luWorseFonte;')();
+    assert(_wf('api', 'pesquisa') === 'pesquisa' && _wf('pesquisa', 'modelo') === 'modelo' && _wf('modelo', 'inferida') === 'inferida', 'fonte rank api>pesquisa>modelo>inferida (by behavior)');
+    assert(_wf('api', 'api') === 'api' && _wf(null, 'api') === 'inferida' && _wf('desconhecida', 'modelo') === 'desconhecida', 'ties keep, unknown/null degrade to worst');
+  }
   assert(luSrc2.includes("ff==='api'||ff==='pesquisa'"), 'chip de formação só para fonte confiável');
   assert(luSrc2.includes('pitch-form-unconf'), 'formação do modelo marcada como não confirmada');
   assert(luSrc2.includes('function _luWorseFonte'), 'worst-of helper existe');
@@ -1451,8 +1458,14 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   const ftSrc8 = fs.readFileSync(path.join(ROOT, 'js/ui/featured.js'), 'utf8');
   assert(/esc\(team\.replace\(\/\\\\\/g,'\\\\\\\\'\)\.replace\(\/'\/g,"\\\\'"\)\)/.test(ftSrc8), 'team-badge onclick JS-escapes quotes before esc()');
   assert(ftSrc8.includes("_esAnalyze(\\'Analise '+mh+' vs '+vh+'\\')"), 'non-live calendar branch uses the escaped mh/vh');
-  // 8) _relTime nunca exibe "1h 60min"
-  assert(/const t=Math\.round\(mins\),h=Math\.floor\(t\/60\),mm=t%60/.test(ftSrc8), '_relTime rounds before decomposing');
+  // 8) _relTime nunca exibe "1h 60min" — shell 130 (frente 3): virou teste de COMPORTAMENTO
+  {
+    const _src = ftSrc8.slice(ftSrc8.indexOf('function _relTime'), ftSrc8.indexOf('/* ESPN standings'));
+    const _rt = new Function(_src + '; return _relTime;')();
+    assert(_rt(119.6) === 'em 2h' && _rt(120.4) === 'em 2h', '_relTime(≈120) says 2h, never "1h 60min" (by behavior)');
+    assert(_rt(90) === 'em 1h 30min' && _rt(30) === 'em 30 min' && _rt(0.5) === 'agora', '_relTime normal cases intact');
+    assert(!/60min/.test([90, 119.6, 179.7, 239.5].map(_rt).join(' ')), 'no boundary produces a 60min remainder');
+  }
   // 9) findIndex da biblioteca casa o próprio objeto e usa o MESMO fallback dos 2 lados
   const libSrc8 = fs.readFileSync(path.join(ROOT, 'js/ui/library.js'), 'utf8');
   assert(libSrc8.includes('let idx=_schedule.indexOf(j)'), 'library resolves identity first (no self-duplication)');
@@ -1541,6 +1554,92 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
     const names = brSrc9.slice(brSrc9.indexOf('HTML_ONCLICK_API'), brSrc9.indexOf('];', brSrc9.indexOf('HTML_ONCLICK_API'))).match(/'[a-zA-Z_$][\w$]*'/g) || [];
     assert(names.length > 20 && new Set(names).size === names.length, 'HTML_ONCLICK_API has no duplicate entries');
   }
+}
+
+// Shell 130 (frente 2): reconciliação Poisson por DESCRITOR estruturado — a F2 declara o
+// mercado (tipo/time/linha/direcao/negacao/periodo) e o código casa por campo; a regex das
+// 3 rodadas de fix (112/126/127) vira fallback só para cards LEGADOS sem descritor.
+{
+  const N0 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  const poi = (k, l) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const LH = 1.5, LA = 1.2;
+  const mk = (descricao, probabilidade, mercado) => ({
+    contexto_analise: 'previa', mandante: { nome: 'Palmeiras' }, visitante: { nome: 'Fluminense' },
+    lambda: { home_mid: LH, away_mid: LA },
+    eventos_provaveis: [],
+    sugestoes_ticket: [{ descricao, probabilidade, fundamento: 'f', confianca: 'media', ...(mercado !== undefined ? { mercado } : {}) }],
+  });
+  const run = (...a) => { const p = mk(...a); N0.attachAnalysisDerived(p, null); return p.sugestoes_ticket[0]; };
+  const M = (o) => ({ tipo: 'outro', time: null, linha: null, direcao: null, negacao: false, periodo: 'jogo', ...o });
+
+  // total over/under pelo descritor
+  const over25 = 1 - [0, 1, 2].reduce((s, t) => { let pt = 0; for (let i = 0; i <= t; i++) pt += poi(i, LH) * poi(t - i, LA); return s + pt; }, 0);
+  let t0 = run('Mais de 2.5 gols', 0.4, M({ tipo: 'total_gols', linha: 2.5, direcao: 'mais' }));
+  assert(t0.probabilidade === r2(over25) && /recalculada/.test(t0.fundamento), 'descriptor total over reconciled');
+  assert(run('Menos de 2.5 gols', 0.4, M({ tipo: 'total_gols', linha: 2.5, direcao: 'menos' })).probabilidade === r2(1 - over25), 'descriptor total under = 1-over');
+  // gols_time: linha fracionária, inteira ("2 ou mais") e o caso 127 ("não marca" → P(=0))
+  const pAtl = (k, l) => { let u = 0; for (let i = 0; i < k; i++) u += poi(i, l); return 1 - u; };
+  assert(run('Palmeiras mais de 1.5 gols', 0.9, M({ tipo: 'gols_time', time: 'mandante', linha: 1.5, direcao: 'mais' })).probabilidade === r2(pAtl(2, LH)), 'descriptor team line X.5 → k=ceil');
+  assert(run('Fluminense 2 ou mais gols', 0.8, M({ tipo: 'gols_time', time: 'visitante', linha: 2 })).probabilidade === r2(pAtl(2, LA)), 'descriptor integer line → k=linha');
+  assert(run('Fluminense não marca', 0.5, M({ tipo: 'gols_time', time: 'visitante', negacao: true })).probabilidade === r2(1 - pAtl(1, LA)), 'descriptor negation → P(=0) (the 127 bug, now by field)');
+  assert(run('Menos de 1.5 gols do Palmeiras', 0.4, M({ tipo: 'gols_time', time: 'mandante', linha: 1.5, direcao: 'menos' })).probabilidade === r2(1 - pAtl(2, LH)), 'descriptor team under');
+  // ambas_marcam ± negação
+  const bt = (1 - Math.exp(-LH)) * (1 - Math.exp(-LA));
+  assert(run('Ambas marcam', 0.4, M({ tipo: 'ambas_marcam' })).probabilidade === r2(bt), 'descriptor btts');
+  assert(run('Ambas marcam - Não', 0.4, M({ tipo: 'ambas_marcam', negacao: true })).probabilidade === r2(1 - bt), 'descriptor btts negated');
+  // REGRA-MÃE preservada no caminho novo: fora de escopo → intocado, sem carimbo
+  for (const [rot, m] of [
+    ['período 1T', M({ tipo: 'total_gols', linha: 1.5, direcao: 'mais', periodo: '1T' })],
+    ['tipo cartoes', M({ tipo: 'cartoes', time: 'mandante', linha: 4.5, direcao: 'mais' })],
+    ['tipo jogador', M({ tipo: 'jogador', linha: 0.5, direcao: 'mais' })],
+    ['tipo resultado', M({ tipo: 'resultado', time: 'mandante' })],
+    ['total com linha inteira (push)', M({ tipo: 'total_gols', linha: 3, direcao: 'mais' })],
+    ['gols_time sem time', M({ tipo: 'gols_time', linha: 1.5, direcao: 'mais' })],
+  ]) {
+    const e = run('Mercado ' + rot, 0.5, m);
+    assert(e.probabilidade === 0.5 && !/recalculada/.test(e.fundamento), 'descriptor out of scope untouched: ' + rot);
+  }
+  // com descritor presente, a REGEX NUNCA opina — mesmo quando o texto casaria com ela
+  // (o exato mercado de cartões do review 126, agora com descritor dizendo "cartoes")
+  const eCart = run('Mais de 4.5 cartões do Palmeiras', 0.55, M({ tipo: 'cartoes', time: 'mandante', linha: 4.5, direcao: 'mais' }));
+  assert(eCart.probabilidade === 0.55, 'descriptor present → regex path never consulted (126 case by field)');
+  // legado SEM descritor: fallback regex continua funcionando (cards antigos da biblioteca)
+  const eLeg = run('Palmeiras marca mais de 1.5 gols', 0.9, undefined);
+  assert(/recalculada/.test(eLeg.fundamento) && eLeg.probabilidade === r2(pAtl(2, LH)), 'legacy card without descriptor still regex-reconciled');
+  // descritor MENTIROSO fora do domínio de gols nunca carimba número de gol em mercado alheio
+  const eLie = run('Chutes ao gol do Palmeiras mais de 5.5', 0.5, M({ tipo: 'outro' }));
+  assert(eLie.probabilidade === 0.5, 'non-goal descriptor never stamps');
+  // prompt: descritor pedido nos DOIS prompts F2, schema com o campo nas 2 listas
+  const pr0 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert(pr0.split('DESCRITOR DE MERCADO').length - 1 === 2, 'descriptor rule in both F2 prompts');
+  assert(pr0.split('"mercado":{"tipo":"total_gols|gols_time|ambas_marcam').length - 1 === 4, 'mercado field in eventos+tickets of both schemas');
+}
+
+// Shell 130 (frente 4): contador de falhas silenciosas — catches continuam não-fatais,
+// mas cada um soma num mapa por local exposto no painel avançado.
+{
+  const telSrc = fs.readFileSync(path.join(ROOT, 'js/data/source-telemetry.js'), 'utf8');
+  // comportamento: extrai o contador e exercita (com stub de document)
+  {
+    const _src = telSrc.slice(telSrc.indexOf('var _failCounts'));
+    const box = {};
+    new Function('document', 'exports', _src + '; exports.fail=meridianFail; exports.text=meridianFailText;')(
+      { getElementById: () => null }, box
+    );
+    assert(box.text() === 'nenhuma nesta sessão', 'counter starts empty');
+    box.fail('sse-chat-parse'); box.fail('sse-chat-parse'); box.fail('cache-write');
+    assert(box.text() === 'cache-write: 1 · sse-chat-parse: 2', 'counts per tag, sorted, formatted');
+    assert((() => { try { box.fail(undefined); return true; } catch { return false; } })(), 'counter never throws');
+  }
+  // fiação: os catches conhecidos contam (e o padrão é opcional — nunca quebra sem o global)
+  const runSrcT = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');
+  assert((runSrcT.match(/meridianFail\?\.\('sse-chat-parse'\)/g) || []).length === 2, 'both chat SSE parse catches count');
+  assert(runSrcT.includes("meridianFail?.('sse-f2-parse')"), 'F2 streamOnce parse catch counts');
+  assert(fs.readFileSync(path.join(ROOT, 'js/data/espn.js'), 'utf8').includes("meridianFail?.('cache-write')"), 'espn cache-write quota counts');
+  assert(fs.readFileSync(path.join(ROOT, 'js/data/cached-fetch.js'), 'utf8').includes("meridianFail?.('cache-write')"), 'cached-fetch write counts');
+  assert(fs.readFileSync(path.join(ROOT, 'js/data/facts-memory.js'), 'utf8').includes("meridianFail?.('facts-mem-write')"), 'facts-mem save counts');
+  assert(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').includes('id="fail-counters"'), 'advanced panel shows the counters');
 }
 
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico

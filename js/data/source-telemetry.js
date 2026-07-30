@@ -420,3 +420,23 @@ function getPhase1Telemetry() {
     return null;
   }
 }
+
+// ── Contador de falhas silenciosas (shell 130) ─────────────────────────────
+// O bug de streaming do 129 ficou invisível por MUITOS shells porque morria num
+// catch{} vazio. Padrão do app: degradar em silêncio. Este contador é o meio-termo:
+// os catches continuam não-fatais, mas cada um soma num mapa por local, exposto no
+// painel avançado — "sumiu texto do chat" vira um número que sobe, não um mistério.
+// Uso nos catches: globalThis.meridianFail?.('tag') — opcional, nunca lança, nunca loga.
+var _failCounts = {};
+function meridianFail(tag) {
+  try {
+    _failCounts[tag] = (_failCounts[tag] || 0) + 1;
+    var el = document.getElementById('fail-counters');
+    if (el) el.textContent = meridianFailText();
+  } catch (_) {}
+}
+function meridianFailText() {
+  var ks = Object.keys(_failCounts).sort();
+  if (!ks.length) return 'nenhuma nesta sessão';
+  return ks.map(function (k) { return k + ': ' + _failCounts[k]; }).join(' · ');
+}

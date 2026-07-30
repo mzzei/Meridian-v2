@@ -36,7 +36,7 @@ async function fetchEspn(path,cacheKey,ttl=ESPN_TTL){
       clearTimeout(tid);
       if(!res.ok){_espnLastError=`HTTP ${res.status}`;continue;}
       const data=await res.json();
-      try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),data}));}catch{}
+      try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),data}));}catch{globalThis.meridianFail?.('cache-write');} // shell 130: quota estourada deixa rastro
       return data;
     }catch(e){clearTimeout(tid);_espnLastError=e?.name==='AbortError'?'timeout (8s)':`rede: ${e?.message||'falha'}`;}
   }

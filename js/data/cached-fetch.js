@@ -49,7 +49,7 @@ async function cachedJsonFetch(url, cacheKey, opts) {
     }
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d }));
-    } catch {}
+    } catch { globalThis.meridianFail?.('cache-write'); } // shell 130
     return d;
   } catch {
     return staleOnError ? stale : null;

@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 129)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 130)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 129**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 130**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **129** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **130** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 129 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 130 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-28 · shell 129)
+## Estado atual (revisão 2026-07-30 · shell 130)
 
 | Shell | Entrega |
 |-------|---------|
@@ -793,19 +793,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **129** | **Fechamento da pendência do 128: os 10 achados sem veredito, verificados À MÃO no código (mais barato e mais confiável que outro passe de agentes) → 9 reais corrigidos, 1 falso positivo.** (1+2) **SSE do chat, o mais grave**: `dec.decode(value)` SEM `{stream:true}` e `split('\n')` sem buffer de linha, nos 2 loops (runChat e conversationalFallback) — (a) acento partido entre chunks virava U+FFFD (pt-BR é cheio de multibyte: "análise"→"an�lise") e (b) evento SSE partido entre chunks era **perdido inteiro em silêncio** (metade 1 não parseia → cai no `catch{}`; metade 2 não começa com "data:" → é pulada). O `streamOnce` (F1/F2) já fazia certo desde sempre — só os dois caminhos de CHAT estavam errados. Teste funcional com corte DENTRO do "á" + no meio do evento, mais meta-assert provando que o padrão antigo perdia tudo. (3) **inv. 33 violado** em `fetchVerifiedMatchFacts` (`JSON.parse` cru) justo no caminho alimentado por web_search — DE ONDE vêm as tags `<cite>`; agora `parseAnalysisJson` (ganha strip de cite + reparo de truncado). (4) **cobertura de busca mentia**: `hasStructured` era UM booleano ("veio algum bloco") e cobria tabela E resultados/forma — só com a CLASSIFICAÇÃO na mão, resultados/forma eram marcados cobertos, as buscas puladas E o prompt mandava confiar em "DADOS DA API" inexistentes; agora é por marcador de bloco (`=== CLASSIFICAÇÃO` / `=== RESULTADOS`), com texto vazio → cobre nada → busca tudo (fail-safe). (5) tema **ouro** ficava grudado no painel de Configurações (lista fixa de 3) → derivada de THEME_IDS, à prova do 5º tema. (6) **tranca avançada abria sem senha** se `sessionStorage` jogasse (cookies bloqueados): a leitura estava FORA do try, o handler estourava antes do `det.open=false`. (7) fallback de `comp_id` divergente no featured (`||''` vs `||_activeCompId`) → card de Estatísticas dizia "sem jogos" com o calendário da MESMA liga logo abaixo. (8) print-report sem regra de fundo para o ouro. (9) `clearAll` duplicado na ponte HTML (cosmético). **Falso positivo**: `cardByHid` "sem CSS.escape" — o código JÁ usa CSS.escape e os hid são alfanuméricos por construção; nada a fazer. 20 asserts novos. Lição: verificação adversarial por agentes é boa para TRIAR, mas quando o passe morre no meio, ler o código à mão fecha mais rápido que re-rodar a frota. **VALIDADO COM API REAL** (`motor-real-test/run-streaming-real.mjs`, gitignored): o script EXTRAI o loop do pipeline-run.js em vez de reimplementá-lo, reconstrói o pré-fix pelo inverso das 2 mudanças e passa os dois pelos mesmos bytes. Resultado (43 chunks, 8311 bytes, 2371 chars, 83 acentuados): passada 1 (chunks reais) — **os DOIS íntegros**, a API entregou ~193 B/chunk alinhado com os eventos; passada 2 (re-chunk de 1 byte) — novo íntegro, **pré-fix devolveu 0 chars (perda TOTAL)**. Leitura honesta: o bug é LATENTE e condicional à fragmentação, não "sempre quebrado" — mas quando um evento parte (rede lenta, mobile, re-buffer do proxy Worker no meio), o pré-fix não degradava, ele **perdia tudo em silêncio**. Por isso o teste de 1 byte existe: uma resposta só não prova ausência do bug |
 
+| **130** | **3 das 4 frentes recomendadas, executadas juntas (a 4ª — review do app.js — roda em workflow).** **(F2 → descritor estruturado de mercado)**: a F2 agora emite `"mercado":{tipo,time,linha,direcao,negacao,periodo}` em CADA evento/ticket (regra + schema nos 2 prompts), e `_poissonReconcileGoalMarkets` casa POR CAMPO (`calcDesc`) — a escada de regex furada 3× (112/126/127) virou fallback SÓ para cards legados sem descritor; com descritor presente a regex NUNCA opina (nem quando o texto casaria). REGRA-MÃE preservada nos 2 caminhos: período≠jogo, linha inteira de total (push), tipo fora de gols, descritor incompleto → null → valor do modelo fica. 20 asserts de comportamento incluindo os 3 casos exatos que furaram os reviews. **(Testes de comportamento)**: asserts de regex sobre invariantes convertidos em execução real onde extraível — `_luWorseFonte` (ranking de fonte da escalação provado por resultado), `_relTime` (boundary de 60min provado por chamada); os sweeps de lint com meta-assert (104-107) ficam, são outra categoria. **(Contador de falhas silenciosas)**: `meridianFail(tag)`/`meridianFailText()` em source-telemetry.js, linha "Falhas silenciosas (sessão)" no painel avançado (`#fail-counters`), fiado nos catches que já esconderam bug real: 2× SSE do chat + streamOnce (`sse-chat-parse`/`sse-f2-parse`), quota de cache (espn/cached-fetch → `cache-write`), memória de fatos (`facts-mem-write`). Chamada sempre `globalThis.meridianFail?.()` — opcional, nunca lança, ordem de carga irrelevante. Validado no runtime: descritor "não marca"→0.30 ao vivo, contador chega ao painel. Zip 152.1 KB |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 129)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 130)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 129).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 130).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 129)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 130)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

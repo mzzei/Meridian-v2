@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=129">
+<link rel="stylesheet" href="css/app.css?v=130">
 <script>
 /* Aplica tema antes do paint (aurora | verde | mono | ouro) */
 try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.setAttribute('data-theme',(_t==='verde'||_t==='aurora'||_t==='mono'||_t==='ouro')?_t:'aurora');}catch(e){document.documentElement.setAttribute('data-theme','aurora');}
@@ -463,6 +463,10 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
           <div class="sf-hint">Proxy grátis (Cloudflare) para Anthropic, <b>API-Football, football-data.org e FPL</b>: a chave não precisa ficar no browser e resolve o bloqueio (CORS) que impede essas APIs de funcionar direto no navegador. Código e passo a passo em <code>worker/</code> no repositório.</div>
         </div>
         <div class="sf">
+          <label class="sf-lbl">Falhas silenciosas (sessão)</label>
+          <div class="sf-hint" id="fail-counters">nenhuma nesta sessão</div>
+        </div>
+        <div class="sf">
           <label class="sf-lbl" id="sf-sources-lbl">Fontes de Dados</label>
           <div class="sf-hint" id="cov-help">Cobertura da coleta (A/B/C): <b>A</b> campeonato = ESPN grátis (+ football-data.org via Worker se secret/chave); <b>B</b> time = técnico via API-Football (Free não cobre temporada 2026 em fixtures — escalação confirmada só por busca); <b>C</b> analítico = web_search e, na EPL, FPL via Worker. AF e FD <b>não funcionam no browser sem Worker</b> (CORS).</div>
 
@@ -582,7 +586,7 @@ try{var _t=localStorage.getItem('meridian_ui_theme');document.documentElement.se
 </div>
 
 <!-- Entry ESM (main.js carrega puros via import + clássicos em ordem) -->
-<script type="module" src="js/main.js?v=129"></script>
+<script type="module" src="js/main.js?v=130"></script>
 
 
 <!-- Mobile sidebar backdrop -->

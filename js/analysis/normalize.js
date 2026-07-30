@@ -187,6 +187,42 @@ function _poissonReconcileGoalMarkets(parsed) {
     const pTotalOver = (line) => { let under = 0; for (let t = 0; t <= Math.floor(line); t++) { let pt = 0; for (let i = 0; i <= t; i++) pt += _poi(i, lh) * _poi(t - i, la); under += pt; } return 1 - under; };
     const pTeamAtLeast = (k, l) => { let u = 0; for (let i = 0; i < k; i++) u += _poi(i, l); return 1 - u; };
     const bt = (1 - Math.exp(-lh)) * (1 - Math.exp(-la));
+    // shell 130 (redesenho): o CAMINHO PRIMÁRIO agora é o descritor estruturado "mercado"
+    // que a F2 emite junto de cada evento/ticket (tipo/time/linha/direcao/negacao/periodo).
+    // A escada de regex abaixo (calc) vira FALLBACK para cards legados sem descritor.
+    // Motivo: 3 reviews independentes (112, 126, 127) acharam furos na regex — adivinhar
+    // mercado em texto livre é abstração que vaza; casar por campo é total e testável.
+    // A REGRA-MÃE continua valendo para os DOIS caminhos: só carimba o que mapeia com
+    // CERTEZA; descritor incompleto/estranho → null → valor do modelo fica (auditável).
+    const calcDesc = (m) => {
+      if (!m || typeof m !== 'object') return null;
+      if (m.periodo && m.periodo !== 'jogo') return null; // lambdas são de jogo inteiro
+      const linha = m.linha == null || m.linha === '' ? null : Number(m.linha);
+      if (linha != null && !isFinite(linha)) return null;
+      // k = "pelo menos k gols": linha fracionária X.5 → ceil; inteira ("2 ou mais") → a própria
+      const kDe = (ln) => (Number.isInteger(ln) ? ln : Math.ceil(ln));
+      if (m.tipo === 'total_gols') {
+        // total exige linha fracionária (linha inteira tem devolução/push — fora do modelo)
+        if (linha == null || Number.isInteger(linha) || linha < 0.5 || linha > 9.5) return null;
+        if (m.direcao !== 'mais' && m.direcao !== 'menos') return null;
+        const over = pTotalOver(linha);
+        return m.direcao === 'menos' ? 1 - over : over;
+      }
+      if (m.tipo === 'ambas_marcam') return m.negacao ? 1 - bt : bt;
+      if (m.tipo === 'gols_time') {
+        const lam = m.time === 'mandante' ? lh : m.time === 'visitante' ? la : null;
+        if (lam == null) return null;
+        if (m.direcao === 'menos') {
+          if (linha == null) return null;
+          return 1 - pTeamAtLeast(kDe(linha), lam); // "menos de 1.5 do time" = P(≤1)
+        }
+        const k = linha == null ? 1 : kDe(linha); // sem linha: "marca" = ≥1
+        if (k < 1 || k > 9) return null;
+        const pAtLeast = pTeamAtLeast(k, lam);
+        return m.negacao ? 1 - pAtLeast : pAtLeast; // "não marca" = P(=0) quando k=1
+      }
+      return null; // resultado/escanteios/cartoes/jogador/outro: com o modelo, sem carimbo
+    };
     // REGRA-MÃE contra a repetição (auditoria Santos×Chape, shell 112): a reconciliação
     // SÓ recalcula/carimba um mercado que mapeia com CERTEZA a uma fórmula de Poisson de
     // jogo inteiro. Se não mapeia (período, linha ambígua), retorna null → NÃO toca e NÃO
@@ -238,7 +274,10 @@ function _poissonReconcileGoalMarkets(parsed) {
     const all = [].concat(parsed.eventos_provaveis || [], parsed.sugestoes_ticket || []).filter((e) => e && typeof e === 'object');
     for (const e of all) {
       if (typeof e.probabilidade !== 'number') continue;
-      const p = calc(norm(e.evento || e.descricao || ''));
+      // shell 130: descritor primeiro (casamento por campo); regex só para legado sem descritor.
+      // Card com descritor NÃO cai na regex — se o descritor não mapeia, o valor fica com o
+      // modelo (regra-mãe) em vez de arriscar o palpite textual que os reviews 112/126/127 furaram.
+      const p = e.mercado && typeof e.mercado === 'object' ? calcDesc(e.mercado) : calc(norm(e.evento || e.descricao || ''));
       if (p == null) continue;
       const expected = Math.round(p * 100) / 100;
       // tolerância 1 p.p. (igual shell 103): o caso auditado real divergia ~2 p.p.
