@@ -53,6 +53,12 @@ function fundHtml(txt){
   const{main,notes}=fundParts(txt);
   return esc(main)+(notes?'<div class="ev-adj" title="Ajustes deterministas aplicados por código — auditáveis">⚙ '+esc(notes)+'</div>':'');
 }
+// shell 132 (obviedade mediada): selo dos mercados quase-certos marcados pelo normalize
+// (e._obvio). O agente MOSTRA que sabe que o mercado é óbvio — âncora de odd baixa,
+// não o insight da análise — em vez de vendê-lo como leitura tática.
+function obvChip(e){
+  return e&&e._obvio?'<span class="ev-anchor" title="Probabilidade alta e odd baixa — mercado-âncora (segurança para múltipla), não é o diferencial da análise">âncora · odd baixa</span>':'';
+}
 function tcard(t){
   if(!t)return '';
   return `<div class="tname">${esc(t.nome||'—')}</div>
@@ -232,7 +238,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${d.sugestoes_ticket?.length?`<div class="tab-s">
       <div class="tab-h">4. Sugestões de Ticket</div>
-      ${d.sugestoes_ticket.map(t=>`<div class="ticket"><div class="ticket-head"><span class="ticket-desc">${esc(t.descricao)}</span><span class="ticket-prob">${pctDisp(t.probabilidade)}</span></div><div class="ticket-reason">${fundHtml(t.fundamento)}</div><span class="ticket-conf conf-${esc(t.confianca||'media')}">${esc(t.confianca||'média')} confiança</span></div>`).join('')}
+      ${d.sugestoes_ticket.map(t=>`<div class="ticket"><div class="ticket-head"><span class="ticket-desc">${esc(t.descricao)}</span>${obvChip(t)}<span class="ticket-prob">${pctDisp(t.probabilidade)}</span></div><div class="ticket-reason">${fundHtml(t.fundamento)}</div><span class="ticket-conf conf-${esc(t.confianca||'media')}">${esc(t.confianca||'média')} confiança</span></div>`).join('')}
     </div>`:''}`;
 
   // ── Tab: Tática ──
@@ -259,7 +265,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${d.eventos_provaveis?.length?`<div class="tab-s">
       <div class="tab-h">4. Eventos Prováveis</div>
-      ${d.eventos_provaveis.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(e.fundamento)}</div></div>`).join('')}
+      ${d.eventos_provaveis.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span>${obvChip(e)}<span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(e.fundamento)}</div></div>`).join('')}
     </div>`:''}
     ${(d.tecnico_mandante?.nome||d.tecnico_visitante?.nome)?`<div class="tab-s">
       <div class="tab-h">5. Perfil dos Técnicos</div>
@@ -304,7 +310,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${cfEventos.length?`<div class="tab-s">
       <div class="tab-h">2. Eventos Prováveis</div>
-      ${cfEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(textFrom(e.fundamento||''))}</div></div>`).join('')}
+      ${cfEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span>${obvChip(e)}<span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(textFrom(e.fundamento||''))}</div></div>`).join('')}
     </div>`:''}
     ${cfRisco.length?`<div class="tab-s">
       <div class="tab-h">3. Jogadores sob Risco</div>
@@ -332,7 +338,7 @@ function renderResults(d,opts){
     </div>`:''}
     ${ecEventos.length?`<div class="tab-s">
       <div class="tab-h">2. Eventos Prováveis</div>
-      ${ecEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span><span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(textFrom(e.fundamento||''))}</div></div>`).join('')}
+      ${ecEventos.map(e=>`<div class="ev-row"><div class="ev-head"><span class="ev-nome">${esc(e.evento)}</span>${obvChip(e)}<span class="ev-pct">${pctDisp(e.probabilidade)}</span></div><div class="ev-bar-track"><div class="ev-bar-fill" data-w="${Math.round((e.probabilidade||0)*100)}" style="transform:scaleX(0)"></div></div><div class="ev-reason">${fundHtml(textFrom(e.fundamento||''))}</div></div>`).join('')}
     </div>`:''}
     ${ecStats?`<div class="tab-s">
       <div class="tab-h">Escanteios por Jogo · Coletados</div>

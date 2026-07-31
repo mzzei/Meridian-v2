@@ -3074,6 +3074,12 @@ html[data-theme="mono"]{color-scheme:light}
 
 /* Nota de ajuste por código no fundamento (shell 123) — discreta, auditável */
 .ev-adj{font-size:var(--fs-3xs);color:var(--acard-dim);margin-top:3px;font-style:italic;opacity:.85}
+/* shell 132 — obviedade mediada: selo discreto do mercado-âncora (quase certo, odd baixa).
+   Tom rebaixado de propósito: é um AVISO de contexto, não um destaque. */
+.ev-anchor{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:var(--radius-pill);
+  font-size:var(--fs-3xs);font-style:normal;letter-spacing:.04em;white-space:nowrap;
+  color:var(--acard-dim);border:1px solid rgba(158,158,158,.28);background:rgba(128,128,128,.10);
+  vertical-align:1px;cursor:help}
 
 /* Respiro entre seções do card (shell 124 — print: "Stats por Jogador" colava na seção acima) */
 .a-card .tab-s+.tab-s{margin-top:1.15rem}

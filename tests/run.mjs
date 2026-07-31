@@ -1727,6 +1727,45 @@ assert(appSrc.split(/\n/).length < 2500, 'app.js under 2500 (got ' + appSrc.spli
   }
 }
 
+// Shell 132: obviedade mediada — mercado quase-certo é rotulado como âncora, não vendido
+// como insight (dor real do dono: prints Corinthians×Athletico, 86%/72%/74%)
+{
+  const N2 = await import(pathToFileURL(path.join(ROOT, 'js/analysis/normalize.js')).href);
+  const p = {
+    contexto_analise: 'previa',
+    mandante: { nome: 'Corinthians' }, visitante: { nome: 'Athletico' },
+    eventos_provaveis: [
+      { evento: 'Menos de 3.5 gols na partida', probabilidade: 0.74, fundamento: 'f' },
+    ],
+    sugestoes_ticket: [],
+    cartoes_faltas: { eventos: [{ evento: 'Ambas as equipes recebem ao menos um cartão', probabilidade: 0.72, fundamento: 'f' }] },
+    escanteios: { eventos: [
+      { evento: 'Ambos os times batem ao menos 1 escanteio', probabilidade: 0.86, fundamento: 'f' },
+      { evento: 'Mais de 4.5 escanteios do mandante', probabilidade: 0.55, fundamento: 'f' },
+    ] },
+  };
+  N2.attachAnalysisDerived(p, null);
+  // os 3 casos dos prints: ≥0.80 marca; estrutura trivial marca MESMO abaixo de 0.80
+  assert(p.escanteios.eventos[0]._obvio === true, '86% "ao menos 1 escanteio" tagged (print 1)');
+  assert(p.cartoes_faltas.eventos[0]._obvio === true, '72% "ao menos um cartão" tagged by trivial structure (print 2)');
+  assert(!p.eventos_provaveis[0]._obvio, '74% "menos de 3.5" NOT tagged — linha informativa (print 3)');
+  assert(!p.escanteios.eventos[1]._obvio, 'informative corner line untouched');
+  // pós-jogo: probabilidade 1.0 é retrospecto, nunca "óbvio"
+  const pp = { contexto_analise: 'pos_jogo', eventos_provaveis: [{ evento: 'Vitória do mandante', probabilidade: 1.0, fundamento: 'aconteceu' }] };
+  N2.attachAnalysisDerived(pp, null);
+  assert(!pp.eventos_provaveis[0]._obvio, 'pos_jogo retrospect never tagged');
+  // UI: selo nos 4 construtores de linha + estilo existe
+  const rnd2 = fs.readFileSync(path.join(ROOT, 'js/analysis/render.js'), 'utf8');
+  assert(rnd2.includes('function obvChip'), 'chip helper exists');
+  assert((rnd2.match(/\$\{obvChip\([te]\)\}/g) || []).length === 4, 'chip wired on tickets, eventos, cartões and escanteios rows');
+  assert(fs.readFileSync(path.join(ROOT, 'css/app.css'), 'utf8').includes('.ev-anchor{'), 'anchor chip styled');
+  // prompt: régua nas 2 variantes + exemplo trivial de escanteios fora do cardápio
+  const pr2 = fs.readFileSync(path.join(ROOT, 'js/analysis/prompts.js'), 'utf8');
+  assert(pr2.split('RÉGUA DE VALOR (obviedade mediada').length - 1 === 2, 'value rule in both F2 prompts');
+  assert(!pr2.includes('"Ambos os times batem ao menos 1 escanteio"'), 'trivial corner example removed from the menu');
+  assert(pr2.split('"Mais de 2.5 escanteios de cada time"').length - 1 === 2, 'informative example in its place');
+}
+
 // Shell 78: rodapé do modo simplificado carimba shell + diagnóstico
 {
   const runSrc3 = fs.readFileSync(path.join(ROOT, 'js/analysis/pipeline-run.js'), 'utf8');

@@ -457,6 +457,33 @@ function _reconcileDesfalquesOnze(parsed) {
   } catch {}
 }
 
+// ── Obviedade mediada (shell 132) ──────────────────────────────────────────
+// Dor real do dono (prints Corinthians×Athletico): "Ambos batem ao menos 1 escanteio 86%"
+// apresentado como insight frustra quem opera o agente — não porque o número esteja errado,
+// mas porque o card vende obviedade sem se dar conta dela. Código marca (independe do
+// modelo): probabilidade ≥0.80 OU estrutura trivial ("ao menos 1/um…", "mais de 0.5")
+// ganha e._obvio, e a UI rotula como "âncora · odd baixa" — o agente MOSTRA que sabe.
+// Pós-jogo fica de fora: lá probabilidade 1.0 é retrospecto legítimo, não obviedade.
+function _tagObviousMarkets(parsed) {
+  try {
+    if (parsed.contexto_analise === 'pos_jogo') return;
+    const trivial = /\b(ao|pelo) menos (1|um)\b|mais de 0[.,]5\b/i;
+    const lists = [
+      parsed.eventos_provaveis, parsed.sugestoes_ticket,
+      parsed.cartoes_faltas && parsed.cartoes_faltas.eventos,
+      parsed.escanteios && parsed.escanteios.eventos,
+    ];
+    for (const l of lists) {
+      if (!Array.isArray(l)) continue;
+      for (const e of l) {
+        if (!e || typeof e !== 'object') continue;
+        const p = typeof e.probabilidade === 'number' ? e.probabilidade : null;
+        if ((p != null && p >= 0.8) || trivial.test(String(e.evento || e.descricao || ''))) e._obvio = true;
+      }
+    }
+  } catch {}
+}
+
 function attachAnalysisDerived(parsed, rawFacts) {
   if (!parsed || typeof parsed !== 'object') return parsed;
   // ordem (shell 105/108/109): saneia xG=0 → recalcula mercados de gols pelos
@@ -467,6 +494,7 @@ function attachAnalysisDerived(parsed, rawFacts) {
   _fixDoubleChanceCoherence(parsed);
   _calibrateConfidence(parsed, rawFacts);
   _sanitizePreviaContext(parsed);
+  _tagObviousMarkets(parsed); // depois do Poisson: marca sobre a probabilidade FINAL
   // Modo do card (shell 76): tolera variantes ("pós-jogo", "pos-jogo") e normaliza
   // para 'previa' | 'pos_jogo'. Default: prévia (cards antigos continuam válidos).
   try {
