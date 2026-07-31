@@ -55,6 +55,17 @@ const engine = await createEngine({
   onProgress: (u) => {},     // {status, phase: 1|2, inTokens, outTokens} — streaming de progresso
   log: (msg) => {},          // avisos não-fatais
 });
+// engine.version → versão do motor (ver motor/CHANGELOG.md)
+```
+
+**UMA INSTÂNCIA POR PROCESSO.** `createEngine()` carrega os módulos de domínio num
+contexto compartilhado; uma segunda chamada no mesmo processo falha com
+`SyntaxError: Identifier '…' has already been declared`. Crie o motor uma vez e
+reutilize — para trocar de campeonato use `engine.setCompetition(id)`, não um novo
+motor. Em servidor, guarde a instância em módulo/singleton; para paralelismo real,
+use processos separados.
+
+```js
 
 const { analysis, rawFacts, usage } =
   await engine.analyzeMatch('PARTIDA: Flamengo x Palmeiras', { signal });

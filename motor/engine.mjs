@@ -21,6 +21,16 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+/**
+ * Versão do motor. Fonte única: o empacotador carimba este valor no MANIFEST e
+ * o CHANGELOG.md descreve o que mudou em cada uma. Confira a sua com:
+ *   import { MOTOR_VERSION } from './motor/engine.mjs'
+ * ou, em runtime, pelo campo `version` devolvido por createEngine().
+ * Correções de probabilidade mudam NÚMEROS exibidos ao usuário final — ao
+ * atualizar, leia o CHANGELOG antes de comparar saídas com as da versão antiga.
+ */
+export const MOTOR_VERSION = '1.0.0';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 
@@ -419,5 +429,5 @@ export async function createEngine(config = {}) {
     return { analysis: parsed, rawFacts, usage };
   }
 
-  return { analyzeMatch, chat, routeIntent, setCompetition };
+  return { analyzeMatch, chat, routeIntent, setCompetition, version: MOTOR_VERSION };
 }

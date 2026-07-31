@@ -177,5 +177,32 @@ assert(typeof document === 'object' && document.getElementById('x') === null, 'd
   assert(chatCall === 2, 'loop continued through pause_turn exactly once');
 }
 
+// ── Versionamento do pacote (1.0.0) ────────────────────────────────────────
+// Sem carimbo, o integrador não sabe qual build tem e nós não temos como avisar
+// "atualize — sua versão erra probabilidade de mercado de cartão".
+{
+  const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const eng = await import("../motor/engine.mjs");
+  assert(typeof eng.MOTOR_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(eng.MOTOR_VERSION), `MOTOR_VERSION exported as semver (got: ${eng.MOTOR_VERSION})`);
+  // runtime: o integrador consegue checar sem ler arquivo. Reusa a instância criada no
+  // topo — createEngine é UMA VEZ POR PROCESSO (os classic reavaliam no mesmo contexto
+  // VM e uma 2ª chamada estoura em const duplicada); documentado no SKILL.
+  assert(engine.version === eng.MOTOR_VERSION, 'createEngine() exposes the same version');
+  // CHANGELOG existe, está no MANIFEST e documenta ESTA versão no topo
+  const manifest = fs.readFileSync(path.join(ROOT, 'motor/MANIFEST.txt'), 'utf8');
+  assert(manifest.includes('motor/CHANGELOG.md'), 'CHANGELOG ships in the package');
+  const cl = fs.readFileSync(path.join(ROOT, 'motor/CHANGELOG.md'), 'utf8');
+  const top = cl.match(/^## (\d+\.\d+\.\d+)/m);
+  assert(top && top[1] === eng.MOTOR_VERSION, `CHANGELOG documents the current version (top: ${top && top[1]})`);
+  // o changelog é para o INTEGRADOR: sem vocabulário interno nem numeração de shell
+  assert(!/shell \d|vendáve|comprador|\bdo dono\b/i.test(cl), 'CHANGELOG speaks integrator language (no internal vocabulary)');
+  // correções que mudam número exibido precisam estar sinalizadas
+  assert(/⚠/.test(cl) && /Probabilidades \(números mudam\)/.test(cl), 'probability-changing fixes are flagged for regression comparison');
+  // o empacotador carimba a versão e aborta se o changelog dessincronizar
+  const pkg = fs.readFileSync(path.join(ROOT, 'tools/package-motor.mjs'), 'utf8');
+  assert(pkg.includes('MOTOR_VERSION') && pkg.includes('CHANGELOG desatualizado'), 'packager stamps version and guards changelog sync');
+  assert(/# Motor Meridian \$\{VERSION\}/.test(pkg), 'MANIFEST header carries the version for the integrator');
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nMOTOR ALL PASSED');
 process.exit(failed ? 1 : 0);

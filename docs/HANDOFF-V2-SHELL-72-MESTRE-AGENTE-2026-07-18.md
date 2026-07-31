@@ -1,4 +1,4 @@
-# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 132)
+# HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 133)
 
 **Data:** 2026-07-20 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
@@ -6,7 +6,7 @@
 **HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
-**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 132**.
+**Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 133**.
 
 **Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
@@ -693,15 +693,15 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **132** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **133** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
 - [ ] `node tests/run.mjs` → **ALL PASSED**  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
-- [ ] Boot no preview: console `[Meridian v2] shell 132 · … · classic: 17`, sem erro  
+- [ ] Boot no preview: console `[Meridian v2] shell 133 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
 - [ ] Ao mexer em classic novo: `main.js` CLASSIC + `sw.js` precache + bump ×4  
 
-## Estado atual (revisão 2026-07-31 · shell 132)
+## Estado atual (revisão 2026-07-31 · shell 133)
 
 | Shell | Entrega |
 |-------|---------|
@@ -799,19 +799,21 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **132** | **Obviedade mediada (dor do dono, prints Corinthians×Athletico: "Ambos batem ao menos 1 escanteio 86%" vendido como insight).** O problema não é o número — é o card não se dar conta da obviedade, frustrando quem opera o agente. Duas camadas, no padrão do produto (prompt orienta, código GARANTE): **(código)** `_tagObviousMarkets` no normalize (roda DEPOIS do Poisson, sobre a prob final): prob ≥0.80 OU estrutura trivial ("ao/pelo menos 1/um…", "mais de 0.5") → `e._obvio`, nas 4 listas (eventos, tickets, cartões, escanteios); pós-jogo fica de fora (prob 1.0 lá é retrospecto). Render: `obvChip` → selo discreto "âncora · odd baixa" (tooltip explica: segurança para múltipla, não o diferencial da análise) nos 4 construtores de linha; estilo `.ev-anchor` rebaixado de propósito (aviso, não destaque). **(prompt)** "RÉGUA DE VALOR" nas 2 variantes F2: máx UM mercado-âncora por seção; fundamento ABRE reconhecendo a obviedade; PROIBIDO "probabilidade alta por padrão/lógica de confronto" como fundamento; o valor da análise vive na faixa ~45–75%. E o exemplo trivial "Ambos os times batem ao menos 1 escanteio" SAIU do cardápio de escanteios dos prompts (o prompt CONVIDAVA o problema) → substituído por "Mais de 2.5 escanteios de cada time". 12 asserts com os 3 casos exatos dos prints (86% marca; 72% "ao menos um cartão" marca POR ESTRUTURA mesmo <0.80; 74% "menos de 3.5" NÃO marca — linha informativa); validado no runtime (2 selos no card de teste, linha informativa limpa). Nota de guerra: o lint de radius do 119 pegou meu `border-radius:999px` cru → token `--radius-pill` (o guard funciona). Zip 152.8 KB. **VALIDADO COM API REAL** (`motor-real-test/run-ancora.mjs`, gitignored · Corinthians×Athletico-PR, 24 mercados, 228s): **(C) 12/12 eventos+tickets com descritor `mercado`** — validação mais forte da rodada, prova que alteração de prompt da F2 CHEGA e é obedecida em produção (o descritor do 130 substituindo a regex reincidente funcionou em 100%). **(A) 0 de 24 marcados como âncora** — NÃO é bug: rodei `_tagObviousMarkets` contra a cópia exata que o teste usou e ela acende nos casos dos prints (86% e 72% marcam, 74% não), logo zero = o modelo não propôs obviedade. Antes do 132 o mesmo tipo de confronto produzia "ao menos 1 escanteio 86%" — a régua funcionou NA ORIGEM, evitando a obviedade em vez de precisar rotulá-la. **(B) os três ✅ da régua passaram VACUAMENTE** — sem âncora não havia o que violar; a obediência às sub-regras (máx 1/seção, fundamento assume, sem clichê) segue NÃO exercitada em produção, só em teste unitário. **Pendência honesta**: a distribuição por faixa não foi conferida nesta rodada (saída recortada no print) — o script foi ajustado para imprimir máxima/mediana/faixas e se auto-declarar CONCLUSIVO (nada ≥80% nem trivial) ou FALHA DO MARCADOR, sem depender de scrollback. **Armadilha real do preparo**: `motor-real-test/` tinha cópia própria do motor parada no shell ~112 — sem `_tagObviousMarkets` nem a régua; rodar assim daria "0 âncoras" por CÓDIGO VELHO e eu teria lido como obediência. 23 arquivos sincronizados antes de rodar. Regra que fica: **em pasta espelhada, `diff` contra o canônico ANTES de qualquer teste real** (mesma classe do falso alarme do SKILL) |
 
+| **133** | **Frente 1 (a última das 5 recomendadas): motor VERSIONADO + CHANGELOG do integrador.** O problema: o pacote não tinha carimbo nenhum — o cliente não sabia qual build tinha e nós não tínhamos como dizer "atualize, sua versão erra probabilidade de mercado de cartão". Desde o zip entregue, 126/127 corrigiram probabilidades ERRADAS (cartões por time ~2%; "não marca" invertido 70%↔30%) e 129 corrigiu perda de texto no chat — tudo silencioso para quem estava com cópia velha. Agora: **`MOTOR_VERSION = '1.0.0'`** exportado do engine (fonte única) + `createEngine()` devolve `version` (checagem em runtime, sem ler arquivo); **`motor/CHANGELOG.md`** na língua do integrador — sem numeração de shell, sem vocabulário interno, agrupado por impacto, com ⚠ nas correções que MUDAM NÚMEROS (avisando que diffs de snapshot são legítimos) e um aviso no topo: "se o seu engine.mjs não exporta MOTOR_VERSION, você está numa cópia anterior"; empacotador lê a versão do engine e **carimba no cabeçalho do MANIFEST**, com DOIS guardas que abortam o build (exit=1, testados): engine sem MOTOR_VERSION, e CHANGELOG cujo topo não documenta a versão atual — carimbo sem nota do que mudou é metade do valor. 8 asserts no motor.mjs (semver, runtime, CHANGELOG no MANIFEST e sincronizado, linguagem limpa, ⚠ presente, guardas do empacotador). **Achado de brinde**: escrever o teste revelou que `createEngine()` só roda UMA VEZ POR PROCESSO (os classic reavaliam no mesmo contexto VM → `SyntaxError: Identifier already declared` na 2ª chamada) — restrição real de integração que NÃO estava documentada; agora está no SKILL, com a orientação de reusar a instância e usar `setCompetition()` em vez de criar outro motor. Zip 156.5 KB · 27 arquivos · auditado extraído (versão no MANIFEST e no engine, CHANGELOG presente, zero vocabulário interno) |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
 
-## Prompt pronto — **USE ESTE** (sessão nova, shell 132)
+## Prompt pronto — **USE ESTE** (sessão nova, shell 133)
 
 ⚠️ **Os prompts de PARTE IX e PARTE X saíram daqui de propósito** — ambas estão **FEITAS** (shells 85 e 87). Colar aquele prompt de novo faria a sessão reimplementar o que já existe. Os textos originais seguem no git history (`git show d0cec90` / `f24db4e`) e as especificações continuam nas PARTES IX/X abaixo, como **referência histórica**.
 
 ```text
-Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 132).
+Abra C:\Users\Gabriel\Projetos\Meridian-v2 (branch main, shell 133).
 
 Leia OBRIGATORIAMENTE, antes de tocar em código:
-docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 132)
+docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md  (mestre canônico até o shell 133)
 Se a tarefa for de Worker/secrets, leia também HANDOFF-V2-SHELL-65 e 67.
 
 Contexto em uma frase: SPA de futebol multi-liga, ESM + classic sem bundler, dual-mode

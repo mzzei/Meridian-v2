@@ -3,6 +3,7 @@
 # (app/UI/Worker/docs internos ficam com o vendedor).
 motor/engine.mjs
 motor/SKILL.md
+motor/CHANGELOG.md
 motor/HANDOFF-ENGENHARIA.md
 motor/MANIFEST.txt
 motor/exemplo-integracao.mjs

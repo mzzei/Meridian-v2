@@ -23,9 +23,29 @@ const SUBS = [
   [/\s*\bvendáve(l|is)\b/g, ''],            // "motor vendável"/"pacote vendável" → sem o adjetivo
   [/\bcomprador(es)?\b/g, 'integrador'],
 ];
+// ── versão: fonte única é MOTOR_VERSION no engine; MANIFEST e CHANGELOG derivam ──
+// Sem carimbo, o integrador não sabe qual build tem e nós não temos como dizer
+// "atualize, sua versão tem probabilidade errada em mercado de cartão".
+const engineSrc = fs.readFileSync(path.join(ROOT, 'motor/engine.mjs'), 'utf8');
+const mVer = engineSrc.match(/export const MOTOR_VERSION = '([^']+)'/);
+if (!mVer) {
+  console.error('engine.mjs não exporta MOTOR_VERSION — aborta (pacote sem versão é o problema que isto resolve).');
+  process.exit(1);
+}
+const VERSION = mVer[1];
+// o CHANGELOG precisa documentar ESTA versão no topo — senão o cliente recebe um
+// carimbo sem a nota do que mudou, que é metade do valor.
+const changelog = fs.readFileSync(path.join(ROOT, 'motor/CHANGELOG.md'), 'utf8');
+const mTop = changelog.match(/^## (\d+\.\d+\.\d+)/m);
+if (!mTop || mTop[1] !== VERSION) {
+  console.error(`CHANGELOG desatualizado — engine diz ${VERSION}, topo do changelog diz ${mTop ? mTop[1] : '(nenhuma)'}. Aborta.`);
+  process.exit(1);
+}
+
 // cabeçalho do MANIFEST reescrito por inteiro (versão para o cliente)
 const MANIFEST_HEADER = [
-  '# Motor Meridian — conteúdo do pacote (lista exata de arquivos).',
+  `# Motor Meridian ${VERSION} — conteúdo do pacote (lista exata de arquivos).`,
+  '# Mudanças desta versão: motor/CHANGELOG.md',
   '# tests/motor.mjs valida que todos existem: node tests/motor.mjs',
 ].join('\n');
 // termos que NÃO podem existir no pacote entregue (auditoria pós-sanitização)
@@ -69,4 +89,4 @@ execFileSync('powershell', ['-NoProfile', '-Command',
   `Compress-Archive -Path "${STAGING}\\*" -DestinationPath "${ZIP}"`]);
 fs.rmSync(STAGING, { recursive: true, force: true });
 const kb = (fs.statSync(ZIP).size / 1024).toFixed(1);
-console.log(`OK: ${manifest.length} arquivos · ${sanitized} sanitizados · ${kb} KB · zero vazamentos`);
+console.log(`OK: Motor ${VERSION} · ${manifest.length} arquivos · ${sanitized} sanitizados · ${kb} KB · zero vazamentos`);
