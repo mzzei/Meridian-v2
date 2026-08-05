@@ -1,14 +1,16 @@
 # HANDOFF MESTRE — Meridian v2 · Agente e produto (shell 133)
 
-**Data:** 2026-07-20 (canônico atual)  
+**Data:** 2026-08-05 (canônico atual)  
 **Branch:** `main` · **Repo:** https://github.com/mzzei/Meridian-v2  
-**SHELL_VERSION:** `92` (`js/version.js` = `sw.js` = `index.html ?v=` ×2)  
-**HEAD de referência (código):** `a824bdb` (shell 91 — limpeza: getEspnScoreboard reusado, ESPN+AF em paralelo, opts.query removido, source por lado) · `37ff562` (90 — 4 achados do review 87–89: _coletaOk, parseAnalysisJson no chat, botão travado, poll órfão) · `88f7619` (89 — 4 achados do code-review: smoke test com dentes, JSON no chat, gate de suposição, dead code) · `3b9abb8` (88 — chat prosa; 5º assassino `chatCardFrom`) · `d0cec90` (87 — PARTE X) · `6099fda` (86 — SW network-first) · `f24db4e` (85 — PARTE IX)  
+**SHELL_VERSION:** `133` (`js/version.js` = `sw.js` = `index.html ?v=` ×2 — conferido no código E no Pages)  
+**HEAD de referência (código):** `1c1f2d6` (shell 133 — motor versionado `MOTOR_VERSION='1.0.0'` + CHANGELOG do integrador) · `a2199ed` (132 — validação real do selo de âncora, descritor 12/12) · `13a0274` (132 — obviedade mediada) · `470dc41` (131) · `7a1029a` (130 — descritor estruturado de mercado) · `b1c0023`/`dacfb49` (129 — SSE do chat, validado com API real) · `56c28ac` (128) · `fc9e64b` (127) · `5692ef6` (126 — /code-review ultra). Trilha anterior (85–113) na linha do tempo da seção **Estado atual**.  
 **Docs mestre:** tip de `main` · **PARTE IX FEITA (85)** · **PARTE X FEITA (87)** · **chat conversa em texto (88)**
 
 **Nome do arquivo:** `docs/HANDOFF-V2-SHELL-72-MESTRE-AGENTE-2026-07-18.md` (nome histórico); **conteúdo canônico até shell 133**.
 
-**Revisão de fidelidade (2026-07-22):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
+**Revisão de fidelidade (2026-08-05 · shell 133):** doc auditado claim-a-claim contra o código do shell 133. **Conferem** (verificado, não presumido): `SHELL_VERSION=133` nos 4 pontos; Pages servindo `?v=133` com `version.js` em 133; Worker `/health` → `meridian-v2-proxy` + `origin_gate:true` + `rate_limit:true`; `tests/run.mjs` **ALL PASSED** e `tests/motor.mjs` **MOTOR ALL PASSED**; ESM do boot (10 imports) idêntico ao §15; `MOTOR_VERSION='1.0.0'` em `motor/engine.mjs`; 36 invariantes. **Corrigidos nesta revisão** — todos eram drift de cabeçalho/mapa, nenhum de conteúdo técnico: (1) **o cabeçalho anunciava `SHELL_VERSION: 92` e HEAD do shell 91** — 42 shells atrás, contradizendo o próprio invariante 8 e o checklist logo abaixo (uma sessão nova que confiasse no topo bumparia de 92); (2) §15 dizia **16 classic** e omitia `js/demo.js`, enquanto o checklist já dizia 17 — o array real tem **17** (`CLASSIC.length` é o que o boot loga); (3) §17 e o fluxo do prompt-pronto mandavam rodar só `tests/run.mjs`, sem `tests/motor.mjs` (o motor é produto vendido — quebra nele não aparecia no fluxo obrigatório); (4) PARTE VI ainda se chamava "(1–20+)" com 36 invariantes; (5) PARTE VII (mapa de arquivos) **não tinha uma linha sequer do subsistema `motor/`** nem de `tools/package-motor.mjs`, apesar de 8 shells de trabalho nele — o mapa mandava a sessão nova acreditar que o repo é só o SPA; (6) checklist apontava `HEAD ≥ 2672b26` (shell 113); (7) item 16 dos próximos passos ainda pedia "reconferir" o Pages em `?v=91`.
+
+**Revisão de fidelidade (2026-07-22, histórica):** doc auditado claim-a-claim contra o código do shell 91. Conferem: MODEL_PROFILES (budget 0, searches 1/2/3, default `claude-sonnet-5`), `_noThinkModel`/`_prefillOk` (**revisto no shell 95**: prefill só em Haiku), `var MODEL_PRICE`, resgate Opus, 35 invariantes, PARTE X (`lineup-confirmed.js` com `isMatchDayWindow`/`applyConfirmedLineups`/`refreshAnalysisLineups`), `buildEscalacaoTab`, testes ALL PASSED. Corrigidos nesta revisão: CLASSIC sem `lineup-confirmed.js` (16 arquivos), mapa de arquivos incompleto (lineup.js, tab-helpers.js, lineup-confirmed.js, report.js, schedule.js) e com linha duplicada, checklist preso no shell 87, e — mais grave — **o prompt "USAR ESTE AGORA" ainda mandava implementar a PARTE X já feita** (uma sessão nova refaria o shell 87 inteiro).
 
 **Série dos "assassinos silenciosos" da decomposição do monólito (bugs onde um símbolo perdido derrubava um caminho inteiro):** MODEL_PRICE `const` classic (79), prefill Sonnet 5 (79), `ctSideSection`/`ctVanTag` (82), `_lvKey` em lineup.js (85), **`chatCardFrom`/`renderChatCard`/`cardToPlain` no chat (88)**. Mitigação estrutural no 88: teste de fumaça varre TODA `_h('x')` do pipeline-run e falha se a função não existir em nenhum classic/ESM — **corrigido no 89**, porque a 1ª versão do teste era um no-op (self-match: o próprio call site `_h('fn')` satisfazia o regex de "definido"). **Lição (invariante 35):** teste anti-regressão precisa de **meta-assert** provando que ele reprova o caso que deveria pegar — senão vira falsa segurança pior que não ter teste.
 
@@ -547,11 +549,15 @@ Deploy: `cd worker && npx.cmd wrangler deploy` (PowerShell: `npx.cmd`, não `npx
 prompts.js → render.js →
 cached-fetch.js → source-telemetry.js → espn.js → football-apis.js →
 free-sources.js → facts-memory.js → phase1-context.js → source-health.js →
-schedule.js → live.js → lineup-confirmed.js → featured.js → library.js → app.js
+schedule.js → live.js → lineup-confirmed.js → featured.js → library.js → app.js →
+demo.js
 ```
 
-**16 classic** (contagem no console do boot). `lineup-confirmed.js` entrou no shell 87 —
-ao adicionar classic novo: `main.js` CLASSIC **e** precache do `sw.js` **e** bump de shell.
+**17 classic** — é literalmente `CLASSIC.length` que o boot loga (`[Meridian v2] shell N · … · classic: 17`);
+confira pelo array em `js/main.js`, nunca pela memória. `lineup-confirmed.js` entrou no 87 e
+`demo.js` no 98 — este vem **depois** do `app.js` de propósito (sobrescreve a chave restaurada e
+o patch de fetch; o gate `?demo=1` é interno ao arquivo, por isso ele carrega sempre).
+Ao adicionar classic novo: `main.js` CLASSIC **e** precache do `sw.js` **e** bump de shell.
 
 3. `installHtmlBridge()`
 
@@ -568,11 +574,18 @@ ao adicionar classic novo: `main.js` CLASSIC **e** precache do `sw.js` **e** bum
 
 ## 17. Testes
 
+**São DUAS suítes — rodar as duas, sempre:**
+
 ```bash
-node tests/run.mjs   # ALL PASSED esperado
+node tests/run.mjs     # ALL PASSED esperado        (app)
+node tests/motor.mjs   # MOTOR ALL PASSED esperado  (pacote vendável)
 ```
 
-Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist strings, AF free plan, FPL format, etc.
+`run.mjs` inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist strings,
+AF free plan, FPL format, etc. `motor.mjs` roda uma análise COMPLETA headless em Node puro
+(F1→gaps→verify→F2→normalize) + o chat do motor — é o que prova que `motor/engine.mjs` continua
+integrável pelo cliente. Módulo compartilhado (normalize, pipeline-*, prompts) quebra o motor sem
+quebrar o app: rodar só `run.mjs` deixa passar regressão no produto vendido.
 
 ## 18. Isolamento v1
 
@@ -582,6 +595,10 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 ---
 
 # PARTE V — Linha do tempo do que foi crucial (shells)
+
+> ⚠️ **Esta tabela vai só até o shell 84.** A continuação (85 → 133 — incluindo o pacote
+> `motor/`, os passes de `/code-review ultra` e a obviedade mediada) vive na tabela da seção
+> **Estado atual**, na PARTE VIII. Duas tabelas, uma linha do tempo — não procure o shell 12x aqui.
 
 | Shell | O que importou |
 |-------|----------------|
@@ -621,7 +638,7 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ---
 
-# PARTE VI — Invariantes consolidados (1–20+)
+# PARTE VI — Invariantes consolidados (1–36)
 
 1. v2 ≠ v1 (código, Worker, porta, handoffs).  
 2. Nunca `meridian-proxy` no deploy do v2.  
@@ -686,6 +703,23 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 | `worker/worker.js` | proxy CORS + origin gate; strip Origin/Referer no `/v1`; rotas `/af` `/fd` `/fpl` |
 | `js/export/report.js` | export HTML + PDF por **impressão nativa** (sem html2pdf) |
 | `js/data/schedule.js` | agenda multi-comp + `findScheduledMatchForAnalysis` (âncora do gate de contexto) |
+| `js/demo.js` | modo `?demo=1` (fixtures locais, zero API) — classic, carrega **depois** do app.js |
+
+**Subsistema `motor/` — o pacote vendável (não é parte do SPA).** Camada headless de COMPOSIÇÃO
+que consome os mesmos módulos do app; por isso um módulo compartilhado quebra os dois. Sempre que
+mexer em `normalize.js`, `pipeline-*.js` ou `prompts.js`, rodar `node tests/motor.mjs` **e**
+regenerar o zip (`node tools/package-motor.mjs`).
+
+| Arquivo | Papel |
+|---------|-------|
+| `motor/engine.mjs` | `createEngine(config)` → `analyzeMatch` / `chat` / `routeIntent` / `setCompetition` / `version`; `MOTOR_VERSION` (hoje `1.0.0`) |
+| `motor/SKILL.md` | contrato canônico do integrador (input/output/garantias/handover) |
+| `motor/CHANGELOG.md` | histórico versionado voltado ao integrador (shell 133) |
+| `motor/MANIFEST.txt` | lista de arquivos do pacote (cabeçalho é reescrito na sanitização) |
+| `motor/HANDOFF-ENGENHARIA.md` | regras de engenharia do pacote |
+| `motor/exemplo-integracao.mjs` | exemplo mínimo de uso pelo cliente |
+| `tools/package-motor.mjs` | empacotador **com sanitização** — reescreve termos internos e **ABORTA** se sobrar resíduo (shell 122) |
+| `tests/motor.mjs` | prova de isolamento: análise completa + chat em Node puro |
 
 ---
 
@@ -693,9 +727,9 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 ## Checklist ao retomar
 
-- [ ] `git pull` · `SHELL_VERSION` **133** em version/sw/index ×2 (código: HEAD ≥ `2672b26`; docs: este commit)  
+- [ ] `git pull` · `SHELL_VERSION` **133** em version/sw/index ×2 (código: HEAD ≥ `1c1f2d6`; docs: este commit)  
 - [ ] Ler **este** handoff (mestre canônico) — PARTES IX e X são **histórico FEITO**, não backlog  
-- [ ] `node tests/run.mjs` → **ALL PASSED**  
+- [ ] `node tests/run.mjs` → **ALL PASSED** · `node tests/motor.mjs` → **MOTOR ALL PASSED** (as duas)  
 - [ ] Worker health: `curl https://meridian-v2-proxy.gcerqueira2012.workers.dev/health` → `meridian-v2-proxy` + `origin_gate:true`  
 - [ ] Boot no preview: console `[Meridian v2] shell 133 · … · classic: 17`, sem erro  
 - [ ] Intactos: dual-mode · prefill/`_prefillOk` · resgate **Opus** · PDF impressão nativa · SW network-first JS · proveniência de escalação  
@@ -801,6 +835,8 @@ Inclui intent, normalize, ownership, FactsMemory VM, coverage, worker allowlist 
 
 | **133** | **Frente 1 (a última das 5 recomendadas): motor VERSIONADO + CHANGELOG do integrador.** O problema: o pacote não tinha carimbo nenhum — o cliente não sabia qual build tinha e nós não tínhamos como dizer "atualize, sua versão erra probabilidade de mercado de cartão". Desde o zip entregue, 126/127 corrigiram probabilidades ERRADAS (cartões por time ~2%; "não marca" invertido 70%↔30%) e 129 corrigiu perda de texto no chat — tudo silencioso para quem estava com cópia velha. Agora: **`MOTOR_VERSION = '1.0.0'`** exportado do engine (fonte única) + `createEngine()` devolve `version` (checagem em runtime, sem ler arquivo); **`motor/CHANGELOG.md`** na língua do integrador — sem numeração de shell, sem vocabulário interno, agrupado por impacto, com ⚠ nas correções que MUDAM NÚMEROS (avisando que diffs de snapshot são legítimos) e um aviso no topo: "se o seu engine.mjs não exporta MOTOR_VERSION, você está numa cópia anterior"; empacotador lê a versão do engine e **carimba no cabeçalho do MANIFEST**, com DOIS guardas que abortam o build (exit=1, testados): engine sem MOTOR_VERSION, e CHANGELOG cujo topo não documenta a versão atual — carimbo sem nota do que mudou é metade do valor. 8 asserts no motor.mjs (semver, runtime, CHANGELOG no MANIFEST e sincronizado, linguagem limpa, ⚠ presente, guardas do empacotador). **Achado de brinde**: escrever o teste revelou que `createEngine()` só roda UMA VEZ POR PROCESSO (os classic reavaliam no mesmo contexto VM → `SyntaxError: Identifier already declared` na 2ª chamada) — restrição real de integração que NÃO estava documentada; agora está no SKILL, com a orientação de reusar a instância e usar `setCompetition()` em vez de criar outro motor. Zip 156.5 KB · 27 arquivos · auditado extraído (versão no MANIFEST e no engine, CHANGELOG presente, zero vocabulário interno) |
 
+| **133·docs** | **Revisão de fidelidade do mestre (docs/tooling, sem bump — nada servido muda).** Gatilho: o dono pediu "revise handoff" ao trocar de modelo. O corpo técnico estava íntegro (linha do tempo, invariantes e Estado atual mantidos pelas sessões 114–133), mas o **cabeçalho tinha apodrecido**: anunciava `SHELL_VERSION: 92` e HEAD do shell 91 — **42 shells atrás** — bem acima de um checklist que já dizia 133. Uma sessão nova que confiasse no topo (o lugar que todo mundo lê primeiro) bumparia de 92. Também: §15 dizia 16 classic e omitia `demo.js` **contradizendo a própria linha do tempo do 98** (`classic: 17`); §17 e o prompt-pronto mandavam rodar só `run.mjs`, deixando `motor.mjs` — o produto VENDIDO — fora do fluxo obrigatório; PARTE VII não tinha **uma linha sequer** do subsistema `motor/` após 8 shells de trabalho nele; PARTE VI dizia "(1–20+)" com 36 invariantes; PARTE V parava no 84 sem apontar a continuação. Tudo verificado contra o código, não presumido (Pages `?v=133`, Worker `/health` com origin_gate+rate_limit, as 2 suítes verdes, `CLASSIC.length`, `MOTOR_VERSION`). Lição que fica: **o cabeçalho é a parte que mais mente** — quem atualiza a linha do tempo esquece o topo, e o topo é o que a sessão nova lê primeiro. No fim de cada shell, conferir versão/HEAD do cabeçalho junto com o bump |
+
 **Dor do dono (print `suigsuigns.png` · Coritiba×Palmeiras) — RESOLVIDA no shell 87:** o mapa aparecia com ambos em `4-2-3-1` e elenco especulativo. Hoje: proveniência por time (badge api/pesquisa/modelo/inferida), chip de formação só com fonte confiável, proibição de espelhar formação sem lastro, e XI **confirmado** substituindo o especulativo na janela de jogo (AF > ESPN starters), com botão/auto-poll determinístico. Se reaparecer formação idêntica nos dois times **sem** badge `api`, é regressão do invariante 34 — investigar `_luWorseFonte`/coverNote, não "ajustar o prompt".
 
 **Não reabrir:** resgate Haiku F2, monólogo, html2pdf, badge A/B/C dock, budget>0 F2, V1/`meridian-proxy`, reimplementar PARTE IX do zero.
@@ -837,11 +873,14 @@ Invariantes duros (lista completa na PARTE VI — os que mais quebram):
 - Teste anti-regressão precisa de meta-assert que prove que ele reprova.
 
 Fluxo obrigatório da sessão:
-1. node tests/run.mjs (ALL PASSED) antes de mudar qualquer coisa.
+1. node tests/run.mjs (ALL PASSED) E node tests/motor.mjs (MOTOR ALL PASSED) antes de
+   mudar qualquer coisa.
 2. Implementar o objetivo abaixo.
 3. Bump SHELL_VERSION em 4 pontos (version.js, sw.js, index.html ?v= ×2) se mexer em
    asset servido; classic novo → main.js CLASSIC + sw.js precache.
-4. node tests/run.mjs de novo + validar no preview (console limpo).
+4. As DUAS suítes de novo + validar no preview (console limpo). Se tocou em módulo
+   compartilhado (normalize/pipeline-*/prompts), regenerar o zip:
+   node tools/package-motor.mjs
 5. Atualizar ESTE handoff (timeline + invariante novo se houver) no MESMO push.
 6. commit + push origin main; me informar path do handoff + hash.
 
@@ -862,7 +901,7 @@ Quero que você: [OBJETIVO AQUI]
 | 13 | Rate-limit no Worker | **FEITO** 92·worker (binding nativo; validado em produção 30×200→429) |
 | 14 | Regenerar secrets AF/FD (zelo — passaram por conversa) | aberto (a chave ANTHROPIC do teste do motor já foi rotacionada em 2026-07-23; AF/FD seguem pendentes) |
 | 15 | Thinking na F2 com structured outputs | shells 93–97 → **REMOVIDO no shell 100** a pedido do dono (todas as gramáticas recusadas; ver inv. 36) |
-| 16 | Pages servindo `?v=91` | **CONFIRMADO 2026-07-22** — `mzzei.github.io/Meridian-v2` 200; index/version.js/sw.js todos em 91; `lineup-confirmed.js` 200 (precache ok); `index.html` do Pages com **MD5 idêntico** ao HEAD local (na data; o HEAD agora é 95 — reconferir após o push). Comando de conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` |
+| 16 | Pages servindo a shell corrente | **CONFIRMADO 2026-08-05 em `?v=133`** — `mzzei.github.io/Meridian-v2` serve `?v=133` e `js/version.js` com `SHELL_VERSION='133'`; Worker `/health` → `origin_gate:true` + `rate_limit:true`. O Pages segue `main` (auto-deploy no push, ~1–2 min). Conferência: `curl -s https://mzzei.github.io/Meridian-v2/ \| grep -o "?v=[0-9]*" \| sort -u` — **reconferir a cada push**, é o único jeito de flagrar deploy parado |
 | 17 | Freeze ao trocar liga das estatísticas durante a análise | **FEITO** shell 94 (`fromSelector` em `setStatsComp`) |
 | 18 | Contrato da API (adaptive thinking + prefill só Haiku) | **FEITO** shell 95 — inv. 30 e 36 reescritos; 3 caminhos validados no preview (stub) |
 | 19 | "compiled grammar is too large" no F2_SCHEMA | encerrado: recurso **REMOVIDO no shell 100** (96=$defs e 97=agrupamento também recusados) |
