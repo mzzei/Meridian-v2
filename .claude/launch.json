@@ -1,19 +1,20 @@
 {
+  "_comment": "Meridian v2 — porta 3457 OBRIGATORIA. serve.js e serve.ps1 ja default para 3457, e a allowlist de Origin do Worker (meridian-v2-proxy) so aceita localhost/127.0.0.1:3457 e :8787. Preview em qualquer outra porta leva 403 em /v1, /af, /fd e /fpl, e o sintoma se disfarca de 'fonte de dados quebrada'. 3456 e do OUTRO projeto (v1/WorldCupAgent, outra pasta) — nunca misturar (invariante 1). autoPort fica FALSE de proposito: porta ocupada deve falhar alto, nao escorregar para uma porta fora da allowlist.",
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "WorldCupAgent",
+      "name": "Meridian v2",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": ["${workspaceFolder}\\serve.js"],
-      "port": 3456,
-      "autoPort": true
+      "port": 3457,
+      "autoPort": false
     },
     {
-      "name": "WorldCupAgent (fallback PowerShell)",
+      "name": "Meridian v2 (fallback PowerShell)",
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\serve.ps1"],
-      "port": 3456,
-      "autoPort": true
+      "port": 3457,
+      "autoPort": false
     }
   ]
 }
